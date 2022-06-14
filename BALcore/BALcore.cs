@@ -83,7 +83,7 @@ namespace BALcore
         }
 
 
-        public List<List<PolylineCurve>> MakeTriMap(ref Rectangle3d rec, int resolution)
+        public (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int resolution)
         {
             // basic param
             var pln = rec.Plane;
@@ -116,7 +116,7 @@ namespace BALcore
 
             }
 
-            return gridMap;
+            return (sTri, gridMap);
         }
 
     }

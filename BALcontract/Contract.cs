@@ -8,6 +8,6 @@ namespace BALcontract
 {
     public interface IPlugin 
     {
-        List<List<PolylineCurve>> MakeTriMap(ref Rectangle3d rec, int re);
+        (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int re);
     }
 }

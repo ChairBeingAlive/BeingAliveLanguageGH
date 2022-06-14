@@ -46,6 +46,7 @@ namespace BALloader
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddCurveParameter("mapGrid", "M", "The generated triangle map grid.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("unit Length", "uL", "The triangle's side length", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -89,7 +90,7 @@ namespace BALloader
             }
 
             // call the actural function
-            var res = mFunc.MakeTriMap(ref rec, rsl);
+            var (uL, res) = mFunc.MakeTriMap(ref rec, rsl);
 
             DataTree<PolylineCurve> triArray = new DataTree<PolylineCurve>();
             for (int i = 0; i < res.Count; i++)
@@ -98,6 +99,7 @@ namespace BALloader
                 triArray.AddRange(res[i], path);
             }
             DA.SetDataTree(0, triArray);
+            DA.SetData(1, uL);
 
         }
         // define the MEF container
