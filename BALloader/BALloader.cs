@@ -25,7 +25,7 @@ namespace BALloader
         /// new tabs/panels will automatically be created.
         /// </summary>
         public BALmapBase()
-          : base("BALmapBase", "mapeBase",
+          : base("BALmapBase", "mapBase",
             "Generate a base map from the boundary rectangle.",
             "BAL", "01::base")
         {

@@ -41,6 +41,7 @@ namespace BALcore
             // moveV is different for triUP / triDown
             // TODO: currently only support boundary align with YAxis
             bool isTriUp = Vector3d.Multiply(tri[1] - tri[0], pln.YAxis) == 0;
+
             var moveV = isTriUp ? 0.5 * (tri[1] - tri[0]) : 0.5 * (tri[2] - tri[0]);
 
             if (type == 0)
@@ -52,42 +53,10 @@ namespace BALcore
             {
                 if (isTriUp)
                     tri[1] -= moveV;
-                else
+                else // triDown
                     tri[2] -= moveV;
 
             }
-            //// triUp
-            //if (Vector3d.Multiply(tri[1] - tri[0], yVec) == 0)
-            //{
-            //    var moveV = 0.5 * (tri[1] - tri[0]);
-
-            //    if (alignType == 0)
-            //    {
-            //        tri[0] += moveV;
-            //        tri[3] += moveV;
-            //    }
-            //    else if (alignType == 1)
-            //    {
-            //        tri[1] -= moveV;
-            //    }
-            //}
-
-            //// triDown
-            //else if (Vector3d.Multiply(tri[2] - tri[0], yVec) == 0)
-            //{
-            //    var moveV = 0.5 * (tri[2] - tri[0]);
-
-            //    if (alignType == 0)
-            //    {
-            //        tri[0] += moveV;
-            //        tri[3] += moveV;
-            //    }
-            //    else if (alignType == 1)
-            //    {
-            //        tri[2] -= moveV;
-            //    }
-
-            //}
         }
 
         private List<PolylineCurve> createTriLst(ref Point3d pt, ref Plane pln, Vector3d dirVec, int num, int type, ref List<List<Vector3d>> triType)
