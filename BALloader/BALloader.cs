@@ -1,7 +1,9 @@
 using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using System;
+using System.Linq;
 using System.Reflection;
 using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
@@ -11,8 +13,7 @@ namespace BALloader
 {
     public class BALmapBase : GH_Component
     {
-
-        // import MEF
+        // import func collection from MEF.
         [Import(typeof(IPlugin))]
         public IPlugin mFunc;
 
@@ -44,8 +45,7 @@ namespace BALloader
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("mapGrid", "M", "The generated map grid", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("test res", "T", "", GH_ParamAccess.item);
+            pManager.AddCurveParameter("mapGrid", "M", "The generated triangle map grid.", GH_ParamAccess.tree);
         }
 
         /// <summary>
@@ -89,8 +89,15 @@ namespace BALloader
             }
 
             // call the actural function
-            var res = mFunc.MakeMap(ref rec, rsl);
-            DA.SetData(1, res);
+            var res = mFunc.MakeTriMap(ref rec, rsl);
+
+            DataTree<PolylineCurve> triArray = new DataTree<PolylineCurve>();
+            for (int i = 0; i < res.Count; i++)
+            {
+                var path = new Grasshopper.Kernel.Data.GH_Path(i);
+                triArray.AddRange(res[i], path);
+            }
+            DA.SetDataTree(0, triArray);
 
         }
         // define the MEF container
