@@ -63,7 +63,7 @@ namespace BALloader
             if (!DA.GetData(1, ref rsl)) { return; }
 
             var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
-            string dllFile = info.Location.Replace("BALloader.gha", "BALcore.dll"); // hard coded
+            string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
 
             if (!System.IO.File.Exists(dllFile))
             {

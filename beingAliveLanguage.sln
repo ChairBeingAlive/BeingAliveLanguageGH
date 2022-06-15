@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.32510.428
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BALloader", "BALloader\BALloader.csproj", "{2D27C90F-1CA2-4ADA-ADD5-191F937EA708}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeingAliveLanguage", "BALloader\BeingAliveLanguage.csproj", "{2D27C90F-1CA2-4ADA-ADD5-191F937EA708}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BALcontract", "BALcontract\BALcontract.csproj", "{03D3BA55-91ED-43A2-902A-775EEB5D0081}"
 EndProject

@@ -34,28 +34,29 @@ namespace BALcore
             return ply;
         }
 
+        /// <summary>
+        /// align the triangles on the border with vertical boundary.
+        /// associate with the triUp/triDown point order. type: 0 - startTri, 1 - endTri.
+        /// </summary>
         private void alignTri(ref Polyline tri, ref Plane pln, int type = 0)
         {
-            // associate with the triUp/triDown point order. type: 0 - startTri, 1 - endTri.
-
             // moveV is different for triUP / triDown
-            // TODO: currently only support boundary align with YAxis
-            bool isTriUp = Vector3d.Multiply(tri[1] - tri[0], pln.YAxis) == 0;
+            bool isTriUp = Math.Abs(Vector3d.Multiply(tri[1] - tri[0], pln.YAxis)) < 1e-5;
 
-            var moveV = isTriUp ? 0.5 * (tri[1] - tri[0]) : 0.5 * (tri[2] - tri[0]);
+            var moveV = 0.5 * (isTriUp ? tri[1] - tri[0] : tri[2] - tri[0]);
 
             if (type == 0)
             {
                 tri[0] += moveV;
                 tri[3] += moveV;
             }
+
             if (type == 1)
             {
                 if (isTriUp)
                     tri[1] -= moveV;
                 else // triDown
                     tri[2] -= moveV;
-
             }
         }
 
