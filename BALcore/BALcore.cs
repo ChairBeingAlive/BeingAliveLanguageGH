@@ -132,21 +132,21 @@ namespace BALcore
             return Math.Sqrt(p * (p - dA) * (p - dB) * (p - dC));
         };
 
-        struct soilProperty
-        {
-            public string soilType;
-            public double fieldCapacity;
-            public double wiltingPoint;
-            public double saturation;
+        //public struct soilProperty
+        //{
+        //    public string soilType;
+        //    public double fieldCapacity;
+        //    public double wiltingPoint;
+        //    public double saturation;
 
-            public soilProperty(string st, double fc, double wp, double sa)
-            {
-                soilType = st;
-                fieldCapacity = fc;
-                wiltingPoint = wp;
-                saturation = sa;
-            }
-        }
+        //    public soilProperty(string st, double fc, double wp, double sa)
+        //    {
+        //        soilType = st;
+        //        fieldCapacity = fc;
+        //        wiltingPoint = wp;
+        //        saturation = sa;
+        //    }
+        //}
 
         // compute the soil type and water ratio
         Func<double, double, double, soilProperty> soilType = (rSand, rSilt, rClay) =>
@@ -248,10 +248,13 @@ namespace BALcore
         /// <summary>
         /// Main Func: divide triMap into subdivisions based on the soil ratio
         /// </summary>
-        public (List<Polyline>, List<Polyline>, List<Polyline>, string) divBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
+        public (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty) divBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
         {
             // ratio array order: sand, silt, clay
             var soilData = soilType(ratio[0], ratio[1], ratio[2]);
+            //var totalPorousArea = totalArea * soilData.saturation;
+            //var totalSoilArea = totalArea * (1 - soilData.saturation);
+
 
             // get area
             double totalArea = triL.Sum(x => triArea(x));
@@ -259,9 +262,6 @@ namespace BALcore
             var totalASand = totalArea * ratio[0];
             var totalASilt = totalArea * ratio[1];
             var totalAClay = totalArea * ratio[2];
-
-            var totalPorousArea = totalArea * soilData.saturation;
-            var totalSoilArea = totalArea * (1 - soilData.saturation);
 
             // sand
             var numSand = (int)(Math.Round(triL.Count * ratio[0]));
@@ -283,7 +283,7 @@ namespace BALcore
             // return
             string msg = String.Format(" {0} ::: {1}, ::: {2}", totalArea, preSiltT.Count, preSiltTDiv.Count);
             msg = "";
-            return (sandT, siltT, clayT, msg);
+            return (sandT, siltT, clayT, soilData);
         }
     }
 }

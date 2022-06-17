@@ -167,9 +167,10 @@ namespace BALloader
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("sand Tri", "sandT", "Sand triangles.", GH_ParamAccess.list);
-            pManager.AddCurveParameter("silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
-            pManager.AddCurveParameter("clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Sand Tri", "sandT", "Sand triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -229,16 +230,18 @@ namespace BALloader
             double[] ratio = new double[3] { rSand, rSilt, rClay };
 
             // call the actural function
-            var (sandT, siltT, clayT, msg) = mFunc.divBaseMap(in triPoly, in ratio, in rock); ;
+            var (sandT, siltT, clayT, soilInfo) = mFunc.divBaseMap(in triPoly, in ratio, in rock);
 
-            DA.SetDataList(0, sandT);
-            DA.SetDataList(1, siltT);
-            DA.SetDataList(2, clayT);
+            DA.SetData(0, soilInfo);
+            DA.SetDataList(1, sandT);
+            DA.SetDataList(2, siltT);
+            DA.SetDataList(3, clayT);
 
-            if (!String.IsNullOrEmpty(msg))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, msg);
-            }
+            // for debugging info
+            //if (!String.IsNullOrEmpty(msg))
+            //{
+            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, msg);
+            //}
 
         }
         // define the MEF container
