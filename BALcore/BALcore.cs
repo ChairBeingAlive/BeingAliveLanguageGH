@@ -118,7 +118,7 @@ namespace BALcore
 
 
         // lambda func to compute triangle area using Heron's Formula
-        private Func<Polyline, double> triArea = poly =>
+        private readonly Func<Polyline, double> triArea = poly =>
         {
             var dA = poly[1].DistanceTo(poly[2]);
             var dB = poly[2].DistanceTo(poly[0]);
@@ -128,7 +128,7 @@ namespace BALcore
         };
 
         // compute the soil type and water ratio
-        private Func<double, double, double, soilProperty> soilType = (rSand, rSilt, rClay) =>
+        private readonly Func<double, double, double, soilProperty> soilType = (rSand, rSilt, rClay) =>
         {
             bool isSand = (rClay <= 0.1 && rSand > 0.5 * rClay + 0.85);
             // for loamy sand, use the upper inclined line of loamy sand and exclude the sand part
@@ -144,7 +144,7 @@ namespace BALcore
                 return new soilProperty("silty clay", 0.41, 0.27, 0.52);
 
             else if (rClay > 0.27 && rClay <= 0.4 && rSand > 0.2 && rSand <= 0.45)
-                return new soilProperty("clay loam", 0.36, 0.22, 48);
+                return new soilProperty("clay loam", 0.36, 0.22, 0.48);
 
             else if (rClay > 0.27 && rClay <= 0.4 && rSand <= 0.2)
                 return new soilProperty("silty clay loam", 0.38, 0.22, 0.51);
@@ -227,7 +227,7 @@ namespace BALcore
         /// <summary>
         /// Main Func: divide triMap into subdivisions based on the soil ratio
         /// </summary>
-        public (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty) divBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
+        public (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty) DivBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
         {
             // ratio array order: sand, silt, clay
             var soilData = soilType(ratio[0], ratio[1], ratio[2]);
@@ -257,7 +257,8 @@ namespace BALcore
             var clayT = subDivTriLst(preClayT);
 
 
-            if (rock.Count != 0)
+            // if rock exists, avoid it 
+            if (rock.Any() || rock[0] == null)
             {
                 var rockLocal = rock;
                 Func<Polyline, bool> hitRock = tri =>
@@ -283,9 +284,40 @@ namespace BALcore
             }
 
             // return
-            string msg = String.Format(" {0} ::: {1}, ::: {2}", totalArea, preSiltT.Count, preSiltTDiv.Count);
-            msg = "";
             return (sandT, siltT, clayT, soilData);
+        }
+
+
+        // offset using scale mechanism
+        private readonly Func<Polyline, double, Polyline> offsetTri = (tri, ratio) =>
+        {
+            var cen = (tri[0] + tri[1] + tri[2]) / 3;
+            var trans = Transform.Scale(cen, ratio);
+
+            tri.Transform(trans);
+            return tri;
+        };
+
+        /// <summary>
+        /// Main Func: offset triangles for soil water data: wilting point, field capacity, etc.
+        /// </summary>
+        public (List<Polyline>, List<Polyline>, List<Polyline>) OffsetWater(in List<Curve> tri, soilProperty sType)
+        {
+            // convert to polyline 
+            var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
+
+            // Datta, Sumon, Saleh Taghvaeian, and Jacob Stivers. Understanding Soil Water Content and Thresholds For Irrigation Management, 2017. https://doi.org/10.13140/RG.2.2.35535.89765.
+            var coreRatio = 1 - sType.saturation;
+            var wpRatio = coreRatio + sType.wiltingPoint;
+            var fcRatio = coreRatio + sType.fieldCapacity;
+
+            // offset the triangles for the 3 specific ratio
+            var triCore = triPoly.Select(x => offsetTri(x.Duplicate(), coreRatio)).ToList();
+            var triWP = triPoly.Select(x => offsetTri(x.Duplicate(), wpRatio)).ToList();
+            var triFC = triPoly.Select(x => offsetTri(x.Duplicate(), fcRatio)).ToList();
+
+            return (triCore, triWP, triFC);
+
         }
     }
 }

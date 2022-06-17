@@ -29,7 +29,7 @@ namespace BALloader
         public BALsoilBase()
           : base("BAL Soil Base", "soilBase",
             "Generate a base map from the boundary rectangle.",
-            "BAL", "01::base")
+            "BAL", "01::soil")
         {
         }
 
@@ -126,7 +126,7 @@ namespace BALloader
         public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
     }
 
-    public class BALmapDiv3 : GH_Component
+    public class BALbaseDiv : GH_Component
     {
         // import func collection from MEF.
         [Import(typeof(IPlugin))]
@@ -139,10 +139,10 @@ namespace BALloader
         /// Subcategory the panel. If you use non-existing tab or panel names, 
         /// new tabs/panels will automatically be created.
         /// </summary>
-        public BALmapDiv3()
+        public BALbaseDiv()
           : base("BAL Soil Content", "soilContent",
             "Generate soil map based on the ratio of 3 contents, and add rocks if provided.",
-            "BAL", "01::base")
+            "BAL", "01::soil")
         {
         }
 
@@ -219,18 +219,20 @@ namespace BALloader
             if (!DA.GetData(3, ref rClay)) { return; }
             DA.GetDataList(4, rock);
 
-            List<Polyline> triPoly = new List<Polyline>();
-            foreach (var t in triL)
-            {
-                Polyline tmp = new Polyline();
-                if (t.TryGetPolyline(out tmp) && tmp.IsClosed)
-                    triPoly.Add(tmp);
-            }
 
+            //List<Polyline> triPoly = new List<Polyline>();
+            //foreach (var t in triL)
+            //{
+            //    Polyline tmp = new Polyline();
+            //    if (t.TryGetPolyline(out tmp) && tmp.IsClosed)
+            //        triPoly.Add(tmp);
+            //}
+
+            List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
             double[] ratio = new double[3] { rSand, rSilt, rClay };
 
             // call the actural function
-            var (sandT, siltT, clayT, soilInfo) = mFunc.divBaseMap(in triPoly, in ratio, in rock);
+            var (sandT, siltT, clayT, soilInfo) = mFunc.DivBaseMap(in triPoly, in ratio, in rock);
 
             DA.SetData(0, soilInfo);
             DA.SetDataList(1, sandT);
@@ -262,5 +264,124 @@ namespace BALloader
         /// that use the old ID will partially fail during loading.
         /// </summary>
         public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
+    }
+
+    public class BALsoilInfo: GH_Component
+    {
+
+    }
+
+    public class BALsoilWaterOffset : GH_Component
+    {
+        // import func collection from MEF.
+        [Import(typeof(IPlugin))]
+        public IPlugin mFunc;
+
+        /// <summary>
+        /// Each implementation of GH_Component must provide a public 
+        /// constructor without any arguments.
+        /// Category represents the Tab in which the component will appear, 
+        /// Subcategory the panel. If you use non-existing tab or panel names, 
+        /// new tabs/panels will automatically be created.
+        /// </summary>
+        public BALsoilWaterOffset()
+          : base("BAL Soil Water Visualization", "soilWater",
+            "Generate soil diagram with water info.",
+            "BAL", "01::soil")
+        {
+        }
+
+        /// <summary>
+        /// Registers all the input parameters for this component.
+        /// </summary>
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+
+            pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
+            //pManager.AddCurveParameter("Silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
+            //pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
+
+        }
+
+        /// <summary>
+        /// Registers all the output parameters for this component.
+        /// </summary>
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Wilting Point", "soilWP", "Soil wilting point triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Field Capacity", "soilFC", "Soil field capacity triangles.", GH_ParamAccess.list);
+        }
+
+        /// <summary>
+        /// This is the method that actually does the work.
+        /// </summary>
+        /// <param name="DA">The DA object can be used to retrieve data from input parameters and 
+        /// to store data in output parameters.</param>
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
+            string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
+
+            if (!System.IO.File.Exists(dllFile))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The core computation lib {0} does not exist.", dllFile));
+            }
+
+            // MEF
+            try
+            {
+                // An aggregate catalog that combines multiple catalogs.
+                var catalog = new AggregateCatalog();
+                catalog.Catalogs.Add(new AssemblyCatalog(Assembly.Load(System.IO.File.ReadAllBytes(dllFile))));
+
+                // Create the CompositionContainer with the parts in the catalog.
+                _container = new CompositionContainer(catalog);
+                _container.ComposeParts(this);
+
+            }
+            catch (CompositionException compositionException)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, compositionException.ToString());
+                return;
+            }
+
+            // get data
+            soilProperty soilInfo = new soilProperty();
+            List<Curve> triCrv = new List<Curve>();
+
+            if (!DA.GetData(0, ref soilInfo)) { return; }
+            if (!DA.GetDataList(1, triCrv)) { return; }
+
+
+            // compute offseted curves 
+            var (triCore, triWP, triFC) = mFunc.OffsetWater(triCrv, soilInfo);
+
+
+            // assign output
+            DA.SetDataList(0, triCore);
+            DA.SetDataList(1, triWP);
+            DA.SetDataList(2, triFC);
+
+        }
+        // define the MEF container
+        private CompositionContainer _container;
+
+
+        /// <summary>
+        /// Provides an Icon for every component that will be visible in the User Interface.
+        /// Icons need to be 24x24 pixels.
+        /// You can add image files to your project resources and access them like this:
+        /// return Resources.IconForThisComponent;
+        /// </summary>
+        protected override System.Drawing.Bitmap Icon => null;
+
+        /// <summary>
+        /// Each component must have a unique Guid to identify it. 
+        /// It is vital this Guid doesn't change otherwise old ghx files 
+        /// that use the old ID will partially fail during loading.
+        /// </summary>
+        public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
     }
 }
