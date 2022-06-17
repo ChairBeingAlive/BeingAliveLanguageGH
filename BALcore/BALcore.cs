@@ -256,6 +256,32 @@ namespace BALcore
             var preClayT = preSiltTDiv.Except(siltT).ToList();
             var clayT = subDivTriLst(preClayT);
 
+
+            if (rock.Count != 0)
+            {
+                var rockLocal = rock;
+                Func<Polyline, bool> hitRock = tri =>
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        foreach (var r in rockLocal)
+                        {
+                            r.TryGetPlane(out Plane pln);
+                            var res = r.Contains(tri[i], pln, 0.01);
+                            if (res == PointContainment.Inside || res == PointContainment.Coincident)
+                                return true;
+                        }
+                    }
+
+                    return false;
+                };
+
+                // avoid rock area
+                clayT = clayT.Where(x => !hitRock(x)).ToList();
+                siltT = siltT.Where(x => !hitRock(x)).ToList();
+                sandT = sandT.Where(x => !hitRock(x)).ToList();
+            }
+
             // return
             string msg = String.Format(" {0} ::: {1}, ::: {2}", totalArea, preSiltT.Count, preSiltTDiv.Count);
             msg = "";
