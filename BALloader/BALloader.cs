@@ -11,8 +11,67 @@ using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
 using BALcontract;
 
+
+
 namespace BALloader
 {
+    // derived class that include MEF functionality
+    public class GH_BAL : GH_Component
+    {
+        protected GH_BAL(string name, string nickname, string description, string category, string subCategory)
+            : base(name, nickname, description, category, subCategory)
+        {
+        }
+
+        protected CompositionContainer _container;
+        public void loadDll()
+        {
+
+            var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
+            string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
+
+            if (!System.IO.File.Exists(dllFile))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The core computation lib {0} does not exist.", dllFile));
+            }
+
+            // MEF
+            try
+            {
+                // An aggregate catalog that combines multiple catalogs.
+                var catalog = new AggregateCatalog();
+                catalog.Catalogs.Add(new AssemblyCatalog(Assembly.Load(System.IO.File.ReadAllBytes(dllFile))));
+
+                // Create the CompositionContainer with the parts in the catalog.
+                _container = new CompositionContainer(catalog);
+                _container.ComposeParts(this);
+
+            }
+            catch (CompositionException compositionException)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, compositionException.ToString());
+                return;
+            }
+        }
+
+        public override Guid ComponentGuid => throw new NotImplementedException();
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            throw new NotImplementedException();
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
     public class BALsoilBase : GH_Component
     {
         // import func collection from MEF.
@@ -266,8 +325,47 @@ namespace BALloader
         public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
     }
 
-    public class BALsoilInfo: GH_Component
+    public class BALsoilInfo : GH_BAL
     {
+        // import func collection from MEF.
+        [Import(typeof(IPlugin))]
+        public IPlugin mFunc;
+
+        public BALsoilInfo() :
+            base("BAL Soil Information", "soilInfoText",
+                "Export the soil information in text format.",
+                "BAL", "01::soil")
+        { }
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("Soil Info Text", "soilText", "Soil Info that can be visualized with the TAG component.", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            this.loadDll();
+
+            // get data
+            soilProperty soilInfo = new soilProperty();
+            List<Curve> triCrv = new List<Curve>();
+
+            if (!DA.GetData(0, ref soilInfo)) { return; }
+
+
+            var sText = mFunc.SoilText(soilInfo);
+
+            // assign output
+            DA.SetData(0, sText);
+        }
+
+        protected override System.Drawing.Bitmap Icon => null;
+        public override Guid ComponentGuid => new Guid("af64a14a-6795-469c-b044-7db972d5bd84");
 
     }
 
@@ -297,10 +395,7 @@ namespace BALloader
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
-
             pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
-            //pManager.AddCurveParameter("Silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
-            //pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
 
         }
 
@@ -365,23 +460,10 @@ namespace BALloader
             DA.SetDataList(2, triFC);
 
         }
+
         // define the MEF container
         private CompositionContainer _container;
-
-
-        /// <summary>
-        /// Provides an Icon for every component that will be visible in the User Interface.
-        /// Icons need to be 24x24 pixels.
-        /// You can add image files to your project resources and access them like this:
-        /// return Resources.IconForThisComponent;
-        /// </summary>
         protected override System.Drawing.Bitmap Icon => null;
-
-        /// <summary>
-        /// Each component must have a unique Guid to identify it. 
-        /// It is vital this Guid doesn't change otherwise old ghx files 
-        /// that use the old ID will partially fail during loading.
-        /// </summary>
         public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
     }
 }

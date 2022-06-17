@@ -319,5 +319,19 @@ namespace BALcore
             return (triCore, triWP, triFC);
 
         }
+
+
+        public string SoilText(soilProperty sProperty)
+        {
+            string pattern = @"::Soil Info::
+    soil type:      {0}
+    wilting point:  {1}
+    field capacity: {2}
+    saturation:     {3}
+";
+
+            return string.Format(pattern, sProperty.soilType, sProperty.wiltingPoint, sProperty.fieldCapacity, sProperty.saturation);
+
+        }
     }
 }

@@ -49,5 +49,8 @@ namespace BALcontract
 
         // offset triangle based on soil property
         (List<Polyline>, List<Polyline>, List<Polyline>) OffsetWater(in List<Curve> tri, soilProperty sType);
+
+        // convert soil properties into text format
+        string SoilText(soilProperty sProperty);
     }
 }
