@@ -10,18 +10,12 @@ namespace BALcore
     [Export(typeof(IPlugin))]
     public class BALcompute : IPlugin
     {
-        /// <summary>
-        ///  create a position vector from given 2D coordinates in a plane.
-        /// </summary>
-        private Vector3d createVec(Plane pln, double x, double y)
-        {
-            return pln.XAxis * x + pln.YAxis * y;
-        }
+        //  create a position vector from given 2D coordinates in a plane.
+        private readonly Func<Plane, double, double, Vector3d> createVec = (pln, x, y) =>
+            pln.XAxis * x + pln.YAxis * y;
 
-        /// <summary>
-        /// create a triangle polyline from a set of position vectors.
-        /// </summary>
-        private Polyline createTri(ref Point3d cen, List<Vector3d> vecs)
+        // create a triangle polyline from a set of position vectors.
+        private readonly Func<Point3d, List<Vector3d>, Polyline> createTri = (cen, vecs) =>
         {
             Polyline ply = new Polyline(4);
             foreach (var v in vecs)
@@ -31,13 +25,11 @@ namespace BALcore
             ply.Add(ply[0]);
 
             return ply;
-        }
+        };
 
-        /// <summary>
-        /// align the triangles on the border with vertical boundary.
-        /// associate with the triUp/triDown point order. type: 0 - startTri, 1 - endTri.
-        /// </summary>
-        private void alignTri(ref Polyline tri, ref Plane pln, int type = 0)
+        // align the triangles on the border with vertical boundary.
+        // associate with the triUp/triDown point order. type: 0 - startTri, 1 - endTri.
+        private void alignTri(ref Polyline tri, in Plane pln, int type = 0)
         {
             // moveV is different for triUP / triDown
             bool isTriUp = Math.Abs(Vector3d.Multiply(tri[1] - tri[0], pln.YAxis)) < 1e-5;
@@ -59,7 +51,10 @@ namespace BALcore
             }
         }
 
-        private List<PolylineCurve> createTriLst(ref Point3d pt, ref Plane pln, Vector3d dirVec, int num, int type, ref List<List<Vector3d>> triType)
+        /// <summary>
+        /// create a list of triangles from the starting point. Used to generate one row of the given bound
+        /// </summary>
+        private List<PolylineCurve> createTriLst(in Point3d pt, in Plane pln, in Vector3d dirVec, int num, int type, in List<List<Vector3d>> triType)
         {
             List<PolylineCurve> triLst = new List<PolylineCurve>();
 
@@ -67,13 +62,13 @@ namespace BALcore
             {
                 var tmpPt = Point3d.Add(pt, dirVec / 2 * i);
                 var triTypeIdx = (type + i % 2) % 2;
-                var triPolyline = createTri(ref tmpPt, triType[triTypeIdx]);
+                var triPolyline = createTri(tmpPt, triType[triTypeIdx]);
 
                 // modify the beginning and end triangle so that the border aligns
                 if (i == 0)
-                    alignTri(ref triPolyline, ref pln, 0);
+                    alignTri(ref triPolyline, in pln, 0);
                 if (i == num - 1)
-                    alignTri(ref triPolyline, ref pln, 1);
+                    alignTri(ref triPolyline, in pln, 1);
 
 
                 triLst.Add(triPolyline.ToPolylineCurve());
@@ -81,7 +76,6 @@ namespace BALcore
 
             return triLst;
         }
-
 
         /// <summary>
         /// MainFunc: make a triMap from given rectangle boundary.
@@ -116,14 +110,15 @@ namespace BALcore
             {
                 var pt = Point3d.Add(refPt, vTopLeft * i);
                 pt = Point3d.Add(pt, -0.5 * sTri * pln.XAxis); // compensate for the alignment
-                gridMap.Add(createTriLst(ref pt, ref pln, vForward, nHorizontal + 1, i % 2, ref triType));
+                gridMap.Add(createTriLst(in pt, in pln, vForward, nHorizontal + 1, i % 2, in triType));
             }
 
             return (sTri, gridMap);
         }
 
+
         // lambda func to compute triangle area using Heron's Formula
-        Func<Polyline, double> triArea = poly =>
+        private Func<Polyline, double> triArea = poly =>
         {
             var dA = poly[1].DistanceTo(poly[2]);
             var dB = poly[2].DistanceTo(poly[0]);
@@ -132,24 +127,8 @@ namespace BALcore
             return Math.Sqrt(p * (p - dA) * (p - dB) * (p - dC));
         };
 
-        //public struct soilProperty
-        //{
-        //    public string soilType;
-        //    public double fieldCapacity;
-        //    public double wiltingPoint;
-        //    public double saturation;
-
-        //    public soilProperty(string st, double fc, double wp, double sa)
-        //    {
-        //        soilType = st;
-        //        fieldCapacity = fc;
-        //        wiltingPoint = wp;
-        //        saturation = sa;
-        //    }
-        //}
-
         // compute the soil type and water ratio
-        Func<double, double, double, soilProperty> soilType = (rSand, rSilt, rClay) =>
+        private Func<double, double, double, soilProperty> soilType = (rSand, rSilt, rClay) =>
         {
             bool isSand = (rClay <= 0.1 && rSand > 0.5 * rClay + 0.85);
             // for loamy sand, use the upper inclined line of loamy sand and exclude the sand part
@@ -252,9 +231,6 @@ namespace BALcore
         {
             // ratio array order: sand, silt, clay
             var soilData = soilType(ratio[0], ratio[1], ratio[2]);
-            //var totalPorousArea = totalArea * soilData.saturation;
-            //var totalSoilArea = totalArea * (1 - soilData.saturation);
-
 
             // get area
             double totalArea = triL.Sum(x => triArea(x));
