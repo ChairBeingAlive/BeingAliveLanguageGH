@@ -24,7 +24,7 @@ namespace BALloader
         }
 
         protected CompositionContainer _container;
-        public void loadDll()
+        public void LoadDll()
         {
 
             var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
@@ -72,7 +72,7 @@ namespace BALloader
         }
     }
 
-    public class BALsoilBase : GH_Component
+    public class BALsoilBase : GH_BAL
     {
         // import func collection from MEF.
         [Import(typeof(IPlugin))]
@@ -117,38 +117,13 @@ namespace BALloader
         /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            this.LoadDll();
+
             Rectangle3d rec = new Rectangle3d();
             int rsl = 1;
 
             if (!DA.GetData(0, ref rec)) { return; }
             if (!DA.GetData(1, ref rsl)) { return; }
-
-            var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
-            string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
-
-            if (!System.IO.File.Exists(dllFile))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The core computation lib {0} does not exist.", dllFile));
-            }
-
-            // MEF
-            try
-            {
-                // An aggregate catalog that combines multiple catalogs.
-                var catalog = new AggregateCatalog();
-                catalog.Catalogs.Add(new AssemblyCatalog(Assembly.Load(System.IO.File.ReadAllBytes(dllFile))));
-                //catalog.Catalogs.Add(new AssemblyCatalog(typeof(IPlugin).Assembly));
-
-                // Create the CompositionContainer with the parts in the catalog.
-                _container = new CompositionContainer(catalog);
-                _container.ComposeParts(this);
-
-            }
-            catch (CompositionException compositionException)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, compositionException.ToString());
-                return;
-            }
 
             // call the actural function
             var (uL, res) = mFunc.MakeTriMap(ref rec, rsl);
@@ -163,11 +138,7 @@ namespace BALloader
             }
             DA.SetDataTree(0, triArray);
             DA.SetData(1, uL);
-
         }
-        // define the MEF container
-        private CompositionContainer _container;
-
 
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.
@@ -185,7 +156,7 @@ namespace BALloader
         public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
     }
 
-    public class BALbaseDiv : GH_Component
+    public class BALbaseDiv : GH_BAL
     {
         // import func collection from MEF.
         [Import(typeof(IPlugin))]
@@ -239,32 +210,7 @@ namespace BALloader
         /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
-            string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
-
-            if (!System.IO.File.Exists(dllFile))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The core computation lib {0} does not exist.", dllFile));
-            }
-
-            // MEF
-            try
-            {
-                // An aggregate catalog that combines multiple catalogs.
-                var catalog = new AggregateCatalog();
-                catalog.Catalogs.Add(new AssemblyCatalog(Assembly.Load(System.IO.File.ReadAllBytes(dllFile))));
-                //catalog.Catalogs.Add(new AssemblyCatalog(typeof(IPlugin).Assembly));
-
-                // Create the CompositionContainer with the parts in the catalog.
-                _container = new CompositionContainer(catalog);
-                _container.ComposeParts(this);
-
-            }
-            catch (CompositionException compositionException)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, compositionException.ToString());
-                return;
-            }
+            this.LoadDll();
 
             // get data
             List<Curve> triL = new List<Curve>();
@@ -277,15 +223,6 @@ namespace BALloader
             if (!DA.GetData(2, ref rSilt)) { return; }
             if (!DA.GetData(3, ref rClay)) { return; }
             DA.GetDataList(4, rock);
-
-
-            //List<Polyline> triPoly = new List<Polyline>();
-            //foreach (var t in triL)
-            //{
-            //    Polyline tmp = new Polyline();
-            //    if (t.TryGetPolyline(out tmp) && tmp.IsClosed)
-            //        triPoly.Add(tmp);
-            //}
 
             List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
             double[] ratio = new double[3] { rSand, rSilt, rClay };
@@ -305,9 +242,6 @@ namespace BALloader
             //}
 
         }
-        // define the MEF container
-        private CompositionContainer _container;
-
 
         /// <summary>
         /// Provides an Icon for every component that will be visible in the User Interface.
@@ -349,7 +283,7 @@ namespace BALloader
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.loadDll();
+            this.LoadDll();
 
             // get data
             soilProperty soilInfo = new soilProperty();
@@ -369,89 +303,54 @@ namespace BALloader
 
     }
 
-    public class BALsoilWaterOffset : GH_Component
+    public class BALsoilWaterOffset : GH_BAL
     {
         // import func collection from MEF.
         [Import(typeof(IPlugin))]
         public IPlugin mFunc;
 
-        /// <summary>
-        /// Each implementation of GH_Component must provide a public 
-        /// constructor without any arguments.
-        /// Category represents the Tab in which the component will appear, 
-        /// Subcategory the panel. If you use non-existing tab or panel names, 
-        /// new tabs/panels will automatically be created.
-        /// </summary>
         public BALsoilWaterOffset()
-          : base("BAL Soil Water Visualization", "soilWater",
+          : base("BAL Soil Water Visualization", "soilWaterVis",
             "Generate soil diagram with water info.",
             "BAL", "01::soil")
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
             pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio[0, 1] in the soil for visualization purposes.", GH_ParamAccess.item, 0.5);
+            pManager[2].Optional = true;
 
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Wilting Point", "soilWP", "Soil wilting point triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Field Capacity", "soilFC", "Soil field capacity triangles.", GH_ParamAccess.list);
+
+            pManager.AddCurveParameter("Embedded Water Hatch", "waterEmbed", "The embedded water of the soil.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Current Water Hatch", "waterCurrent", "The current water stage in the soil.", GH_ParamAccess.tree);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object can be used to retrieve data from input parameters and 
-        /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
-            string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
-
-            if (!System.IO.File.Exists(dllFile))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The core computation lib {0} does not exist.", dllFile));
-            }
-
-            // MEF
-            try
-            {
-                // An aggregate catalog that combines multiple catalogs.
-                var catalog = new AggregateCatalog();
-                catalog.Catalogs.Add(new AssemblyCatalog(Assembly.Load(System.IO.File.ReadAllBytes(dllFile))));
-
-                // Create the CompositionContainer with the parts in the catalog.
-                _container = new CompositionContainer(catalog);
-                _container.ComposeParts(this);
-
-            }
-            catch (CompositionException compositionException)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, compositionException.ToString());
-                return;
-            }
+            this.LoadDll();
 
             // get data
             soilProperty soilInfo = new soilProperty();
             List<Curve> triCrv = new List<Curve>();
+            double rWater = 0.5;
 
             if (!DA.GetData(0, ref soilInfo)) { return; }
             if (!DA.GetDataList(1, triCrv)) { return; }
+            if (!DA.GetData(2, ref rWater)) { return; }
 
 
             // compute offseted curves 
-            var (triCore, triWP, triFC) = mFunc.OffsetWater(triCrv, soilInfo);
+            var (triCore, triWP, triFC, embedWater, curWater) = mFunc.OffsetWater(triCrv, soilInfo, rWater);
 
 
             // assign output
@@ -459,11 +358,101 @@ namespace BALloader
             DA.SetDataList(1, triWP);
             DA.SetDataList(2, triFC);
 
+
+            GH_Structure<GH_Curve> eWTree = new GH_Structure<GH_Curve>();
+            GH_Structure<GH_Curve> cWTree = new GH_Structure<GH_Curve>();
+
+            for (int i = 0; i < embedWater.Count; i++)
+            {
+                var path = new GH_Path(i);
+                eWTree.AppendRange(embedWater[i].Select(x => new GH_Curve(x)), path);
+            }
+
+            for (int i = 0; i < curWater.Count; i++)
+            {
+                var path = new GH_Path(i);
+                cWTree.AppendRange(curWater[i].Select(x => new GH_Curve(x)), path);
+            }
+
+            DA.SetDataTree(0, eWTree);
+            DA.SetDataTree(1, cWTree);
+
         }
 
         // define the MEF container
-        private CompositionContainer _container;
         protected override System.Drawing.Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
+    }
+
+    public class BALsoilWaterHatch : GH_BAL
+    {
+        // import func collection from MEF.
+        [Import(typeof(IPlugin))]
+        public IPlugin mFunc;
+
+        // constructor
+        public BALsoilWaterHatch()
+          : base("BAL Soil Water Hatch", "soilWaterHatch",
+            "Generate hatch for the water info in the soil diagram.",
+            "BAL", "01::soil")
+        {
+        }
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Wilting Point", "soilWP", "Soil wilting point triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Field Capacity", "soilFC", "Soil field capacity triangles.", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio[0, 1] in the soil for visualization purposes.", GH_ParamAccess.item);
+            pManager[3].Optional = true;
+        }
+
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddCurveParameter("Embedded Water", "embedWater", "The embedded water of the soil.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Current Water Stage", "curWater", "The current water stage in the soil.", GH_ParamAccess.tree);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            this.LoadDll();
+
+            // get data
+            List<Curve> soilCore = new List<Curve>();
+            List<Curve> soilWP = new List<Curve>();
+            List<Curve> soilFC = new List<Curve>();
+            double rWater = 0.5;
+
+            if (!DA.GetDataList(0, soilCore)) { return; }
+            if (!DA.GetDataList(1, soilWP)) { return; }
+            if (!DA.GetDataList(2, soilFC)) { return; }
+            if (!DA.GetData(3, ref rWater)) { return; }
+
+            // compute offseted curves 
+            var (embedWater, curWater) = mFunc.HatchWater(soilCore, soilWP, soilFC, rWater);
+
+            GH_Structure<GH_Curve> eWTree = new GH_Structure<GH_Curve>();
+            GH_Structure<GH_Curve> cWTree = new GH_Structure<GH_Curve>();
+
+            for (int i = 0; i < embedWater.Count; i++)
+            {
+                var path = new GH_Path(i);
+                eWTree.AppendRange(embedWater[i].Select(x => new GH_Curve(x)), path);
+            }
+
+            for (int i = 0; i < curWater.Count; i++)
+            {
+                var path = new GH_Path(i);
+                cWTree.AppendRange(curWater[i].Select(x => new GH_Curve(x)), path);
+            }
+
+            DA.SetDataTree(0, eWTree);
+            DA.SetDataTree(1, cWTree);
+
+        }
+
+        // define the MEF container
+        protected override System.Drawing.Bitmap Icon => null;
+        public override Guid ComponentGuid => new Guid("af7ce1c6-d275-4961-8290-14f37814f44c");
     }
 }

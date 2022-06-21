@@ -258,7 +258,7 @@ namespace BALcore
 
 
             // if rock exists, avoid it 
-            if (rock.Any() || rock[0] == null)
+            if (rock.Any() && rock[0] != null)
             {
                 var rockLocal = rock;
                 Func<Polyline, bool> hitRock = tri =>
@@ -301,7 +301,8 @@ namespace BALcore
         /// <summary>
         /// Main Func: offset triangles for soil water data: wilting point, field capacity, etc.
         /// </summary>
-        public (List<Polyline>, List<Polyline>, List<Polyline>) OffsetWater(in List<Curve> tri, soilProperty sType)
+        public (List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>) OffsetWater(
+            in List<Curve> tri, soilProperty sType, double rWater)
         {
             // convert to polyline 
             var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
@@ -316,11 +317,20 @@ namespace BALcore
             var triWP = triPoly.Select(x => offsetTri(x.Duplicate(), wpRatio)).ToList();
             var triFC = triPoly.Select(x => offsetTri(x.Duplicate(), fcRatio)).ToList();
 
+            var curWaterLn =triPoly.Select(x => offsetTri(x.Duplicate(), rWater)).ToList();
+
+
+            // creating hatches for the water content
+
+
             return (triCore, triWP, triFC);
 
         }
 
 
+        /// <summary>
+        /// Get string-based soil info
+        /// </summary>
         public string SoilText(soilProperty sProperty)
         {
             string pattern = @"::Soil Info::

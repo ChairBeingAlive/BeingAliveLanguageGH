@@ -48,9 +48,11 @@ namespace BALcontract
         (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty) DivBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock);
 
         // offset triangle based on soil property
-        (List<Polyline>, List<Polyline>, List<Polyline>) OffsetWater(in List<Curve> tri, soilProperty sType);
+        (List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>) OffsetWater(
+            in List<Curve> tri, soilProperty sType, double rWater);
 
         // convert soil properties into text format
         string SoilText(soilProperty sProperty);
+
     }
 }
