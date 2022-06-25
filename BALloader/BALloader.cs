@@ -78,13 +78,6 @@ namespace BALloader
         [Import(typeof(IPlugin))]
         public IPlugin mFunc;
 
-        /// <summary>
-        /// Each implementation of GH_Component must provide a public 
-        /// constructor without any arguments.
-        /// Category represents the Tab in which the component will appear, 
-        /// Subcategory the panel. If you use non-existing tab or panel names, 
-        /// new tabs/panels will automatically be created.
-        /// </summary>
         public BALsoilBase()
           : base("BAL Soil Base", "soilBase",
             "Generate a base map from the boundary rectangle.",
@@ -92,29 +85,18 @@ namespace BALloader
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddRectangleParameter("Boundary", "B", "Boundary rectangle.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Resolution", "res", "Vertical resolution of the generated grid.", GH_ParamAccess.item);
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddCurveParameter("triGrid", "T", "The generated triangle map grid.", GH_ParamAccess.tree);
             pManager.AddNumberParameter("unit Length", "uL", "The triangle's side length", GH_ParamAccess.item);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object can be used to retrieve data from input parameters and 
-        /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             this.LoadDll();
@@ -140,19 +122,8 @@ namespace BALloader
             DA.SetData(1, uL);
         }
 
-        /// <summary>
-        /// Provides an Icon for every component that will be visible in the User Interface.
-        /// Icons need to be 24x24 pixels.
-        /// You can add image files to your project resources and access them like this:
-        /// return Resources.IconForThisComponent;
-        /// </summary>
         protected override System.Drawing.Bitmap Icon => null;
 
-        /// <summary>
-        /// Each component must have a unique Guid to identify it. 
-        /// It is vital this Guid doesn't change otherwise old ghx files 
-        /// that use the old ID will partially fail during loading.
-        /// </summary>
         public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
     }
 
@@ -162,13 +133,6 @@ namespace BALloader
         [Import(typeof(IPlugin))]
         public IPlugin mFunc;
 
-        /// <summary>
-        /// Each implementation of GH_Component must provide a public 
-        /// constructor without any arguments.
-        /// Category represents the Tab in which the component will appear, 
-        /// Subcategory the panel. If you use non-existing tab or panel names, 
-        /// new tabs/panels will automatically be created.
-        /// </summary>
         public BALbaseDiv()
           : base("BAL Soil Content", "soilContent",
             "Generate soil map based on the ratio of 3 contents, and add rocks if provided.",
@@ -176,9 +140,6 @@ namespace BALloader
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddCurveParameter("soil Base", "T", "soil base triangle map.", GH_ParamAccess.list);
@@ -192,9 +153,6 @@ namespace BALloader
             pManager[4].Optional = true; // rock can be optionally provided
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
@@ -203,11 +161,6 @@ namespace BALloader
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object can be used to retrieve data from input parameters and 
-        /// to store data in output parameters.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             this.LoadDll();
@@ -243,19 +196,8 @@ namespace BALloader
 
         }
 
-        /// <summary>
-        /// Provides an Icon for every component that will be visible in the User Interface.
-        /// Icons need to be 24x24 pixels.
-        /// You can add image files to your project resources and access them like this:
-        /// return Resources.IconForThisComponent;
-        /// </summary>
         protected override System.Drawing.Bitmap Icon => null;
 
-        /// <summary>
-        /// Each component must have a unique Guid to identify it. 
-        /// It is vital this Guid doesn't change otherwise old ghx files 
-        /// that use the old ID will partially fail during loading.
-        /// </summary>
         public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
     }
 
@@ -320,9 +262,13 @@ namespace BALloader
         {
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
             pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio[0, 1] in the soil for visualization purposes.", GH_ParamAccess.item, 0.5);
-            pManager[2].Optional = true;
 
+            pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio[0, 1] in the soil for visualization purposes.", GH_ParamAccess.item, 0.5);
+            pManager.AddNumberParameter("Core Water Hatch Density", "dHatchCore", "Hatch density of the embedded water.", GH_ParamAccess.item, 3);
+            pManager.AddNumberParameter("Available Water Hatch Density", "dHatchAvail", "Hatch density of the current water.", GH_ParamAccess.item, 5);
+            pManager[2].Optional = true;
+            pManager[3].Optional = true;
+            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -330,6 +276,7 @@ namespace BALloader
             pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Wilting Point", "soilWP", "Soil wilting point triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Field Capacity", "soilFC", "Soil field capacity triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Current WaterLine", "soilCW", "Current water stage.", GH_ParamAccess.list);
 
             pManager.AddCurveParameter("Embedded Water Hatch", "waterEmbed", "The embedded water of the soil.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("Current Water Hatch", "waterCurrent", "The current water stage in the soil.", GH_ParamAccess.tree);
@@ -343,20 +290,26 @@ namespace BALloader
             soilProperty soilInfo = new soilProperty();
             List<Curve> triCrv = new List<Curve>();
             double rWater = 0.5;
+            int denEmbedWater = 3;
+            int denAvailWater = 3;
 
             if (!DA.GetData(0, ref soilInfo)) { return; }
             if (!DA.GetDataList(1, triCrv)) { return; }
             if (!DA.GetData(2, ref rWater)) { return; }
+            if (!DA.GetData(3, ref denEmbedWater)) { return; }
+            if (!DA.GetData(4, ref denAvailWater)) { return; }
 
 
             // compute offseted curves 
-            var (triCore, triWP, triFC, embedWater, curWater) = mFunc.OffsetWater(triCrv, soilInfo, rWater);
+            var (triCore, triWP, triFC, triCW, embedWater, curWater) =
+                mFunc.OffsetWater(triCrv, soilInfo, rWater, denEmbedWater, denAvailWater);
 
 
             // assign output
             DA.SetDataList(0, triCore);
             DA.SetDataList(1, triWP);
             DA.SetDataList(2, triFC);
+            DA.SetDataList(3, triCW);
 
 
             GH_Structure<GH_Curve> eWTree = new GH_Structure<GH_Curve>();
@@ -365,94 +318,22 @@ namespace BALloader
             for (int i = 0; i < embedWater.Count; i++)
             {
                 var path = new GH_Path(i);
-                eWTree.AppendRange(embedWater[i].Select(x => new GH_Curve(x)), path);
+                eWTree.AppendRange(embedWater[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
             }
 
             for (int i = 0; i < curWater.Count; i++)
             {
                 var path = new GH_Path(i);
-                cWTree.AppendRange(curWater[i].Select(x => new GH_Curve(x)), path);
+                cWTree.AppendRange(curWater[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
             }
 
-            DA.SetDataTree(0, eWTree);
-            DA.SetDataTree(1, cWTree);
+            DA.SetDataTree(4, eWTree);
+            DA.SetDataTree(5, cWTree);
 
         }
 
         // define the MEF container
         protected override System.Drawing.Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
-    }
-
-    public class BALsoilWaterHatch : GH_BAL
-    {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
-
-        // constructor
-        public BALsoilWaterHatch()
-          : base("BAL Soil Water Hatch", "soilWaterHatch",
-            "Generate hatch for the water info in the soil diagram.",
-            "BAL", "01::soil")
-        {
-        }
-
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
-        {
-            pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles.", GH_ParamAccess.list);
-            pManager.AddCurveParameter("Wilting Point", "soilWP", "Soil wilting point triangles.", GH_ParamAccess.list);
-            pManager.AddCurveParameter("Field Capacity", "soilFC", "Soil field capacity triangles.", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio[0, 1] in the soil for visualization purposes.", GH_ParamAccess.item);
-            pManager[3].Optional = true;
-        }
-
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
-        {
-            pManager.AddCurveParameter("Embedded Water", "embedWater", "The embedded water of the soil.", GH_ParamAccess.tree);
-            pManager.AddCurveParameter("Current Water Stage", "curWater", "The current water stage in the soil.", GH_ParamAccess.tree);
-        }
-
-        protected override void SolveInstance(IGH_DataAccess DA)
-        {
-            this.LoadDll();
-
-            // get data
-            List<Curve> soilCore = new List<Curve>();
-            List<Curve> soilWP = new List<Curve>();
-            List<Curve> soilFC = new List<Curve>();
-            double rWater = 0.5;
-
-            if (!DA.GetDataList(0, soilCore)) { return; }
-            if (!DA.GetDataList(1, soilWP)) { return; }
-            if (!DA.GetDataList(2, soilFC)) { return; }
-            if (!DA.GetData(3, ref rWater)) { return; }
-
-            // compute offseted curves 
-            var (embedWater, curWater) = mFunc.HatchWater(soilCore, soilWP, soilFC, rWater);
-
-            GH_Structure<GH_Curve> eWTree = new GH_Structure<GH_Curve>();
-            GH_Structure<GH_Curve> cWTree = new GH_Structure<GH_Curve>();
-
-            for (int i = 0; i < embedWater.Count; i++)
-            {
-                var path = new GH_Path(i);
-                eWTree.AppendRange(embedWater[i].Select(x => new GH_Curve(x)), path);
-            }
-
-            for (int i = 0; i < curWater.Count; i++)
-            {
-                var path = new GH_Path(i);
-                cWTree.AppendRange(curWater[i].Select(x => new GH_Curve(x)), path);
-            }
-
-            DA.SetDataTree(0, eWTree);
-            DA.SetDataTree(1, cWTree);
-
-        }
-
-        // define the MEF container
-        protected override System.Drawing.Bitmap Icon => null;
-        public override Guid ComponentGuid => new Guid("af7ce1c6-d275-4961-8290-14f37814f44c");
     }
 }

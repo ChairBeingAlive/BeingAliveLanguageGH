@@ -51,9 +51,7 @@ namespace BALcore
             }
         }
 
-        /// <summary>
-        /// create a list of triangles from the starting point. Used to generate one row of the given bound
-        /// </summary>
+        // create a list of triangles from the starting point. Used to generate one row of the given bound
         private List<PolylineCurve> createTriLst(in Point3d pt, in Plane pln, in Vector3d dirVec, int num, int type, in List<List<Vector3d>> triType)
         {
             List<PolylineCurve> triLst = new List<PolylineCurve>();
@@ -227,7 +225,8 @@ namespace BALcore
         /// <summary>
         /// Main Func: divide triMap into subdivisions based on the soil ratio
         /// </summary>
-        public (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty) DivBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
+        public (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty)
+            DivBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
         {
             // ratio array order: sand, silt, clay
             var soilData = soilType(ratio[0], ratio[1], ratio[2]);
@@ -301,8 +300,8 @@ namespace BALcore
         /// <summary>
         /// Main Func: offset triangles for soil water data: wilting point, field capacity, etc.
         /// </summary>
-        public (List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>) OffsetWater(
-            in List<Curve> tri, soilProperty sType, double rWater)
+        public (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>)
+            OffsetWater(in List<Curve> tri, soilProperty sType, double rWater, int denEmbedWater, int denAvailWater)
         {
             // convert to polyline 
             var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
@@ -317,14 +316,32 @@ namespace BALcore
             var triWP = triPoly.Select(x => offsetTri(x.Duplicate(), wpRatio)).ToList();
             var triFC = triPoly.Select(x => offsetTri(x.Duplicate(), fcRatio)).ToList();
 
-            var curWaterLn =triPoly.Select(x => offsetTri(x.Duplicate(), rWater)).ToList();
-
+            var curWaterLn = triPoly.Select(x => offsetTri(x.Duplicate(), rWater)).ToList();
 
             // creating hatches for the water content
+            List<List<Polyline>> hatchCore = new List<List<Polyline>>();
+            List<List<Polyline>> hatchPAW = new List<List<Polyline>>();
 
+            for (int i = 0; i < triCore.Count; i++)
+            {
+                var tmpL = new List<Polyline>();
+                for (int j = 1; j < denEmbedWater + 1; j++)
+                {
+                    double ratio = j / (denEmbedWater + 1);
+                    tmpL.Add(new Polyline(triCore[i].Zip(triWP[i], (x, y) => x * ratio + y * (1 - ratio))));
+                }
+                hatchCore.Add(tmpL);
 
-            return (triCore, triWP, triFC);
+                var tmpL2 = new List<Polyline>();
+                for (int j = 1; j < denAvailWater + 1; j++)
+                {
+                    double ratio = j / (denAvailWater + 1);
+                    tmpL2.Add(new Polyline(triWP[i].Zip(curWaterLn[i], (x, y) => x * ratio + y * (1 - ratio))));
+                }
+                hatchPAW.Add(tmpL2);
+            }
 
+            return (triCore, triWP, triFC, curWaterLn, hatchCore, hatchPAW);
         }
 
 

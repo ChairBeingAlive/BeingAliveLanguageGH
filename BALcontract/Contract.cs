@@ -45,11 +45,12 @@ namespace BALcontract
         (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int re);
 
         // subdiv triangle into different content
-        (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty) DivBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock);
+        (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty) DivBaseMap(
+            in List<Polyline> triL, in double[] ratio, in List<Curve> rock);
 
         // offset triangle based on soil property
-        (List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>) OffsetWater(
-            in List<Curve> tri, soilProperty sType, double rWater);
+        (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>) OffsetWater(
+            in List<Curve> tri, soilProperty sType, double rWater, int denEmbedWater, int denAvailWater);
 
         // convert soil properties into text format
         string SoilText(soilProperty sProperty);
