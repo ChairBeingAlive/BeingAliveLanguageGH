@@ -126,52 +126,52 @@ namespace BALcore
         };
 
         // compute the soil type and water ratio
-        private readonly Func<double, double, double, soilProperty> soilType = (rSand, rSilt, rClay) =>
+        private readonly Func<double, double, double, SoilProperty> soilType = (rSand, rSilt, rClay) =>
         {
             bool isSand = (rClay <= 0.1 && rSand > 0.5 * rClay + 0.85);
             // for loamy sand, use the upper inclined line of loamy sand and exclude the sand part
             bool isLoamySand = (rClay <= 0.15 && rSand > rClay + 0.7) && (!isSand);
 
             if (rClay > 0.4 && rSand <= 0.45 && rSilt <= 0.4)
-                return new soilProperty("clay", 0.42, 0.30, 0.5);
+                return new SoilProperty("clay", 0.42, 0.30, 0.5);
 
             else if (rClay > 0.35 && rSand > 0.45)
-                return new soilProperty("sandy clay", 0.36, 0.25, 0.44);
+                return new SoilProperty("sandy clay", 0.36, 0.25, 0.44);
 
             else if (rClay > 0.4 && rSilt > 0.4)
-                return new soilProperty("silty clay", 0.41, 0.27, 0.52);
+                return new SoilProperty("silty clay", 0.41, 0.27, 0.52);
 
             else if (rClay > 0.27 && rClay <= 0.4 && rSand > 0.2 && rSand <= 0.45)
-                return new soilProperty("clay loam", 0.36, 0.22, 0.48);
+                return new SoilProperty("clay loam", 0.36, 0.22, 0.48);
 
             else if (rClay > 0.27 && rClay <= 0.4 && rSand <= 0.2)
-                return new soilProperty("silty clay loam", 0.38, 0.22, 0.51);
+                return new SoilProperty("silty clay loam", 0.38, 0.22, 0.51);
 
             else if (rClay > 0.2 && rClay <= 0.35 && rSand > 0.45 && rSilt < 0.27)
-                return new soilProperty("sandy clay loam", 0.27, 0.17, 0.43);
+                return new SoilProperty("sandy clay loam", 0.27, 0.17, 0.43);
 
             else if (rClay > 0.07 && rClay <= 0.27 && rSand <= 0.53 && rSilt > 0.28 && rSilt <= 0.5)
-                return new soilProperty("loam", 0.28, 0.14, 0.46);
+                return new SoilProperty("loam", 0.28, 0.14, 0.46);
 
             else if (rClay <= 0.27 && ((rSilt > 0.5 && rSilt <= 0.8) || (rSilt > 0.8 && rClay > 0.14)))
-                return new soilProperty("silt loam", 0.31, 0.11, 0.48);
+                return new SoilProperty("silt loam", 0.31, 0.11, 0.48);
 
             else if (rClay <= 0.14 && rSilt > 0.8)
-                return new soilProperty("silt", 0.3, 0.06, 0.48);
+                return new SoilProperty("silt", 0.3, 0.06, 0.48);
 
             // three special cases for conditioning
             else if (isSand)
-                return new soilProperty("sand", 0.1, 0.05, 0.46);
+                return new SoilProperty("sand", 0.1, 0.05, 0.46);
 
             else if (isLoamySand)
-                return new soilProperty("loamy sand", 0.18, 0.08, 0.45);
+                return new SoilProperty("loamy sand", 0.18, 0.08, 0.45);
 
             else if (((!isLoamySand) && rClay <= 0.2 && rSand > 0.53) || (rClay <= 0.07 && rSand > 0.53 && rSilt <= 0.5))
-                return new soilProperty("sandy loam", 0.18, 0.08, 0.45);
+                return new SoilProperty("sandy loam", 0.18, 0.08, 0.45);
 
 
             // default check if no above condition is used
-            return new soilProperty("errorSoil", 0, 0, 0);
+            return new SoilProperty("errorSoil", 0, 0, 0);
         };
 
         // subdiv a big triangle into 4 smaller ones
@@ -225,7 +225,7 @@ namespace BALcore
         /// <summary>
         /// Main Func: divide triMap into subdivisions based on the soil ratio
         /// </summary>
-        public (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty)
+        public (List<Polyline>, List<Polyline>, List<Polyline>, SoilProperty)
             DivBaseMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
         {
             // ratio array order: sand, silt, clay
@@ -301,7 +301,7 @@ namespace BALcore
         /// Main Func: offset triangles for soil water data: wilting point, field capacity, etc.
         /// </summary>
         public (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>)
-            OffsetWater(in List<Curve> tri, soilProperty sInfo, double rWater, int denEmbedWater, int denAvailWater)
+            OffsetWater(in List<Curve> tri, SoilProperty sInfo, double rWater, int denEmbedWater, int denAvailWater)
         {
             // convert to polyline 
             var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
@@ -348,7 +348,7 @@ namespace BALcore
         /// <summary>
         /// Get string-based soil info
         /// </summary>
-        public string SoilText(soilProperty sProperty)
+        public string SoilText(SoilProperty sProperty)
         {
             string pattern = @"::Soil Info::
     soil type:      {0}
@@ -369,7 +369,7 @@ namespace BALcore
         /// <summary>
         /// generate organic matter for soil inner
         /// </summary>
-        public List<List<Line>> GenOrganicMatterInner(in Rectangle3d bnd, in soilProperty sInfo, in List<Curve> tri, double dOM)
+        public List<List<Line>> GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM)
         {
             var coreRatio = 1 - sInfo.saturation;
             var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();

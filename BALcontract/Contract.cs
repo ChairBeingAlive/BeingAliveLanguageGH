@@ -10,14 +10,14 @@ namespace BALcontract
     /// <summary>
     /// a basic soil info container used for both coreLib and ghLib
     /// </summary>
-    public struct soilProperty
+    public struct SoilProperty
     {
         public string soilType;
         public double fieldCapacity;
         public double wiltingPoint;
         public double saturation;
 
-        public soilProperty(string st, double fc, double wp, double sa)
+        public SoilProperty(string st, double fc, double wp, double sa)
         {
             soilType = st;
             fieldCapacity = fc;
@@ -45,17 +45,17 @@ namespace BALcontract
         (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int re);
 
         // subdiv triangle into different content
-        (List<Polyline>, List<Polyline>, List<Polyline>, soilProperty) DivBaseMap(
+        (List<Polyline>, List<Polyline>, List<Polyline>, SoilProperty) DivBaseMap(
             in List<Polyline> triL, in double[] ratio, in List<Curve> rock);
 
         // offset triangle based on soil property
         (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>)
-            OffsetWater(in List<Curve> tri, soilProperty sType, double rWater, int denEmbedWater, int denAvailWater);
+            OffsetWater(in List<Curve> tri, SoilProperty sType, double rWater, int denEmbedWater, int denAvailWater);
 
         // convert soil properties into text format
-        string SoilText(soilProperty sProperty);
+        string SoilText(SoilProperty sProperty);
 
         // generate soil inner organic matter
-        List<List<Line>> GenOrganicMatterInner(in Rectangle3d bnd, in soilProperty sInfo, in List<Curve> tri, double dOM);
+        List<List<Line>> GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM);
     }
 }

@@ -11,8 +11,6 @@ using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
 using BALcontract;
 
-
-
 namespace BALloader
 {
     // derived class that include MEF functionality
@@ -238,7 +236,7 @@ namespace BALloader
             this.LoadDll();
 
             // get data
-            soilProperty soilInfo = new soilProperty();
+            SoilProperty soilInfo = new SoilProperty();
             List<Curve> triCrv = new List<Curve>();
 
             if (!DA.GetData(0, ref soilInfo))
@@ -298,7 +296,7 @@ namespace BALloader
             this.LoadDll();
 
             // get data
-            soilProperty soilInfo = new soilProperty();
+            SoilProperty soilInfo = new SoilProperty();
             List<Curve> triCrv = new List<Curve>();
             double rWater = 0.5;
             int denEmbedWater = 3;
@@ -382,7 +380,7 @@ namespace BALloader
             this.LoadDll();
 
             // get data
-            soilProperty soilInfo = new soilProperty();
+            SoilProperty soilInfo = new SoilProperty();
             List<Curve> triCrv = new List<Curve>();
             Rectangle3d bnd = new Rectangle3d();
             double dOM = 0.5;
@@ -407,7 +405,6 @@ namespace BALloader
             }
 
             DA.SetDataTree(0, outLn);
-
         }
 
         protected override System.Drawing.Bitmap Icon => null;
