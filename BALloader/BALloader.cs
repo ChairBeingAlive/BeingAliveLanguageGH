@@ -93,8 +93,8 @@ namespace BALloader
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("triGrid", "T", "The generated triangle map grid.", GH_ParamAccess.tree);
-            pManager.AddNumberParameter("unit Length", "uL", "The triangle's side length", GH_ParamAccess.item);
+            pManager.AddCurveParameter("TriGrid", "T", "The generated triangle map grid.", GH_ParamAccess.tree);
+            pManager.AddNumberParameter("Unit Length", "uL", "The triangle's side length", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -104,8 +104,10 @@ namespace BALloader
             Rectangle3d rec = new Rectangle3d();
             int rsl = 1;
 
-            if (!DA.GetData(0, ref rec)) { return; }
-            if (!DA.GetData(1, ref rsl)) { return; }
+            if (!DA.GetData(0, ref rec))
+            { return; }
+            if (!DA.GetData(1, ref rsl))
+            { return; }
 
             // call the actural function
             var (uL, res) = mFunc.MakeTriMap(ref rec, rsl);
@@ -142,10 +144,10 @@ namespace BALloader
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddCurveParameter("soil Base", "T", "soil base triangle map.", GH_ParamAccess.list);
-            pManager.AddNumberParameter("sand ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("silt ratio", "rSilt", "The ratio of silt in the soil.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("clay ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Soil Base", "T", "soil base triangle map.", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Silt Ratio", "rSilt", "The ratio of silt in the soil.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item);
             pManager.AddCurveParameter("Rocks", "R", "Curves represendting the rocks in the soil.", GH_ParamAccess.list);
 
             pManager[0].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
@@ -159,6 +161,7 @@ namespace BALloader
             pManager.AddCurveParameter("Sand Tri", "sandT", "Sand triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("All Tri", "allT", "Clay triangles.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -171,10 +174,14 @@ namespace BALloader
             double rSilt = 0;
             double rClay = 0;
             List<Curve> rock = new List<Curve>();
-            if (!DA.GetDataList(0, triL)) { return; }
-            if (!DA.GetData(1, ref rSand)) { return; }
-            if (!DA.GetData(2, ref rSilt)) { return; }
-            if (!DA.GetData(3, ref rClay)) { return; }
+            if (!DA.GetDataList(0, triL))
+            { return; }
+            if (!DA.GetData(1, ref rSand))
+            { return; }
+            if (!DA.GetData(2, ref rSilt))
+            { return; }
+            if (!DA.GetData(3, ref rClay))
+            { return; }
             DA.GetDataList(4, rock);
 
             List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
@@ -187,6 +194,9 @@ namespace BALloader
             DA.SetDataList(1, sandT);
             DA.SetDataList(2, siltT);
             DA.SetDataList(3, clayT);
+
+            var allT = sandT.Concat(siltT).Concat(clayT).ToList();
+            DA.SetDataList(4, allT);
 
             // for debugging info
             //if (!String.IsNullOrEmpty(msg))
@@ -231,7 +241,8 @@ namespace BALloader
             soilProperty soilInfo = new soilProperty();
             List<Curve> triCrv = new List<Curve>();
 
-            if (!DA.GetData(0, ref soilInfo)) { return; }
+            if (!DA.GetData(0, ref soilInfo))
+            { return; }
 
 
             var sText = mFunc.SoilText(soilInfo);
@@ -264,8 +275,8 @@ namespace BALloader
             pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
 
             pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio[0, 1] in the soil for visualization purposes.", GH_ParamAccess.item, 0.5);
-            pManager.AddNumberParameter("Core Water Hatch Density", "dHatchCore", "Hatch density of the embedded water.", GH_ParamAccess.item, 3);
-            pManager.AddNumberParameter("Available Water Hatch Density", "dHatchAvail", "Hatch density of the current water.", GH_ParamAccess.item, 5);
+            pManager.AddIntegerParameter("Core Water Hatch Density", "dHatchCore", "Hatch density of the embedded water.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Available Water Hatch Density", "dHatchAvail", "Hatch density of the current water.", GH_ParamAccess.item, 5);
             pManager[2].Optional = true;
             pManager[3].Optional = true;
             pManager[4].Optional = true;
@@ -293,11 +304,13 @@ namespace BALloader
             int denEmbedWater = 3;
             int denAvailWater = 3;
 
-            if (!DA.GetData(0, ref soilInfo)) { return; }
-            if (!DA.GetDataList(1, triCrv)) { return; }
-            if (!DA.GetData(2, ref rWater)) { return; }
-            if (!DA.GetData(3, ref denEmbedWater)) { return; }
-            if (!DA.GetData(4, ref denAvailWater)) { return; }
+            if (!DA.GetData(0, ref soilInfo))
+            { return; }
+            if (!DA.GetDataList(1, triCrv))
+            { return; }
+            DA.GetData(2, ref rWater);
+            DA.GetData(3, ref denEmbedWater);
+            DA.GetData(4, ref denAvailWater);
 
 
             // compute offseted curves 
@@ -332,8 +345,73 @@ namespace BALloader
 
         }
 
-        // define the MEF container
         protected override System.Drawing.Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
     }
+
+    public class BALsoilOrganicMatterInner : GH_BAL
+    {
+        // import func collection from MEF.
+        [Import(typeof(IPlugin))]
+        public IPlugin mFunc;
+
+        public BALsoilOrganicMatterInner()
+          : base("BAL Soil Interior Organic Matter", "soilOG_in",
+            "Generate soil inner organic matter based on given intensity map.",
+            "BAL", "01::soil")
+        {
+        }
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+            pManager.AddRectangleParameter("Boundary", "B", "Boundary rectangle.", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Organic Matter Density", "dOrganics", "Density of organic matter [ 0 - 1 ].", GH_ParamAccess.item, 0.5);
+
+            pManager[3].Optional = true; // OM
+        }
+
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddLineParameter("Organic Matter", "soilOrganics", "Lines as soil organic matter.", GH_ParamAccess.tree);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            this.LoadDll();
+
+            // get data
+            soilProperty soilInfo = new soilProperty();
+            List<Curve> triCrv = new List<Curve>();
+            Rectangle3d bnd = new Rectangle3d();
+            double dOM = 0.5;
+
+            if (!DA.GetData(0, ref soilInfo))
+            { return; }
+            if (!DA.GetData(1, ref bnd))
+            { return; }
+            if (!DA.GetDataList(2, triCrv))
+            { return; }
+            DA.GetData(3, ref dOM);
+
+            // compute
+            var omLn = mFunc.GenOrganicMatterInner(bnd, soilInfo, triCrv, dOM);
+
+            GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
+            // output data
+            for (int i = 0; i < omLn.Count; i++)
+            {
+                var path = new GH_Path(i);
+                outLn.AppendRange(omLn[i].Select(x => new GH_Line(x)), path);
+            }
+
+            DA.SetDataTree(0, outLn);
+
+        }
+
+        protected override System.Drawing.Bitmap Icon => null;
+        public override Guid ComponentGuid => new Guid("B781B9DE-6953-4E8E-A71A-801592B99CBD");
+    }
+
 }

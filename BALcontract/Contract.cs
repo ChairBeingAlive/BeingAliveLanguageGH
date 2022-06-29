@@ -49,11 +49,13 @@ namespace BALcontract
             in List<Polyline> triL, in double[] ratio, in List<Curve> rock);
 
         // offset triangle based on soil property
-        (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>) OffsetWater(
-            in List<Curve> tri, soilProperty sType, double rWater, int denEmbedWater, int denAvailWater);
+        (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>)
+            OffsetWater(in List<Curve> tri, soilProperty sType, double rWater, int denEmbedWater, int denAvailWater);
 
         // convert soil properties into text format
         string SoilText(soilProperty sProperty);
 
+        // generate soil inner organic matter
+        List<List<Line>> GenOrganicMatterInner(in Rectangle3d bnd, in soilProperty sInfo, in List<Curve> tri, double dOM);
     }
 }

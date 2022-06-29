@@ -29,7 +29,7 @@ namespace BALcore
 
         // align the triangles on the border with vertical boundary.
         // associate with the triUp/triDown point order. type: 0 - startTri, 1 - endTri.
-        private void alignTri(ref Polyline tri, in Plane pln, int type = 0)
+        private void AlignTri(ref Polyline tri, in Plane pln, int type = 0)
         {
             // moveV is different for triUP / triDown
             bool isTriUp = Math.Abs(Vector3d.Multiply(tri[1] - tri[0], pln.YAxis)) < 1e-5;
@@ -52,7 +52,7 @@ namespace BALcore
         }
 
         // create a list of triangles from the starting point. Used to generate one row of the given bound
-        private List<PolylineCurve> createTriLst(in Point3d pt, in Plane pln, in Vector3d dirVec, int num, int type, in List<List<Vector3d>> triType)
+        private List<PolylineCurve> CreateTriLst(in Point3d pt, in Plane pln, in Vector3d dirVec, int num, int type, in List<List<Vector3d>> triType)
         {
             List<PolylineCurve> triLst = new List<PolylineCurve>();
 
@@ -64,9 +64,9 @@ namespace BALcore
 
                 // modify the beginning and end triangle so that the border aligns
                 if (i == 0)
-                    alignTri(ref triPolyline, in pln, 0);
+                    AlignTri(ref triPolyline, in pln, 0);
                 if (i == num - 1)
-                    alignTri(ref triPolyline, in pln, 1);
+                    AlignTri(ref triPolyline, in pln, 1);
 
 
                 triLst.Add(triPolyline.ToPolylineCurve());
@@ -108,7 +108,7 @@ namespace BALcore
             {
                 var pt = Point3d.Add(refPt, vTopLeft * i);
                 pt = Point3d.Add(pt, -0.5 * sTri * pln.XAxis); // compensate for the alignment
-                gridMap.Add(createTriLst(in pt, in pln, vForward, nHorizontal + 1, i % 2, in triType));
+                gridMap.Add(CreateTriLst(in pt, in pln, vForward, nHorizontal + 1, i % 2, in triType));
             }
 
             return (sTri, gridMap);
@@ -301,15 +301,15 @@ namespace BALcore
         /// Main Func: offset triangles for soil water data: wilting point, field capacity, etc.
         /// </summary>
         public (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<List<Polyline>>, List<List<Polyline>>)
-            OffsetWater(in List<Curve> tri, soilProperty sType, double rWater, int denEmbedWater, int denAvailWater)
+            OffsetWater(in List<Curve> tri, soilProperty sInfo, double rWater, int denEmbedWater, int denAvailWater)
         {
             // convert to polyline 
             var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
 
             // Datta, Sumon, Saleh Taghvaeian, and Jacob Stivers. Understanding Soil Water Content and Thresholds For Irrigation Management, 2017. https://doi.org/10.13140/RG.2.2.35535.89765.
-            var coreRatio = 1 - sType.saturation;
-            var wpRatio = coreRatio + sType.wiltingPoint;
-            var fcRatio = coreRatio + sType.fieldCapacity;
+            var coreRatio = 1 - sInfo.saturation;
+            var wpRatio = coreRatio + sInfo.wiltingPoint;
+            var fcRatio = coreRatio + sInfo.fieldCapacity;
 
             // offset the triangles for the 3 specific ratio
             var triCore = triPoly.Select(x => offsetTri(x.Duplicate(), coreRatio)).ToList();
@@ -358,6 +358,54 @@ namespace BALcore
 ";
 
             return string.Format(pattern, sProperty.soilType, sProperty.wiltingPoint, sProperty.fieldCapacity, sProperty.saturation);
+
+        }
+
+
+        // exponential fit {{0, 0}, {0.4, 0.1}, {0.5, 0.15}, {1, 1}}, customized for the organic matter purpose.
+        // only works for [0-1] range.
+        private readonly Func<double, double> CustomExpFit = x => 0.0210324 * Math.Exp(3.8621 * x);
+
+        /// <summary>
+        /// generate organic matter for soil inner
+        /// </summary>
+        public List<List<Line>> GenOrganicMatterInner(in Rectangle3d bnd, in soilProperty sInfo, in List<Curve> tri, double dOM)
+        {
+            var coreRatio = 1 - sInfo.saturation;
+            var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
+            var triCore = triPoly.Select(x => offsetTri(x.Duplicate(), coreRatio)).ToList();
+
+            // compute density based on distance to the soil surface
+            List<double> denLst = new List<double>();
+            foreach (var t in triPoly)
+            {
+                bnd.Plane.ClosestParameter(t.CenterPoint(), out double x, out double y);
+                denLst.Add(bnd.Height - y);
+            }
+
+            // remap density
+            var dMin = denLst.Min();
+            var dMax = denLst.Max();
+
+            var newDen = denLst.Select(x => CustomExpFit((x - dMin) / (dMax - dMin))).ToList();
+
+
+            // generate lines
+            List<List<Line>> res = new List<List<Line>>();
+            for (int i = 0; i < triPoly.Count; i++)
+            {
+                // for each triangle, divide pts based on the density param, and create OM lines
+                int divN = (int)Math.Round(triPoly[i].Length / newDen[i] * dOM / 10) * 3;
+                if (divN == 0)
+                    continue;
+                var param = triCore[i].ToPolylineCurve().DivideByCount(divN, true, out Point3d[] startPt);
+                var endPt = param.Select(x => triPoly[i].ToPolylineCurve().PointAt(x)).ToArray();
+
+                var curLn = startPt.Zip(endPt, (s, e) => new Line(s, e)).ToList();
+                res.Add(curLn);
+            }
+
+            return res;
 
         }
     }
