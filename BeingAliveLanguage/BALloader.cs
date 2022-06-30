@@ -12,7 +12,7 @@ using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
 using BALcontract;
 
-namespace BALloader
+namespace BeingAliveLanguage
 {
     // derived class that include MEF functionality
     public class GH_BAL : GH_Component
@@ -123,7 +123,7 @@ namespace BALloader
             DA.SetData(1, uL);
         }
 
-        protected override System.Drawing.Bitmap Icon => null; 
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilBase;
 
         public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
     }
@@ -205,7 +205,7 @@ namespace BALloader
 
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv;
 
         public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
     }
@@ -250,7 +250,7 @@ namespace BALloader
             DA.SetData(0, sText);
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilInfo;
         public override Guid ComponentGuid => new Guid("af64a14a-6795-469c-b044-7db972d5bd84");
 
     }
@@ -344,7 +344,7 @@ namespace BALloader
 
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilWaterVis;
         public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
     }
 
@@ -408,7 +408,7 @@ namespace BALloader
             DA.SetDataTree(0, outLn);
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsInner;
         public override Guid ComponentGuid => new Guid("B781B9DE-6953-4E8E-A71A-801592B99CBD");
     }
 
