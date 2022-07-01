@@ -28,4 +28,15 @@ namespace BeingAliveLanguage
         public override GH_LibraryLicense License => GH_LibraryLicense.opensource;
         public override string Version => "0.0.1";
     }
+
+    // update plugin icons in the tab
+    public class IGM_CategoryIcon : GH_AssemblyPriority
+    {
+        public override GH_LoadingInstruction PriorityLoad()
+        {
+            Grasshopper.Instances.ComponentServer.AddCategoryIcon("BAL", Properties.Resources.pluginIcon);
+            Grasshopper.Instances.ComponentServer.AddCategorySymbolName("BAL", 'B');
+            return GH_LoadingInstruction.Proceed;
+        }
+    }
 }
