@@ -86,7 +86,7 @@ namespace BeingAliveLanguage
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddRectangleParameter("Boundary", "B", "Boundary rectangle.", GH_ParamAccess.item);
+            pManager.AddRectangleParameter("Boundary", "Bound", "Boundary rectangle.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Resolution", "res", "Vertical resolution of the generated grid.", GH_ParamAccess.item);
         }
 
@@ -222,6 +222,8 @@ namespace BeingAliveLanguage
                 "BAL", "01::soil")
         { }
 
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
@@ -267,6 +269,8 @@ namespace BeingAliveLanguage
             "BAL", "01::soil")
         {
         }
+
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -356,15 +360,17 @@ namespace BeingAliveLanguage
 
         public BALsoilOrganicMatterInner()
           : base("BAL Soil Interior Organic Matter", "soilOG_in",
-            "Generate soil inner organic matter based on given intensity map.",
+            "Generate soil inner organic matter based on given intensity.",
             "BAL", "01::soil")
         {
         }
 
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
-            pManager.AddRectangleParameter("Boundary", "B", "Boundary rectangle.", GH_ParamAccess.item);
+            pManager.AddRectangleParameter("Boundary", "Bound", "Boundary rectangle.", GH_ParamAccess.item);
             pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
             pManager.AddNumberParameter("Organic Matter Density", "dOrganics", "Density of organic matter [ 0 - 1 ].", GH_ParamAccess.item, 0.5);
 
@@ -373,7 +379,8 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddLineParameter("Organic Matter", "soilOrganics", "Lines as soil organic matter.", GH_ParamAccess.tree);
+            pManager.AddLineParameter("Organic Matter Inner", "OM-inner", "Lines as inner soil organic matter.", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Organic Matter Property", "OM-prop", "Property of inner organic matter to generate top organic matter.", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -393,9 +400,109 @@ namespace BeingAliveLanguage
             if (!DA.GetDataList(2, triCrv))
             { return; }
             DA.GetData(3, ref dOM);
+            if (dOM <= 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Density should be larger than 0.");
+                return;
+            }
 
             // compute
-            var omLn = mFunc.GenOrganicMatterInner(bnd, soilInfo, triCrv, dOM);
+            var (omLn, omProp) = mFunc.GenOrganicMatterInner(bnd, soilInfo, triCrv, dOM);
+
+            GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
+            // output data
+            for (int i = 0; i < omLn.Count; i++)
+            {
+                var path = new GH_Path(i);
+                outLn.AppendRange(omLn[i].Select(x => new GH_Line(x)), path);
+            }
+
+            DA.SetDataTree(0, outLn);
+            DA.SetData(1, omProp);
+        }
+
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsInner;
+        public override Guid ComponentGuid => new Guid("B781B9DE-6953-4E8E-A71A-801592B99CBD");
+    }
+
+    public class BALsoilOrganicMatterTop : GH_BAL
+    {
+        // import func collection from MEF.
+        [Import(typeof(IPlugin))]
+        public IPlugin mFunc;
+
+        public BALsoilOrganicMatterTop()
+          : base("BAL Soil Surface Organic Matter", "soilOG_top",
+            "Generate soil surface organic matter based on given intensity.",
+            "BAL", "01::soil")
+        {
+        }
+
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddRectangleParameter("Boundary", "Bound", "Boundary rectangle.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("OM Unit Size", "S", "Sizing: 0 - S, 1 - M, 2 - L.", GH_ParamAccess.item, 0);
+            pManager.AddIntegerParameter("numLayer", "numL", "Layer number of surface organic matter", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Unit Length", "uL", "The triangle's side length", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Organic Matter Density", "dOrganics", "Density of organic matter [ 0 - 1 ].", GH_ParamAccess.item, 0.5);
+
+            pManager[1].Optional = true;
+            pManager[2].Optional = true;
+            pManager[4].Optional = true;
+        }
+
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddLineParameter("Organic Matter Top", "soilOrgTop", "Curves representing organic matter on soil surface.", GH_ParamAccess.tree);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            this.LoadDll();
+
+            // get data
+            Rectangle3d bnd = new Rectangle3d();
+            double uL = 1;
+            int sz = 0;
+            double dOM = 0.5;
+            int numLayer = 1;
+
+            if (!DA.GetData(0, ref bnd))
+            { return; }
+
+            DA.GetData(1, ref sz);
+            if (sz != 0 && sz != 1 && sz != 2)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Sizing param should be one of: 0, 1, 2.");
+                return;
+            }
+            DA.GetData(2, ref numLayer);
+            if (numLayer <= 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Layer number needs to be positive.");
+                return;
+            }
+
+            if (!DA.GetData(3, ref uL))
+            { return; }
+            if (uL <= 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The unit length needs to be positive."));
+                return;
+            }
+            DA.GetData(4, ref dOM);
+            if (dOM <= 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Density needs to be positive.");
+                return;
+            }
+
+
+
+            // compute
+            var omLn = mFunc.GenOrganicMatterTop(bnd, uL, sz, dOM, numLayer);
 
             GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
             // output data
@@ -408,8 +515,85 @@ namespace BeingAliveLanguage
             DA.SetDataTree(0, outLn);
         }
 
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsInner;
-        public override Guid ComponentGuid => new Guid("B781B9DE-6953-4E8E-A71A-801592B99CBD");
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsTop;
+        public override Guid ComponentGuid => new Guid("6BE29C7A-7BE9-4DBD-9202-61FC5201E79F");
     }
 
+    public class BALsoilOrganicMatterTopAlter : GH_BAL
+    {
+        // import func collection from MEF.
+        [Import(typeof(IPlugin))]
+        public IPlugin mFunc;
+
+        public BALsoilOrganicMatterTopAlter()
+          : base("BAL Soil Surface Organic Matter (dependent version)", "soilOG_topDepend",
+            "Generate soil surface organic matter based on properties from the inner organic matter.",
+            "BAL", "01::soil")
+        {
+        }
+
+        /// <summary>
+        /// icon position in a category
+        /// </summary>
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("OM Property", "omProp", "Organic matter property from soil inner organic matter component.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("OM Unit Size", "S", "Sizing: 0 - S, 1 - M, 2 - L.", GH_ParamAccess.item, 0);
+            pManager.AddIntegerParameter("numLayer", "numL", "Layer number of surface organic matter", GH_ParamAccess.item, 1);
+
+            pManager[1].Optional = true;
+            pManager[2].Optional = true;
+        }
+
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddLineParameter("Organic Matter Top", "soilOrgTop", "Curves representing organic matter on soil surface.", GH_ParamAccess.tree);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            this.LoadDll();
+
+            // get data
+            OrganicMatterProperty omProp = new OrganicMatterProperty();
+            int sz = 0;
+            int numLayer = 1;
+
+            if (!DA.GetData(0, ref omProp))
+            { return; }
+
+            DA.GetData(1, ref sz);
+            if (sz != 0 && sz != 1 && sz != 2)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Sizing param should be one of: 0, 1, 2.");
+                return;
+            }
+
+            DA.GetData(2, ref numLayer);
+            if (numLayer <= 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Layer number needs to be positive.");
+                return;
+            }
+
+
+            // compute
+            var omLn = mFunc.GenOrganicMatterTop(omProp, sz, numLayer);
+
+            GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
+            // output data
+            for (int i = 0; i < omLn.Count; i++)
+            {
+                var path = new GH_Path(i);
+                outLn.AppendRange(omLn[i].Select(x => new GH_Line(x)), path);
+            }
+
+            DA.SetDataTree(0, outLn);
+        }
+
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsTopDep;
+        public override Guid ComponentGuid => new Guid("fde1d789-19ea-41aa-8330-0176f4289d1e");
+    }
 }

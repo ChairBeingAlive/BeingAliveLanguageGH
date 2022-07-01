@@ -26,6 +26,26 @@ namespace BALcontract
         }
     }
 
+    /// <summary>
+    /// a basic struct holding organic matter properties to draw top OM
+    /// </summary>
+    public struct OrganicMatterProperty
+    {
+        public Rectangle3d bnd;
+        public double distDen;
+        public double omDen;
+        public double uL;
+
+        public OrganicMatterProperty(in Rectangle3d bound, double dDen, double dOM, double unitL)
+        {
+            bnd = bound;
+            distDen = dDen;
+            omDen = dOM;
+            uL = unitL;
+        }
+
+    }
+
     public static class Utils
     {
         // convert the "Curve" type taken in by GH to a Rhino.Geometry.Polyline
@@ -56,6 +76,12 @@ namespace BALcontract
         string SoilText(SoilProperty sProperty);
 
         // generate soil inner organic matter
-        List<List<Line>> GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM);
+        (List<List<Line>>, OrganicMatterProperty) GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM);
+
+        // generate soil inner organic matter
+        List<List<Line>> GenOrganicMatterTop(in Rectangle3d bnd, double uL, int type, double den, int layer);
+
+        // alternative approach to generate top organic matter
+        List<List<Line>> GenOrganicMatterTop(in OrganicMatterProperty omP, int type, int layer);
     }
 }

@@ -288,7 +288,7 @@ namespace BALcore
 
 
         // offset using scale mechanism
-        private readonly Func<Polyline, double, Polyline> offsetTri = (tri, ratio) =>
+        private readonly Func<Polyline, double, Polyline> OffsetTri = (tri, ratio) =>
         {
             var cen = (tri[0] + tri[1] + tri[2]) / 3;
             var trans = Transform.Scale(cen, ratio);
@@ -312,11 +312,11 @@ namespace BALcore
             var fcRatio = coreRatio + sInfo.fieldCapacity;
 
             // offset the triangles for the 3 specific ratio
-            var triCore = triPoly.Select(x => offsetTri(x.Duplicate(), coreRatio)).ToList();
-            var triWP = triPoly.Select(x => offsetTri(x.Duplicate(), wpRatio)).ToList();
-            var triFC = triPoly.Select(x => offsetTri(x.Duplicate(), fcRatio)).ToList();
+            var triCore = triPoly.Select(x => OffsetTri(x.Duplicate(), coreRatio)).ToList();
+            var triWP = triPoly.Select(x => OffsetTri(x.Duplicate(), wpRatio)).ToList();
+            var triFC = triPoly.Select(x => OffsetTri(x.Duplicate(), fcRatio)).ToList();
 
-            var curWaterLn = triPoly.Select(x => offsetTri(x.Duplicate(), rWater)).ToList();
+            var curWaterLn = triPoly.Select(x => OffsetTri(x.Duplicate(), rWater)).ToList();
 
             // creating hatches for the water content
             List<List<Polyline>> hatchCore = new List<List<Polyline>>();
@@ -366,14 +366,28 @@ namespace BALcore
         // only works for [0-1] range.
         private readonly Func<double, double> CustomExpFit = x => 0.0210324 * Math.Exp(3.8621 * x);
 
+        // create organic matter around a triangle
+        private readonly Func<Polyline, Polyline, int, List<Line>> createOM = (polyout, polyin, divN) =>
+        {
+            if (divN <= 0)
+                return new List<Line>();
+
+            var param = polyin.ToPolylineCurve().DivideByCount(divN, true, out Point3d[] startPt);
+            var endPt = param.Select(x => polyout.ToPolylineCurve().PointAt(x)).ToArray();
+
+            var curLn = startPt.Zip(endPt, (s, e) => new Line(s, e)).ToList();
+
+            return curLn;
+        };
+
         /// <summary>
         /// generate organic matter for soil inner
         /// </summary>
-        public List<List<Line>> GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM)
+        public (List<List<Line>>, OrganicMatterProperty) GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM)
         {
             var coreRatio = 1 - sInfo.saturation;
             var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
-            var triCore = triPoly.Select(x => offsetTri(x.Duplicate(), coreRatio)).ToList();
+            var triCore = triPoly.Select(x => OffsetTri(x.Duplicate(), coreRatio)).ToList();
 
             // compute density based on distance to the soil surface
             List<double> denLst = new List<double>();
@@ -387,26 +401,75 @@ namespace BALcore
             var dMin = denLst.Min();
             var dMax = denLst.Max();
 
-            var newDen = denLst.Select(x => CustomExpFit((x - dMin) / (dMax - dMin))).ToList();
-
+            var distDen = denLst.Select(x => CustomExpFit((x - dMin) / (dMax - dMin))).ToList();
+            var triLen = tri.Select(x => x.GetLength()).ToList();
 
             // generate lines
             List<List<Line>> res = new List<List<Line>>();
             for (int i = 0; i < triPoly.Count; i++)
             {
                 // for each triangle, divide pts based on the density param, and create OM lines
-                int divN = (int)Math.Round(triPoly[i].Length / newDen[i] * dOM / 10) * 3;
+                int divN = (int)Math.Round(triPoly[i].Length / distDen[i] * dOM / 10) * 3;
                 if (divN == 0)
                     continue;
-                var param = triCore[i].ToPolylineCurve().DivideByCount(divN, true, out Point3d[] startPt);
-                var endPt = param.Select(x => triPoly[i].ToPolylineCurve().PointAt(x)).ToArray();
 
-                var curLn = startPt.Zip(endPt, (s, e) => new Line(s, e)).ToList();
-                res.Add(curLn);
+                var omLn = createOM(triCore[i], triPoly[i], divN);
+                res.Add(omLn);
             }
 
-            return res;
+            return (res, new OrganicMatterProperty(bnd, distDen.Min(), dOM, triLen.Max() / 3));
 
+        }
+
+        /// <summary>
+        /// Main Func: Generate the top layer organic matter
+        /// </summary>
+        public List<List<Line>> GenOrganicMatterTop(in Rectangle3d bnd, double uL, int type, double dOM, int layer)
+        {
+
+            // type: L - bigger triangle, M - middle triangle, S - small triangle.
+            // Using the fixed type for sizing so that the top OM aligns with the soil
+            var height = uL * 0.5 * Math.Sqrt(3) * 0.25 * Math.Pow(2, type);
+
+
+            // create the top OM's boundary based on the soil boundary.
+            var cornerB = bnd.Corner(2) + bnd.Plane.YAxis * height * layer;
+            Rectangle3d topBnd = new Rectangle3d(bnd.Plane, bnd.Corner(3), cornerB);
+
+            var (_, omTri) = MakeTriMap(ref topBnd, layer);
+
+            var flattenTri = omTri.SelectMany(x => x).ToList();
+            var coreTri = flattenTri.Select(x => OffsetTri(x.ToPolyline().Duplicate(), 0.4));
+
+            // generate division number and om lines
+            double bigTriL = flattenTri[2].ToPolyline().Length;
+            int divN = (int)Math.Round(flattenTri[1].ToPolyline().Length * dOM) * 3;
+            var res = coreTri.Zip(flattenTri, (i, o) => createOM(i, o.ToPolyline(), divN)).ToList();
+
+            return res;
+        }
+
+        /// <summary>
+        /// Main Func: (overload) Generate the top layer organic matter, using params from inner OM
+        /// </summary>
+        public List<List<Line>> GenOrganicMatterTop(in OrganicMatterProperty omP, int type, int layer)
+        {
+            var height = omP.uL * 0.5 * Math.Sqrt(3) * 0.25 * Math.Pow(2, type);
+
+            // create the top OM's boundary based on the soil boundary.
+            var cornerB = omP.bnd.Corner(2) + omP.bnd.Plane.YAxis * height * layer;
+            Rectangle3d topBnd = new Rectangle3d(omP.bnd.Plane, omP.bnd.Corner(3), cornerB);
+
+            var (_, omTri) = MakeTriMap(ref topBnd, layer);
+
+            var flattenTri = omTri.SelectMany(x => x).ToList();
+            var coreTri = flattenTri.Select(x => OffsetTri(x.ToPolyline().Duplicate(), 0.4));
+
+            // generate division number and om lines
+            int divN = (int)Math.Round(flattenTri[1].ToPolyline().Length / omP.distDen * omP.omDen / 10) * 3;
+            var res = coreTri.Zip(flattenTri, (i, o) => createOM(i, o.ToPolyline(), divN)).ToList();
+
+            return res;
         }
     }
 }
