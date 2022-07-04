@@ -431,9 +431,9 @@ namespace BALcore
             // Using the fixed type for sizing so that the top OM aligns with the soil
             var height = uL * 0.5 * Math.Sqrt(3) * 0.25 * Math.Pow(2, type);
 
-
             // create the top OM's boundary based on the soil boundary.
-            var cornerB = bnd.Corner(2) + bnd.Plane.YAxis * height * layer;
+            var intWid = (int)Math.Round(bnd.Corner(1).DistanceTo(bnd.Corner(0)) / uL) * uL;
+            var cornerB = bnd.Corner(3) + intWid * bnd.Plane.XAxis * 1.01 + bnd.Plane.YAxis * height * layer;
             Rectangle3d topBnd = new Rectangle3d(bnd.Plane, bnd.Corner(3), cornerB);
 
             var (_, omTri) = MakeTriMap(ref topBnd, layer);
@@ -457,7 +457,8 @@ namespace BALcore
             var height = omP.uL * 0.5 * Math.Sqrt(3) * 0.25 * Math.Pow(2, type);
 
             // create the top OM's boundary based on the soil boundary.
-            var cornerB = omP.bnd.Corner(2) + omP.bnd.Plane.YAxis * height * layer;
+            var intWid = (int)Math.Round(omP.bnd.Corner(1).DistanceTo(omP.bnd.Corner(0)) / omP.uL) * omP.uL;
+            var cornerB = omP.bnd.Corner(3) + intWid * omP.bnd.Plane.XAxis * 1.01 + omP.bnd.Plane.YAxis * height * layer;
             Rectangle3d topBnd = new Rectangle3d(omP.bnd.Plane, omP.bnd.Corner(3), cornerB);
 
             var (_, omTri) = MakeTriMap(ref topBnd, layer);
