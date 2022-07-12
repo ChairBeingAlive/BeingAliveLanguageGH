@@ -12,10 +12,20 @@ namespace BeingAliveLanguage
 {
     class SoilMap
     {
+        public SoilMap()
+        {
+            this.pln = Plane.WorldXY;
+            this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
+            this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
+            this.ptMap = new ConcurrentDictionary<string, Point3d>();
+        }
+
         public SoilMap(in Plane pl)
         {
             this.pln = pl;
-
+            this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
+            this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
+            this.ptMap = new ConcurrentDictionary<string, Point3d>();
         }
 
         private void AddNeighbour(string strLoc, int idx, in Point3d refP, in Point3d P)
@@ -76,6 +86,7 @@ namespace BeingAliveLanguage
             }
 
         }
+
         public void BuildMap(in List<Polyline> triLst)
         {
             foreach (var tri in triLst)
@@ -95,11 +106,51 @@ namespace BeingAliveLanguage
         }
 
 
-        protected Plane pln;
-        protected double unitLen = float.MaxValue;
-        protected KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
-        protected ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
-        protected ConcurrentDictionary<string, Point3d> ptMap;
+        Plane pln;
+        double unitLen = float.MaxValue;
+        KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
+        ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
+        ConcurrentDictionary<string, Point3d> ptMap;
 
+    }
+
+    class Root
+    {
+        public Root()
+        {
+
+        }
+
+        public Root(in SoilMap map, in Point3d anchor, int rootType = 2)
+        {
+            sMap = map;
+            anc = anchor;
+            rType = rootType;
+        }
+
+        public void GrowRoot(double radius, List<double> distr = null)
+        {
+            if (distr == null)
+                distr = (rType == 4 ? distr4 : distr3);
+
+            // init starting ptKey
+
+
+            // grow root until given radius is reached
+
+        }
+
+        // public variables
+        public List<Line> crv = new List<Line>();
+
+        // internal variables
+        HashSet<string> frontKey = new HashSet<string>();
+        Point3d anc = new Point3d();
+        SoilMap sMap = new SoilMap();
+        int rType = 2;
+
+        // default distribution
+        List<double> distr3 = new List<double> { 0.1, 0.8, 0.1 };
+        List<double> distr4 = new List<double> { 0.05, 0.45, 0.45, 0.05 };
     }
 }

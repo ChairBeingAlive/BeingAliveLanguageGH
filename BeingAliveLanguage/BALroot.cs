@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
+using System.Windows.Forms;
 using BALcontract;
 
 namespace BeingAliveLanguage
@@ -47,6 +48,20 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            this.LoadDll();
+
+            Plane pln = new Plane();
+            List<Curve> triL = new List<Curve>();
+            DA.GetData(0, ref pln);
+            if (!DA.GetDataList(1, triL))
+            { return; }
+
+            SoilMap sMap = new SoilMap(pln);
+
+            var triPoly = triL.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
+            sMap.BuildMap(triPoly);
+
+            DA.SetData(0, sMap);
         }
 
         protected override System.Drawing.Bitmap Icon => null;
@@ -76,6 +91,9 @@ namespace BeingAliveLanguage
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+            pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Radius", "R", "Root Radius.", GH_ParamAccess.item);
         }
 
 
@@ -84,10 +102,32 @@ namespace BeingAliveLanguage
             pManager.AddGenericParameter("RootSectional", "rootS", "The sectional root drawing.", GH_ParamAccess.list);
         }
 
-        protected override void SolveInstance(IGH_DataAccess DA)
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
+            base.AppendAdditionalMenuItems(menu);
+            Menu_AppendItem(menu, "Single Form", (sender, e) => singleForm = !singleForm, true, singleForm);
         }
 
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            this.LoadDll();
+
+            var sMap = new SoilMap();
+            var anchor = new Point3d();
+            double radius = 10.0;
+            DA.GetData(0, ref sMap);
+            if (!DA.GetData(1, ref anchor))
+            { return; }
+            if (!DA.GetData(2, ref radius))
+            { return; }
+
+
+
+            var res = new List<Line>();
+            DA.SetData(0, res);
+        }
+
+        bool singleForm = false;
         protected override System.Drawing.Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("A0E63559-41E8-4353-B78E-510E3FCEB577");
     }
