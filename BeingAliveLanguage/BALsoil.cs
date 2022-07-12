@@ -4,7 +4,6 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using System;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Collections.Generic;
@@ -78,7 +77,7 @@ namespace BeingAliveLanguage
         public IPlugin mFunc;
 
         public BALsoilBase()
-          : base("BAL Soil Base", "soilBase",
+          : base("Soil Base", "balSoilBase",
             "Generate a base map from the boundary rectangle.",
             "BAL", "01::soil")
         {
@@ -135,7 +134,7 @@ namespace BeingAliveLanguage
         public IPlugin mFunc;
 
         public BALbaseDiv()
-          : base("BAL Soil Content", "soilContent",
+          : base("Soil Content", "balSoilContent",
             "Generate soil map based on the ratio of 3 contents, and add rocks if provided.",
             "BAL", "01::soil")
         {
@@ -217,12 +216,12 @@ namespace BeingAliveLanguage
         public IPlugin mFunc;
 
         public BALsoilInfo() :
-            base("BAL Soil Information", "soilInfoText",
+            base("Soil Information", "balSoilInfoText",
                 "Export the soil information in text format.",
-                "BAL", "01::soil")
+                "BAL", "04::utils")
         { }
 
-        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -264,7 +263,7 @@ namespace BeingAliveLanguage
         public IPlugin mFunc;
 
         public BALsoilWaterOffset()
-          : base("BAL Soil Water Visualization", "soilWaterVis",
+          : base("Soil Water Visualization", "balSoilWaterVis",
             "Generate soil diagram with water info.",
             "BAL", "01::soil")
         {
@@ -359,7 +358,7 @@ namespace BeingAliveLanguage
         public IPlugin mFunc;
 
         public BALsoilOrganicMatterInner()
-          : base("BAL Soil Interior Organic Matter", "soilOG_in",
+          : base("Soil Interior Organic Matter", "balSoilOG_in",
             "Generate soil inner organic matter based on given intensity.",
             "BAL", "01::soil")
         {
@@ -432,7 +431,7 @@ namespace BeingAliveLanguage
         public IPlugin mFunc;
 
         public BALsoilOrganicMatterTop()
-          : base("BAL Soil Surface Organic Matter", "soilOG_top",
+          : base("Soil Surface Organic Matter", "balSoilOG_top",
             "Generate soil surface organic matter based on given intensity.",
             "BAL", "01::soil")
         {
@@ -526,7 +525,7 @@ namespace BeingAliveLanguage
         public IPlugin mFunc;
 
         public BALsoilOrganicMatterTopAlter()
-          : base("BAL Soil Surface Organic Matter (dependent version)", "soilOG_topDepend",
+          : base("Soil Surface Organic Matter (dependent version)", "balSoilOG_topDepend",
             "Generate soil surface organic matter based on properties from the inner organic matter.",
             "BAL", "01::soil")
         {
