@@ -5,8 +5,10 @@ using System.Text;
 using System.Threading.Tasks;
 using Rhino.Geometry;
 using System.Collections.Concurrent;
+
 using KdTree;
 using BALcontract;
+using MathNet.Numerics.Distributions;
 
 namespace BeingAliveLanguage
 {
@@ -18,6 +20,8 @@ namespace BeingAliveLanguage
             this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
             this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
             this.ptMap = new ConcurrentDictionary<string, Point3d>();
+            this.distNorm = new Normal(3.5, 0.5);
+
         }
 
         public SoilMap(in Plane pl)
@@ -26,6 +30,7 @@ namespace BeingAliveLanguage
             this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
             this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
             this.ptMap = new ConcurrentDictionary<string, Point3d>();
+            this.distNorm = new Normal(3.5, 0.5);
         }
 
         private void AddNeighbour(string strLoc, int idx, in Point3d refP, in Point3d P)
@@ -44,7 +49,7 @@ namespace BeingAliveLanguage
             for (int i = 0; i < 3; i++)
             {
                 var pt = tri[i];
-                var floatPT = new Point3f((float)pt[0], (float)pt[1], (float)pt[2]);
+                var floatPT = new Point3f((float)pt.X, (float)pt.Y, (float)pt.Z);
 
                 var kdKey = new[] { floatPT.X, floatPT.Y, floatPT.Z };
                 var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
@@ -100,6 +105,43 @@ namespace BeingAliveLanguage
             unitLen /= 3;
         }
 
+        public string GetNearestPoint(in Point3d pt)
+        {
+            var resNode = kdMap.GetNearestNeighbours(new float[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, 1);
+
+            // error case
+            if (resNode.Length == 0)
+            {
+                return "";
+            }
+
+            return resNode[0].Value;
+        }
+
+        private int SampleIdx()
+        {
+            // make sure fall into [2, 5] due to the hex arrangement and index
+            var sampleIdx = (int)Math.Round(distNorm.Sample());
+            while (sampleIdx < 2 || sampleIdx > 5)
+                sampleIdx = (int)Math.Round(distNorm.Sample());
+
+            return sampleIdx;
+        }
+
+        public (double, string) GetNextPointAndDistance(in string pt)
+        {
+            var idx = SampleIdx();
+
+            var (dis, nextPt) = topoMap[pt][idx];
+            while (nextPt == "")
+            {
+                idx = SampleIdx();
+                (dis, nextPt) = topoMap[pt][idx];
+            }
+
+            return (dis, nextPt);
+        }
+
         public Point3d GetPoint(string strKey)
         {
             return ptMap[strKey];
@@ -108,9 +150,10 @@ namespace BeingAliveLanguage
 
         Plane pln;
         double unitLen = float.MaxValue;
-        KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
-        ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
-        ConcurrentDictionary<string, Point3d> ptMap;
+        readonly KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
+        readonly ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
+        public ConcurrentDictionary<string, Point3d> ptMap;
+        readonly Normal distNorm = new Normal();
 
     }
 
@@ -121,23 +164,83 @@ namespace BeingAliveLanguage
 
         }
 
-        public Root(in SoilMap map, in Point3d anchor, int rootType = 2)
+        public Root(in SoilMap map, in Point3d anchor, int rootType = 1)
         {
             sMap = map;
             anc = anchor;
             rType = rootType;
         }
 
-        public void GrowRoot(double radius, List<double> distr = null)
+        // rootTyle: 0 - single, 1 - multi(branching)
+        public void GrowRoot(double radius)
         {
-            if (distr == null)
-                distr = (rType == 4 ? distr4 : distr3);
-
             // init starting ptKey
+            var anchorOnMap = sMap.GetNearestPoint(anc);
+            if (anchorOnMap != null)
+                frontKey.Add(anchorOnMap);
+
+            // build a distance map from anchor point
+            // using euclidian distance, not grid distance for ease
+            disMap.Clear();
+            foreach (var pt in sMap.ptMap)
+            {
+                disMap[pt.Key] = pt.Value.DistanceTo(anc);
+            }
 
 
             // grow root until given radius is reached
+            double curR = 0;
+            double aveR = 0;
 
+            int branchNum;
+            switch (rType)
+            {
+                case 0:
+                    branchNum = 1;
+                    break;
+                case 1:
+                    branchNum = 2;
+                    break;
+                default:
+                    branchNum = 1;
+                    break;
+            }
+
+            // 1000 is the limits, in case infinite loop
+            for (int i = 0; i < 5000; i++)
+            {
+                if (frontKey.Count == 0 || curR >= radius)
+                    break;
+
+                // pop the first element
+                var rndIdx = new Random().Next(0, frontKey.Count()) % frontKey.Count;
+                var startPt = frontKey.ElementAt(rndIdx);
+                frontKey.Remove(startPt);
+                nextFrontKey.Clear();
+
+                // use this element as starting point, grow roots
+                int branchCnt = 0;
+                for (int j = 0; j < 20; j++)
+                {
+                    if (branchCnt >= branchNum)
+                        break;
+
+                    // the GetNextPointAndDistance guarantee grow downwards
+                    var (dis, nextPt) = sMap.GetNextPointAndDistance(in startPt);
+                    if (nextFrontKey.Add(nextPt))
+                    {
+                        crv.Add(new Line(sMap.GetPoint(startPt), sMap.GetPoint(nextPt)));
+                        curR = disMap[nextPt] > curR ? disMap[nextPt] : curR;
+
+                        branchCnt += 1;
+                    }
+                }
+
+                frontKey.UnionWith(nextFrontKey);
+                var disLst = frontKey.Select(x => disMap[x]).ToList();
+                disLst.Sort();
+                aveR = disLst[(disLst.Count() - 1) / 2];
+            }
         }
 
         // public variables
@@ -145,12 +248,11 @@ namespace BeingAliveLanguage
 
         // internal variables
         HashSet<string> frontKey = new HashSet<string>();
+        HashSet<string> nextFrontKey = new HashSet<string>();
+        ConcurrentDictionary<string, double> disMap = new ConcurrentDictionary<string, double>();
         Point3d anc = new Point3d();
         SoilMap sMap = new SoilMap();
         int rType = 2;
 
-        // default distribution
-        List<double> distr3 = new List<double> { 0.1, 0.8, 0.1 };
-        List<double> distr4 = new List<double> { 0.05, 0.45, 0.45, 0.05 };
     }
 }

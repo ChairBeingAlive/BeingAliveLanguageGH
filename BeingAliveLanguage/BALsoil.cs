@@ -195,13 +195,6 @@ namespace BeingAliveLanguage
 
             var allT = sandT.Concat(siltT).Concat(clayT).ToList();
             DA.SetDataList(4, allT);
-
-            // for debugging info
-            //if (!String.IsNullOrEmpty(msg))
-            //{
-            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, msg);
-            //}
-
         }
 
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv;

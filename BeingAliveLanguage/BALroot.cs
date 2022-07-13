@@ -121,10 +121,13 @@ namespace BeingAliveLanguage
             if (!DA.GetData(2, ref radius))
             { return; }
 
+            var rType = singleForm ? 0 : 1;
+            var root = new Root(sMap, anchor, rType);
 
+            root.GrowRoot(radius);
+            //var res = root.crv;
 
-            var res = new List<Line>();
-            DA.SetData(0, res);
+            DA.SetDataList(0, root.crv);
         }
 
         bool singleForm = false;
