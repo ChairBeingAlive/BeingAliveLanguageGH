@@ -15,7 +15,7 @@ using BALcontract;
 
 namespace BeingAliveLanguage
 {
-    public class BALRootSoilMapSec : GH_BAL
+    public class BALRootSoilMap : GH_BAL
     {
         // import func collection from MEF.
         [Import(typeof(IPlugin))]
@@ -24,8 +24,8 @@ namespace BeingAliveLanguage
         /// <summary>
         /// Initializes a new instance of the MyComponent1 class.
         /// </summary>
-        public BALRootSoilMapSec()
-          : base("RootSoilMap_Sectional", "balSoilMap_S",
+        public BALRootSoilMap()
+          : base("Root_SoilMap (tri-Based)", "balSoilMap_S",
               "Build the sectional soil map for root drawing.",
               "BAL", "02::root")
         {
@@ -87,7 +87,7 @@ namespace BeingAliveLanguage
         {
         }
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -99,7 +99,7 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("RootSectional", "rootS", "The sectional root drawing.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("RootSectional", "root", "The sectional root drawing.", GH_ParamAccess.list);
         }
 
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
@@ -122,7 +122,7 @@ namespace BeingAliveLanguage
             { return; }
 
             var rType = singleForm ? 0 : 1;
-            var root = new Root(sMap, anchor, rType);
+            var root = new RootSec(sMap, anchor, rType);
 
             root.GrowRoot(radius);
             //var res = root.crv;
@@ -154,16 +154,36 @@ namespace BeingAliveLanguage
         {
         }
 
-        public override GH_Exposure Exposure => GH_Exposure.primary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+            pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
+
+            pManager.AddNumberParameter("Scale", "scale", "Root scaling.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Phase", "phase", "Current root phase.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Division Num", "divN", "The number of initial root branching.", GH_ParamAccess.item);
+
+            // 5-6
+            pManager.AddCurveParameter("Env Attractor", "envAtt", "Environmental attracting area (water, resource, etc.).", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Env Repeller", "envRep", "Environmental repelling area (dryness, poison, etc.).", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("ToggleEnvAffector", "envToggle", "Toggle the affects caused by environmental factors.", GH_ParamAccess.item, false);
+
+            pManager[5].Optional = true;
+            pManager[6].Optional = true;
+            pManager[7].Optional = true;
         }
 
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("RootPlanar", "rootP", "The planar root drawing.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("RootPlanar", "rootAll", "The planar root drawing.", GH_ParamAccess.list);
+
+            pManager.AddGenericParameter("RootPlanarLevel-1", "rootLv1", "Level 1 root components.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("RootPlanarLevel-2", "rootLv2", "Level 2 root components.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("RootPlanarLevel-3", "rootLv3", "Level 3 root components.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("RootPlanarLevel-4", "rootLv4", "Level 4 root components.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

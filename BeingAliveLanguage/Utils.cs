@@ -157,14 +157,14 @@ namespace BeingAliveLanguage
 
     }
 
-    class Root
+    class RootSec
     {
-        public Root()
+        public RootSec()
         {
 
         }
 
-        public Root(in SoilMap map, in Point3d anchor, int rootType = 1)
+        public RootSec(in SoilMap map, in Point3d anchor, int rootType = 1)
         {
             sMap = map;
             anc = anchor;
@@ -254,5 +254,16 @@ namespace BeingAliveLanguage
         SoilMap sMap = new SoilMap();
         int rType = 2;
 
+    }
+
+    class RootPlanar
+    {
+        public RootPlanar() { }
+
+        public RootPlanar(in SoilMap soilmap, in Point3d anchor, double scale, int phase, int divN,
+            in List<Curve> envA, in List<Curve> envR, bool envToggle)
+        { }
+
+        SoilMap sMap = new SoilMap();
     }
 }
