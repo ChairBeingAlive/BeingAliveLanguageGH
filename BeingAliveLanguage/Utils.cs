@@ -25,13 +25,14 @@ namespace BeingAliveLanguage
 
         }
 
-        public SoilMap(in Plane pl)
+        public SoilMap(in Plane pl, in string mapMode)
         {
             this.pln = pl;
             this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
             this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
             this.ptMap = new ConcurrentDictionary<string, Point3d>();
             this.distNorm = new Normal(3.5, 0.5);
+            this.mapMode = mapMode;
         }
 
         private void AddNeighbour(string strLoc, int idx, in Point3d refP, in Point3d P)
@@ -43,24 +44,25 @@ namespace BeingAliveLanguage
             }
         }
 
-        private void AddTri(in Polyline tri)
+        private void AddPoly(in Polyline poly)
         {
-            // use kdTree for duplication removal
-            // use concurrentDict for neighbour storage 
-            for (int i = 0; i < 3; i++)
+            // for sectional drawing, all triangle build degree-based point relations 
+            if (this.mapMode == "sectional")
             {
-                var pt = tri[i];
-                var floatPT = new Point3f((float)pt.X, (float)pt.Y, (float)pt.Z);
-
-                var kdKey = new[] { floatPT.X, floatPT.Y, floatPT.Z };
-                var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
-                var strLoc = Utils.PtString(pt);
-
-                if (res.Length == 0)
+                // use kdTree for duplication removal
+                // use concurrentDict for neighbour storage 
+                for (int i = 0; i < 3; i++)
                 {
-                    kdMap.Add(kdKey, strLoc);
-                    ptMap.TryAdd(strLoc, pt);
-                    topoMap.TryAdd(strLoc, new List<Tuple<float, string>> {
+                    var pt = poly[i];
+                    var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+                    var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
+                    var strLoc = Utils.PtString(pt);
+
+                    if (res.Length == 0)
+                    {
+                        kdMap.Add(kdKey, strLoc);
+                        ptMap.TryAdd(strLoc, pt);
+                        topoMap.TryAdd(strLoc, new List<Tuple<float, string>> {
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, ""),
@@ -68,62 +70,73 @@ namespace BeingAliveLanguage
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, "")
                     });
-                }
+                    }
 
-                List<Point3d> surLst = new List<Point3d> { tri[(i + 1) % 3], tri[(i + 2) % 3] };
-                foreach (var pNext in surLst)
-                {
-                    var vP = pNext - pt;
-                    var ang = Utils.ToDegree(Vector3d.VectorAngle(pln.XAxis, vP, pln.ZAxis));
+                    List<Point3d> surLst = new List<Point3d> { poly[(i + 1) % 3], poly[(i + 2) % 3] };
+                    foreach (var pNext in surLst)
+                    {
+                        var vP = pNext - pt;
+                        var ang = Utils.ToDegree(Vector3d.VectorAngle(pln.XAxis, vP, pln.ZAxis));
 
-                    if (Math.Abs(ang - 60) < 1e-3)
-                        AddNeighbour(strLoc, 0, pt, pNext);
-                    else if (Math.Abs(ang - 120) < 1e-3)
-                        AddNeighbour(strLoc, 1, pt, pNext);
-                    else if (Math.Abs(ang - 180) < 1e-3)
-                        AddNeighbour(strLoc, 2, pt, pNext);
-                    else if (Math.Abs(ang - 240) < 1e-3)
-                        AddNeighbour(strLoc, 3, pt, pNext);
-                    else if (Math.Abs(ang - 300) < 1e-3)
-                        AddNeighbour(strLoc, 4, pt, pNext);
-                    else if (Math.Abs(ang) < 1e-3)
-                        AddNeighbour(strLoc, 5, pt, pNext);
+                        if (Math.Abs(ang - 60) < 1e-3)
+                            AddNeighbour(strLoc, 0, pt, pNext);
+                        else if (Math.Abs(ang - 120) < 1e-3)
+                            AddNeighbour(strLoc, 1, pt, pNext);
+                        else if (Math.Abs(ang - 180) < 1e-3)
+                            AddNeighbour(strLoc, 2, pt, pNext);
+                        else if (Math.Abs(ang - 240) < 1e-3)
+                            AddNeighbour(strLoc, 3, pt, pNext);
+                        else if (Math.Abs(ang - 300) < 1e-3)
+                            AddNeighbour(strLoc, 4, pt, pNext);
+                        else if (Math.Abs(ang) < 1e-3)
+                            AddNeighbour(strLoc, 5, pt, pNext);
+                    }
                 }
             }
-
-        }
-
-        public void BuildMap(in List<Polyline> triLst, string mapMode)
-        {
-            if (mapMode == "sectional")
+            else if (this.mapMode == "planar")
             {
-                foreach (var tri in triLst)
+                // for general cases, just build map and remove duplicated points
+                for (int i = 0; i < poly.Count - 1; i++)
                 {
-                    this.AddTri(in tri);
+                    var pt = poly[i];
+                    var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+                    var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
+                    var strLoc = Utils.PtString(pt);
 
-                    if (tri.Length < unitLen)
-                        unitLen = tri.Length;
+                    if (res.Length == 0)
+                    {
+                        kdMap.Add(kdKey, strLoc);
+                        ptMap.TryAdd(strLoc, pt);
+                    }
                 }
-                // one side length
-                unitLen /= 3;
-            }
-            else if (mapMode == "planar")
-            {
-
             }
         }
 
-        public string GetNearestPoint(in Point3d pt)
+        public void BuildMap(in List<Polyline> polyLst)
         {
-            var resNode = kdMap.GetNearestNeighbours(new float[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, 1);
+            foreach (var tri in polyLst)
+            {
+                this.AddPoly(in tri);
+
+                if (tri.Length < unitLen)
+                    unitLen = tri.Length;
+            }
+            // one side length
+            unitLen /= 3;
+        }
+
+        public List<string> GetNearestPoint(in Point3d pt, int N)
+        {
+            var resNode = kdMap.GetNearestNeighbours(new float[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, N);
 
             // error case
             if (resNode.Length == 0)
             {
-                return "";
+                return new List<string>();
             }
 
-            return resNode[0].Value;
+            var resL = resNode.Select(x => x.Value).ToList();
+            return resL;
         }
 
         private int SampleIdx()
@@ -156,8 +169,8 @@ namespace BeingAliveLanguage
         }
 
 
-        Plane pln;
-        double unitLen = float.MaxValue;
+        public Plane pln;
+        public double unitLen = float.MaxValue;
         readonly KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
         readonly ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
         public ConcurrentDictionary<string, Point3d> ptMap;
@@ -184,7 +197,7 @@ namespace BeingAliveLanguage
         public void GrowRoot(double radius)
         {
             // init starting ptKey
-            var anchorOnMap = sMap.GetNearestPoint(anc);
+            var anchorOnMap = sMap.GetNearestPoint(anc, 1)[0];
             if (anchorOnMap != null)
                 frontKey.Add(anchorOnMap);
 
@@ -270,11 +283,190 @@ namespace BeingAliveLanguage
         public RootPlanar() { }
 
         public RootPlanar(in SoilMap soilmap, in Point3d anchor, double scale, int phase, int divN,
-            in List<Curve> envA, in List<Curve> envR, bool envToggle)
-        { }
+            in List<Curve> envA = null, in List<Curve> envR = null, double envRange = 0.0, bool envToggle = false)
+        {
+            this.sMap = soilmap;
+            this.anchor = anchor;
+            this.scale = scale;
+            this.phase = phase;
+            this.divN = divN;
 
-        SoilMap sMap = new SoilMap();
+            this.envA = envA;
+            this.envR = envR;
+            this.envDetectingDist = envRange * sMap.unitLen;
+            this.envT = envToggle;
+
+            for (int i = 0; i < 6; i++)
+            {
+                rCrv.Add(new List<Line>());
+                frontId.Add(new List<string>());
+                frontDir.Add(new List<Vector3d>());
+            }
+        }
+
+        public List<List<Line>> GrowRoot()
+        {
+            for (int i = 0; i < phase; i++)
+            {
+                switch (i)
+                {
+                    case 0:
+                        DrawPhaseCentre(0);
+                        break;
+                    case 1:
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            return new List<List<Line>>();
+        }
+
+        protected void DrawPhaseCentre(int phaseId)
+        {
+            var ang = Math.PI * 2 / divN;
+            var curLen = sMap.unitLen * scale * scaleFactor[0];
+
+            for (int i = 0; i < divN; i++)
+            {
+                var dir = sMap.pln.PointAt(Math.Cos(ang * i), Math.Sin(ang * i), 0) - sMap.pln.Origin;
+                BranchExtend(phaseId, anchor, dir, curLen);
+            }
+
+            // TODO: add AbsorbTrunk
+        }
+
+
+        protected void BranchExtend(int lvId, in Point3d startP, in Vector3d dir, double L)
+        {
+            var endPtOffGrid = envT ? GrowPointWithEnvEffect(startP, dir * L) : Point3d.Add(startP, dir * L);
+
+            // record
+            var ptKey2 = sMap.GetNearestPoint(endPtOffGrid, 2);
+            var endPkey = Utils.PtString(endPtOffGrid) == ptKey2[0] ? ptKey2[1] : ptKey2[0];
+            var endP = sMap.ptMap[endPkey];
+
+            var branchLn = new Line(startP, endP);
+
+            // draw
+            rCrv[lvId].Add(branchLn);
+            frontId[lvId].Add(endPkey);
+            frontDir[lvId].Add(branchLn.Direction);
+        }
+
+        /// <summary>
+        /// Use environment to affect the EndPoint.
+        /// If the startPt is inside any attractor / repeller area, that area will dominant the effect;
+        /// Otherwise, we accumulate weighted (dist-based) effect of all the attractor/repeller area.
+        /// </summary>
+        protected Point3d GrowPointWithEnvEffect(in Point3d pt, in Vector3d scaledDir)
+        {
+            var sortingDict = new SortedDictionary<double, Tuple<Curve, char>>();
+
+            // attractor
+            foreach (var crv in envA)
+            {
+                var contain = crv.Contains(pt, sMap.pln, 0.01);
+                if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
+                    return Point3d.Add(pt, scaledDir * forceInAttactor); // grow faster
+                else
+                {
+                    double dist;
+                    if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDetectingDist)
+                        sortingDict[dist] = new Tuple<Curve, char>(crv, 'a');
+                }
+            }
+
+            //repeller
+            foreach (var crv in envR)
+            {
+                var contain = crv.Contains(pt, sMap.pln, 0.01);
+                if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
+                    return Point3d.Add(pt, scaledDir * forceInRepeller); // grow slower
+                else
+                {
+                    double dist;
+                    if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDetectingDist)
+                        sortingDict[dist] = new Tuple<Curve, char>(crv, 'r');
+                }
+            }
+
+            // for how attractor and repeller affect the growth, considering the following cases:
+            // 1. for a given area inside the detecting range, get the facing segment to the testing point.
+            // 2. if the growing dir intersect the seg, growth intensity is affected;
+            // 2.1 accumulate the forces
+            // 3. if the growing dir doesn't interset the seg, but near the "facing cone", growing direction is affected;
+            // 4. otherwise, growing is not affected.
+
+
+            // each attractor/repeller curve act independently ==> resolve one by one, and average afterwards
+            var ptCol = new List<Point3d>();
+            foreach (var pair in sortingDict)
+            {
+                var (v0, v1) = Utils.GetPtCrvFacingVector(pt, sMap.pln, pair.Value.Item1);
+
+                // enlarge the ray range by 15-deg
+                var v0_enlarge = v0;
+                var v1_enlarge = v1;
+                v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.pln.ZAxis);
+                v1_enlarge.Rotate(Utils.ToRadian(15), sMap.pln.ZAxis);
+
+                // calcuate angles between dir and the 4 vec
+                var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.pln.ZAxis);
+                var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.pln.ZAxis);
+                var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.ZAxis);
+                var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.ZAxis);
+
+                // conditional decision:
+                // dir in [vec0_enlarge, vec0] => rotate CCW
+
+
+                // dir in [vec0, vec1] => grow with force
+
+
+                // dir in [vec1, vec1_enlarge] => rotate CW
+
+
+
+                // clamp force
+                var force = Math.Max(1 / (pair.Key * pair.Key), 2);
+
+
+
+            }
+
+
+
+            // return the modified point
+            return new Point3d();
+        }
+
+
+
+        protected SoilMap sMap = new SoilMap();
+        protected Point3d anchor = new Point3d();
+        readonly double scale = 1.0;
+        readonly int phase = 0;
+        readonly int divN = 4;
+
+        List<Curve> envA = null;
+        List<Curve> envR = null;
+        double envDetectingDist = 0;
+        bool envT = false;
+
+        double forceInAttactor = 2;
+        double forceOutAttractor = 1.5;
+        double forceInRepeller = 0.3;
+        double forceOutRepeller = 0.5;
+
+        readonly private List<double> scaleFactor = new List<double> { 1, 1.2, 1.5, 2, 2.5 };
+
+        List<List<Line>> rCrv = new List<List<Line>>();
+        List<List<string>> frontId = new List<List<string>>();
+        List<List<Vector3d>> frontDir = new List<List<Vector3d>>();
     }
+
 
     static class Menu
     {

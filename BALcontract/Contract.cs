@@ -66,6 +66,42 @@ namespace BALcontract
         // radian <=> degree
         public static double ToDegree(double x) => x / Math.PI * 180;
         public static double ToRadian(double x) => x * Math.PI / 180;
+
+        // get a signed angle value from two vectors given a normal vector
+        public static Func<Vector3d, Vector3d, Vector3d, double> SignedVecAngle = (v0, v1, vN) =>
+        {
+            var dotValue = v0 * v1 * 0.9999999; // tolerance issue
+            var angle = ToDegree(Math.Acos(dotValue));
+            var crossValue = Vector3d.CrossProduct(v0, v1);
+
+            return angle * (crossValue * vN < 0 ? -1 : 1);
+        };
+
+        // get the two vector defining the facing cone between a testing point and a curve
+        public static (Vector3d, Vector3d) GetPtCrvFacingVector(in Point3d pt, in Plane P, Curve crv, int N = 100)
+        {
+            var ptList = crv.DivideByCount(N, true).Select(t => crv.PointAt(t)).ToList();
+
+            // get centroid
+            var cen = new Point3d(0, 0, 0);
+            foreach (var p in ptList)
+            {
+                cen += p;
+            }
+            cen /= ptList.Count;
+
+            var refVec = cen - pt;
+            var sortingDict = new SortedDictionary<double, Point3d>();
+
+            foreach (var (p, i) in ptList.Select((p, i) => (p, i)))
+            {
+                var curVec = pt - p;
+                var key = SignedVecAngle(refVec, curVec, P.ZAxis);
+                sortingDict.Add(key, p);
+            }
+
+            return (sortingDict.First().Value - pt, sortingDict.Last().Value - pt);
+        }
     }
 
 

@@ -60,10 +60,10 @@ namespace BeingAliveLanguage
             if (!DA.GetDataList(1, polyCrvs))
             { return; }
 
-            SoilMap sMap = new SoilMap(pln);
+            SoilMap sMap = new SoilMap(pln, mapMode);
 
             var polyL = polyCrvs.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            sMap.BuildMap(polyL, mapMode);
+            sMap.BuildMap(polyL);
 
             DA.SetData(0, sMap);
         }
@@ -155,7 +155,7 @@ namespace BeingAliveLanguage
     }
 
     /// <summary>
-    /// Draw the root map in planar soil grid
+    /// Draw the root map in planar soil grid.
     /// </summary>
     public class BALRootPlanar : GH_BAL
     {
@@ -180,23 +180,25 @@ namespace BeingAliveLanguage
             pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
             pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
 
-            pManager.AddNumberParameter("Scale", "scale", "Root scaling.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Phase", "phase", "Current root phase.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Scale", "S", "Root scaling.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Phase", "P", "Current root phase.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Division Num", "divN", "The number of initial root branching.", GH_ParamAccess.item);
 
-            // 5-6
+            // 5-8
             pManager.AddCurveParameter("Env Attractor", "envAtt", "Environmental attracting area (water, resource, etc.).", GH_ParamAccess.list);
             pManager.AddCurveParameter("Env Repeller", "envRep", "Environmental repelling area (dryness, poison, etc.).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Env DetectionRange", "envRange", "The range (to unit length of the grid) that a root can detect surrounding environment.", GH_ParamAccess.item, 5);
             pManager.AddBooleanParameter("ToggleEnvAffector", "envToggle", "Toggle the affects caused by environmental factors.", GH_ParamAccess.item, false);
 
             pManager[5].Optional = true;
             pManager[6].Optional = true;
             pManager[7].Optional = true;
+            pManager[8].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("RootPlanar", "rootAll", "The planar root drawing.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("RootPlanar", "rootAll", "The planar root drawing, collection of all level branches.", GH_ParamAccess.list);
 
             pManager.AddGenericParameter("RootPlanarLevel-1", "rootLv1", "Level 1 root components.", GH_ParamAccess.list);
             pManager.AddGenericParameter("RootPlanarLevel-2", "rootLv2", "Level 2 root components.", GH_ParamAccess.list);
@@ -212,6 +214,66 @@ namespace BeingAliveLanguage
 
             if (!DA.GetData(0, ref sMap) || sMap.mapMode != "planar")
             { return; }
+
+            var anchor = new Point3d();
+            if (!DA.GetData(1, ref anchor))
+            { return; }
+
+            double scale = 0;
+            if (!DA.GetData(2, ref scale))
+            { return; }
+
+            int phase = 0;
+            if (!DA.GetData(3, ref phase))
+            { return; }
+
+            int divN = 1;
+            if (!DA.GetData(4, ref divN))
+            { return; }
+
+            // optional param
+            List<Curve> envAtt = new List<Curve>();
+            List<Curve> envRep = new List<Curve>();
+            double envRange = 5;
+            bool envToggle = false;
+            DA.GetDataList(5, envAtt);
+            DA.GetDataList(6, envRep);
+            DA.GetData(7, ref envRange);
+            DA.GetData(8, ref envToggle);
+
+            if (envToggle)
+            {
+                foreach (var crv in envAtt)
+                {
+                    if (!crv.IsClosed)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Attractors contain non-closed curve.");
+                        return;
+                    }
+
+                }
+
+                foreach (var crv in envRep)
+                {
+                    if (!crv.IsClosed)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Repellers contain non-closed curve.");
+                        return;
+                    }
+
+                }
+            }
+
+            var root = new RootPlanar(sMap, anchor, scale, phase, divN, envAtt, envRep, envRange, envToggle);
+            var rtRes = root.GrowRoot();
+
+            DA.SetDataList(1, rtRes[0]);
+            DA.SetDataList(2, rtRes[1]);
+            DA.SetDataList(3, rtRes[2]);
+            DA.SetDataList(4, rtRes[3]);
+
+            var all = rtRes.Aggregate(new List<Line>(), (x, y) => x.Concat(y).ToList());
+
         }
 
         protected override System.Drawing.Bitmap Icon => null;
