@@ -12,6 +12,8 @@ using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
 using System.Windows.Forms;
 using BALcontract;
+using BeingAliveLanguage;
+using GH_IO.Serialization;
 
 namespace BeingAliveLanguage
 {
@@ -25,17 +27,19 @@ namespace BeingAliveLanguage
         /// Initializes a new instance of the MyComponent1 class.
         /// </summary>
         public BALRootSoilMap()
-          : base("Root_SoilMap (tri-Based)", "balSoilMap_S",
-              "Build the sectional soil map for root drawing.",
+          : base("Root_SoilMap", "balSoilMap",
+              "Build the soil map for root drawing.",
               "BAL", "02::root")
         {
         }
+
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddPlaneParameter("Plane", "P", "Base plan where the soil map exists.", GH_ParamAccess.item, Rhino.Geometry.Plane.WorldXY);
-            pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles of the soil map.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Soil Polygon", "soilPoly", "Soil polygons that representing the soil. " +
+                "For sectional soil, this should be triangles; for planar soil, this can be any tessellation.", GH_ParamAccess.list);
 
             pManager[0].Optional = true;
             pManager[1].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
@@ -51,22 +55,34 @@ namespace BeingAliveLanguage
             this.LoadDll();
 
             Plane pln = new Plane();
-            List<Curve> triL = new List<Curve>();
+            List<Curve> polyCrvs = new List<Curve>();
             DA.GetData(0, ref pln);
-            if (!DA.GetDataList(1, triL))
+            if (!DA.GetDataList(1, polyCrvs))
             { return; }
 
             SoilMap sMap = new SoilMap(pln);
 
-            var triPoly = triL.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
-            sMap.BuildMap(triPoly);
+            var polyL = polyCrvs.Select(x => Utils.CvtCrvToPoly(x)).ToList();
+            sMap.BuildMap(polyL, mapMode);
 
             DA.SetData(0, sMap);
         }
 
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+            Menu_AppendItem(menu, "Sectional", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "sectional"), true, CheckMode("sectional"));
+            Menu_AppendItem(menu, "Planar", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "planar"), true, CheckMode("planar"));
+        }
+
+        private bool CheckMode(string _modeCheck) => mapMode == _modeCheck;
+
         protected override System.Drawing.Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
+
+        private string mapMode = "sectional";
     }
+
 
     /// <summary>
     /// Draw the root in sectional soil grid.
@@ -96,7 +112,6 @@ namespace BeingAliveLanguage
             pManager.AddNumberParameter("Radius", "R", "Root Radius.", GH_ParamAccess.item);
         }
 
-
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("RootSectional", "root", "The sectional root drawing.", GH_ParamAccess.list);
@@ -105,8 +120,11 @@ namespace BeingAliveLanguage
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalMenuItems(menu);
-            Menu_AppendItem(menu, "Single Form", (sender, e) => singleForm = !singleForm, true, singleForm);
+            Menu_AppendItem(menu, "Single Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "s"), true, CheckMode("s"));
+            Menu_AppendItem(menu, "Multi  Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "m"), true, CheckMode("m"));
         }
+
+        private bool CheckMode(string _modeCheck) => formMode == _modeCheck;
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
@@ -115,22 +133,23 @@ namespace BeingAliveLanguage
             var sMap = new SoilMap();
             var anchor = new Point3d();
             double radius = 10.0;
-            DA.GetData(0, ref sMap);
+
+            if (!DA.GetData(0, ref sMap) || sMap.mapMode != "sectional")
+            { return; }
             if (!DA.GetData(1, ref anchor))
             { return; }
             if (!DA.GetData(2, ref radius))
             { return; }
 
-            var rType = singleForm ? 0 : 1;
-            var root = new RootSec(sMap, anchor, rType);
 
+            var root = new RootSec(sMap, anchor, formMode);
             root.GrowRoot(radius);
-            //var res = root.crv;
 
             DA.SetDataList(0, root.crv);
+
         }
 
-        bool singleForm = false;
+        string formMode = "m";  // s-single, m-multi
         protected override System.Drawing.Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("A0E63559-41E8-4353-B78E-510E3FCEB577");
     }
@@ -175,7 +194,6 @@ namespace BeingAliveLanguage
             pManager[7].Optional = true;
         }
 
-
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("RootPlanar", "rootAll", "The planar root drawing.", GH_ParamAccess.list);
@@ -188,6 +206,12 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+
+            var sMap = new SoilMap();
+            DA.GetData(0, ref sMap);
+
+            if (!DA.GetData(0, ref sMap) || sMap.mapMode != "planar")
+            { return; }
         }
 
         protected override System.Drawing.Bitmap Icon => null;

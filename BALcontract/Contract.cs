@@ -49,7 +49,7 @@ namespace BALcontract
     public static class Utils
     {
         // convert the "Curve" type taken in by GH to a Rhino.Geometry.Polyline
-        public static Polyline CvtCrvToTriangle(in Curve c)
+        public static Polyline CvtCrvToPoly(in Curve c)
         {
             if (c.TryGetPolyline(out Polyline tmp) && tmp.IsClosed)
                 return tmp;

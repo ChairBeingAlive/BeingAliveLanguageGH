@@ -304,7 +304,7 @@ namespace BALcore
             OffsetWater(in List<Curve> tri, SoilProperty sInfo, double rWater, int denEmbedWater, int denAvailWater)
         {
             // convert to polyline 
-            var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
+            var triPoly = tri.Select(x => Utils.CvtCrvToPoly(x)).ToList();
 
             // Datta, Sumon, Saleh Taghvaeian, and Jacob Stivers. Understanding Soil Water Content and Thresholds For Irrigation Management, 2017. https://doi.org/10.13140/RG.2.2.35535.89765.
             var coreRatio = 1 - sInfo.saturation;
@@ -386,7 +386,7 @@ namespace BALcore
         public (List<List<Line>>, OrganicMatterProperty) GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM)
         {
             var coreRatio = 1 - sInfo.saturation;
-            var triPoly = tri.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
+            var triPoly = tri.Select(x => Utils.CvtCrvToPoly(x)).ToList();
             var triCore = triPoly.Select(x => OffsetTri(x.Duplicate(), coreRatio)).ToList();
 
             // compute density based on distance to the soil surface

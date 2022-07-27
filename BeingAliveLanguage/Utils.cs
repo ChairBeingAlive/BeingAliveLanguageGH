@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Grasshopper.Kernel;
 using Rhino.Geometry;
 using System.Collections.Concurrent;
 
@@ -92,17 +93,24 @@ namespace BeingAliveLanguage
 
         }
 
-        public void BuildMap(in List<Polyline> triLst)
+        public void BuildMap(in List<Polyline> triLst, string mapMode)
         {
-            foreach (var tri in triLst)
+            if (mapMode == "sectional")
             {
-                this.AddTri(in tri);
+                foreach (var tri in triLst)
+                {
+                    this.AddTri(in tri);
 
-                if (tri.Length < unitLen)
-                    unitLen = tri.Length;
+                    if (tri.Length < unitLen)
+                        unitLen = tri.Length;
+                }
+                // one side length
+                unitLen /= 3;
             }
-            // one side length
-            unitLen /= 3;
+            else if (mapMode == "planar")
+            {
+
+            }
         }
 
         public string GetNearestPoint(in Point3d pt)
@@ -154,6 +162,7 @@ namespace BeingAliveLanguage
         readonly ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
         public ConcurrentDictionary<string, Point3d> ptMap;
         readonly Normal distNorm = new Normal();
+        public string mapMode = "sectional";
 
     }
 
@@ -164,7 +173,7 @@ namespace BeingAliveLanguage
 
         }
 
-        public RootSec(in SoilMap map, in Point3d anchor, int rootType = 1)
+        public RootSec(in SoilMap map, in Point3d anchor, string rootType = "s")
         {
             sMap = map;
             anc = anchor;
@@ -195,10 +204,10 @@ namespace BeingAliveLanguage
             int branchNum;
             switch (rType)
             {
-                case 0:
+                case "s":
                     branchNum = 1;
                     break;
-                case 1:
+                case "m":
                     branchNum = 2;
                     break;
                 default:
@@ -252,7 +261,7 @@ namespace BeingAliveLanguage
         ConcurrentDictionary<string, double> disMap = new ConcurrentDictionary<string, double>();
         Point3d anc = new Point3d();
         SoilMap sMap = new SoilMap();
-        int rType = 2;
+        string rType = "s";
 
     }
 
@@ -265,5 +274,15 @@ namespace BeingAliveLanguage
         { }
 
         SoilMap sMap = new SoilMap();
+    }
+
+    static class Menu
+    {
+        public static void SelectMode(GH_Component _this, object sender, EventArgs e, ref string _mode, string _setTo)
+        {
+            _mode = _setTo;
+            _this.ExpireSolution(true);
+        }
+
     }
 }

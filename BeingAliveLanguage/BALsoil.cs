@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
 using BALcontract;
+using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
@@ -68,6 +69,17 @@ namespace BeingAliveLanguage
         {
             throw new NotImplementedException();
         }
+
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+        }
+
+        //protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
+        //{
+        //base.AppendAdditionalComponentMenuItems(menu);
+        //    Menu_AppendItem(menu, "Default");
+        //}
+
     }
 
     public class BALsoilBase : GH_BAL
@@ -182,7 +194,7 @@ namespace BeingAliveLanguage
             { return; }
             DA.GetDataList(4, rock);
 
-            List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToTriangle(x)).ToList();
+            List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToPoly(x)).ToList();
             double[] ratio = new double[3] { rSand, rSilt, rClay };
 
             // call the actural function
