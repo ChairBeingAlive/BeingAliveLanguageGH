@@ -124,11 +124,9 @@ namespace BeingAliveLanguage
             var (uL, res) = mFunc.MakeTriMap(ref rec, rsl);
 
             GH_Structure<GH_Curve> triArray = new GH_Structure<GH_Curve>();
-            //DataTree<PolylineCurve> triArray = new DataTree<PolylineCurve>();
             for (int i = 0; i < res.Count; i++)
             {
                 var path = new GH_Path(i);
-                //triArray.AddRange(res[i].Select(x=>new GH_Curve(x)), path);
                 triArray.AppendRange(res[i].Select(x => new GH_Curve(x)), path);
             }
             DA.SetDataTree(0, triArray);

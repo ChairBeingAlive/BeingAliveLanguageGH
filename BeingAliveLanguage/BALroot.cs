@@ -69,6 +69,7 @@ namespace BeingAliveLanguage
             var conPoly = new ConcurrentBag<Polyline>();
             SoilMap sMap = new SoilMap(pln, mapMode);
 
+            // TODO: find better ways to convert IGH_GOO to polyline
             if (inputGeo[0].CastTo<Point3d>(out Point3d pt))
             {
                 Parallel.ForEach(inputGeo, goo =>
@@ -78,6 +79,16 @@ namespace BeingAliveLanguage
                 });
 
                 sMap.BuildMap(conPt);
+            }
+            else if (inputGeo[0].CastTo<Polyline>(out Polyline pl))
+            {
+                Parallel.ForEach(inputGeo, goo =>
+                {
+                    goo.CastTo<Polyline>(out Polyline p);
+                    conPoly.Add(p);
+                });
+
+                sMap.BuildMap(conPoly);
             }
             else if (inputGeo[0].CastTo<Curve>(out Curve crv))
             {
@@ -90,6 +101,14 @@ namespace BeingAliveLanguage
                     }
                 });
                 sMap.BuildMap(conPoly);
+            }
+            else if (inputGeo[0].CastTo<Rectangle3d>(out Rectangle3d rec))
+            {
+                Parallel.ForEach(inputGeo, goo =>
+                {
+                    goo.CastTo<Rectangle3d>(out Rectangle3d c);
+                    conPoly.Add(c.ToPolyline());
+                });
             }
 
             DA.SetData(0, sMap);
@@ -123,7 +142,7 @@ namespace BeingAliveLanguage
             return base.Read(reader);
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootMap;
         public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
 
         private string mapMode = "sectional";
@@ -215,7 +234,7 @@ namespace BeingAliveLanguage
         }
 
         string formMode = "multi";  // s-single, m-multi
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
         public override Guid ComponentGuid => new Guid("A0E63559-41E8-4353-B78E-510E3FCEB577");
     }
 
@@ -345,7 +364,7 @@ namespace BeingAliveLanguage
             DA.SetDataList(6, rtAbs);
         }
 
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootPlanar;
         public override Guid ComponentGuid => new Guid("8F8C6D2B-22F2-4511-A7C0-AA8CF2FDA42C");
     }
 
