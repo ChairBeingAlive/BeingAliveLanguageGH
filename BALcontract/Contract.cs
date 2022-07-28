@@ -99,10 +99,15 @@ namespace BALcontract
             {
                 var curVec = pt - p;
                 var key = SignedVecAngle(refVec, curVec, P.ZAxis);
-                sortingDict.Add(key, p);
+                if (!sortingDict.ContainsKey(key))
+                    sortingDict.Add(key, p);
             }
+            var v0 = sortingDict.First().Value - pt;
+            var v1 = sortingDict.Last().Value - pt;
+            v0.Unitize();
+            v1.Unitize();
 
-            return (sortingDict.First().Value - pt, sortingDict.Last().Value - pt);
+            return (v0, v1);
         }
     }
 

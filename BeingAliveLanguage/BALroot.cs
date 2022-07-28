@@ -14,6 +14,8 @@ using System.Windows.Forms;
 using BALcontract;
 using BeingAliveLanguage;
 using GH_IO.Serialization;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace BeingAliveLanguage
 {
@@ -38,8 +40,9 @@ namespace BeingAliveLanguage
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddPlaneParameter("Plane", "P", "Base plan where the soil map exists.", GH_ParamAccess.item, Rhino.Geometry.Plane.WorldXY);
-            pManager.AddCurveParameter("Soil Polygon", "soilPoly", "Soil polygons that representing the soil. " +
-                "For sectional soil, this should be triangles; for planar soil, this can be any tessellation.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Soil Geo", "soilG", "Soil geometry that representing the soil. " +
+                "For sectional soil, this should be triangles;" +
+                "for planar soil, this can be any tessellation or just a point collection.", GH_ParamAccess.list);
 
             pManager[0].Optional = true;
             pManager[1].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
@@ -54,16 +57,40 @@ namespace BeingAliveLanguage
         {
             this.LoadDll();
 
-            Plane pln = new Plane();
-            List<Curve> polyCrvs = new List<Curve>();
+            var pln = new Plane();
             DA.GetData(0, ref pln);
-            if (!DA.GetDataList(1, polyCrvs))
+
+
+            var inputGeo = new List<IGH_Goo>();
+            if (!DA.GetDataList(1, inputGeo))
             { return; }
 
+            var conPt = new ConcurrentBag<Point3d>();
+            var conPoly = new ConcurrentBag<Polyline>();
             SoilMap sMap = new SoilMap(pln, mapMode);
 
-            var polyL = polyCrvs.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            sMap.BuildMap(polyL);
+            if (inputGeo[0].CastTo<Point3d>(out Point3d pt))
+            {
+                Parallel.ForEach(inputGeo, goo =>
+                {
+                    goo.CastTo<Point3d>(out Point3d p);
+                    conPt.Add(p);
+                });
+
+                sMap.BuildMap(conPt);
+            }
+            else if (inputGeo[0].CastTo<Curve>(out Curve crv))
+            {
+                Parallel.ForEach(inputGeo, goo =>
+                {
+                    goo.CastTo<Curve>(out Curve c);
+                    if (c.TryGetPolyline(out Polyline ply))
+                    {
+                        conPoly.Add(ply);
+                    }
+                });
+                sMap.BuildMap(conPoly);
+            }
 
             DA.SetData(0, sMap);
         }
@@ -71,8 +98,11 @@ namespace BeingAliveLanguage
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalMenuItems(menu);
-            Menu_AppendItem(menu, "Sectional", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "sectional"), true, CheckMode("sectional"));
-            Menu_AppendItem(menu, "Planar", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "planar"), true, CheckMode("planar"));
+
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Map Mode:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+            Menu_AppendItem(menu, " Sectional", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "sectional"), true, CheckMode("sectional"));
+            Menu_AppendItem(menu, " Planar", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "planar"), true, CheckMode("planar"));
         }
 
         private bool CheckMode(string _modeCheck) => mapMode == _modeCheck;
@@ -136,8 +166,11 @@ namespace BeingAliveLanguage
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalMenuItems(menu);
-            Menu_AppendItem(menu, "Single Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "single"), true, CheckMode("single"));
-            Menu_AppendItem(menu, "Multi  Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "multi"), true, CheckMode("multi"));
+
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Root Type:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+            Menu_AppendItem(menu, " Single Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "single"), true, CheckMode("single"));
+            Menu_AppendItem(menu, " Multi  Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "multi"), true, CheckMode("multi"));
         }
 
         private bool CheckMode(string _modeCheck) => formMode == _modeCheck;
@@ -230,12 +263,15 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("RootPlanar", "rootAll", "The planar root drawing, collection of all level branches.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPlanar", "rootAll", "The planar root drawing, collection of all level branches.", GH_ParamAccess.list);
 
-            pManager.AddGenericParameter("RootPlanarLevel-1", "rootLv1", "Level 1 root components.", GH_ParamAccess.list);
-            pManager.AddGenericParameter("RootPlanarLevel-2", "rootLv2", "Level 2 root components.", GH_ParamAccess.list);
-            pManager.AddGenericParameter("RootPlanarLevel-3", "rootLv3", "Level 3 root components.", GH_ParamAccess.list);
-            pManager.AddGenericParameter("RootPlanarLevel-4", "rootLv4", "Level 4 root components.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPlanarLevel-1", "rootLv1", "Level 1 root components.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPlanarLevel-2", "rootLv2", "Level 2 root components.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPlanarLevel-3", "rootLv3", "Level 3 root components.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPlanarLevel-4", "rootLv4", "Level 4 root components.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPlanarLevel-5", "rootLv5", "Level 5 root components.", GH_ParamAccess.list);
+
+            pManager.AddLineParameter("RootPlanarAbsorb", "rootAbsorb", "Absorbant roots.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -244,8 +280,13 @@ namespace BeingAliveLanguage
             var sMap = new SoilMap();
             DA.GetData(0, ref sMap);
 
-            if (!DA.GetData(0, ref sMap) || sMap.mapMode != "planar")
+            if (!DA.GetData(0, ref sMap))
             { return; }
+            if (sMap.mapMode != "planar")
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Soil map type is not 'planar'.");
+                return;
+            }
 
             var anchor = new Point3d();
             if (!DA.GetData(1, ref anchor))
@@ -291,16 +332,17 @@ namespace BeingAliveLanguage
             }
 
             var root = new RootPlanar(sMap, anchor, scale, phase, divN, envAtt, envRep, envRange, envToggle);
-            var rtRes = root.GrowRoot();
+            var (rtRes, rtAbs) = root.GrowRoot();
 
+            var allRt = rtRes.Aggregate(new List<Line>(), (x, y) => x.Concat(y).ToList());
+
+            DA.SetDataList(0, allRt);
             DA.SetDataList(1, rtRes[0]);
             DA.SetDataList(2, rtRes[1]);
             DA.SetDataList(3, rtRes[2]);
             DA.SetDataList(4, rtRes[3]);
-
-            var allRt = rtRes.Aggregate(new List<Line>(), (x, y) => x.Concat(y).ToList());
-            DA.SetDataList(0, allRt);
-
+            DA.SetDataList(5, rtRes[4]);
+            DA.SetDataList(6, rtAbs);
         }
 
         protected override System.Drawing.Bitmap Icon => null;

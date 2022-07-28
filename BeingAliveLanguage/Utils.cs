@@ -44,25 +44,22 @@ namespace BeingAliveLanguage
             }
         }
 
-        private void AddPoly(in Polyline poly)
+        private void AddSectionalTri(in Polyline poly)
         {
-            // for sectional drawing, all triangle build degree-based point relations 
-            if (this.mapMode == "sectional")
+            // use kdTree for duplication removal
+            // use concurrentDict for neighbour storage 
+            for (int i = 0; i < 3; i++)
             {
-                // use kdTree for duplication removal
-                // use concurrentDict for neighbour storage 
-                for (int i = 0; i < 3; i++)
-                {
-                    var pt = poly[i];
-                    var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
-                    var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
-                    var strLoc = Utils.PtString(pt);
+                var pt = poly[i];
+                var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+                var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
+                var strLoc = Utils.PtString(pt);
 
-                    if (res.Length == 0)
-                    {
-                        kdMap.Add(kdKey, strLoc);
-                        ptMap.TryAdd(strLoc, pt);
-                        topoMap.TryAdd(strLoc, new List<Tuple<float, string>> {
+                if (res.Length == 0)
+                {
+                    kdMap.Add(kdKey, strLoc);
+                    ptMap.TryAdd(strLoc, pt);
+                    topoMap.TryAdd(strLoc, new List<Tuple<float, string>> {
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, ""),
@@ -70,64 +67,91 @@ namespace BeingAliveLanguage
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, "")
                     });
-                    }
+                }
 
-                    List<Point3d> surLst = new List<Point3d> { poly[(i + 1) % 3], poly[(i + 2) % 3] };
-                    foreach (var pNext in surLst)
-                    {
-                        var vP = pNext - pt;
-                        var ang = Utils.ToDegree(Vector3d.VectorAngle(pln.XAxis, vP, pln.ZAxis));
+                List<Point3d> surLst = new List<Point3d> { poly[(i + 1) % 3], poly[(i + 2) % 3] };
+                foreach (var pNext in surLst)
+                {
+                    var vP = pNext - pt;
+                    var ang = Utils.ToDegree(Vector3d.VectorAngle(pln.XAxis, vP, pln.ZAxis));
 
-                        if (Math.Abs(ang - 60) < 1e-3)
-                            AddNeighbour(strLoc, 0, pt, pNext);
-                        else if (Math.Abs(ang - 120) < 1e-3)
-                            AddNeighbour(strLoc, 1, pt, pNext);
-                        else if (Math.Abs(ang - 180) < 1e-3)
-                            AddNeighbour(strLoc, 2, pt, pNext);
-                        else if (Math.Abs(ang - 240) < 1e-3)
-                            AddNeighbour(strLoc, 3, pt, pNext);
-                        else if (Math.Abs(ang - 300) < 1e-3)
-                            AddNeighbour(strLoc, 4, pt, pNext);
-                        else if (Math.Abs(ang) < 1e-3)
-                            AddNeighbour(strLoc, 5, pt, pNext);
-                    }
+                    if (Math.Abs(ang - 60) < 1e-3)
+                        AddNeighbour(strLoc, 0, pt, pNext);
+                    else if (Math.Abs(ang - 120) < 1e-3)
+                        AddNeighbour(strLoc, 1, pt, pNext);
+                    else if (Math.Abs(ang - 180) < 1e-3)
+                        AddNeighbour(strLoc, 2, pt, pNext);
+                    else if (Math.Abs(ang - 240) < 1e-3)
+                        AddNeighbour(strLoc, 3, pt, pNext);
+                    else if (Math.Abs(ang - 300) < 1e-3)
+                        AddNeighbour(strLoc, 4, pt, pNext);
+                    else if (Math.Abs(ang) < 1e-3)
+                        AddNeighbour(strLoc, 5, pt, pNext);
                 }
             }
+        }
+
+        public void BuildMap(in ConcurrentBag<Polyline> polyBag)
+        {
+            // for sectional version, we need to get neighbouring relations.
+            // cannot use parallel, need sequential.
+            if (this.mapMode == "sectional")
+            {
+                var polyLst = polyBag.ToList();
+                foreach (var tri in polyLst)
+                {
+                    this.AddSectionalTri(in tri);
+                }
+            }
+            // for planar version, adding to the kdTree can be parallel.
             else if (this.mapMode == "planar")
             {
-                // for general cases, just build map and remove duplicated points
-                for (int i = 0; i < poly.Count - 1; i++)
+                var ptBag = new ConcurrentBag<Point3d>();
+                Parallel.ForEach(polyBag, pl =>
                 {
-                    var pt = poly[i];
-                    var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
-                    var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
-                    var strLoc = Utils.PtString(pt);
-
-                    if (res.Length == 0)
-                    {
-                        kdMap.Add(kdKey, strLoc);
-                        ptMap.TryAdd(strLoc, pt);
-                    }
-                }
+                    foreach (var p in pl)
+                        ptBag.Add(p);
+                });
+                //var ptLst = polyBag.Aggregate(new List<Point3d>(), (x, y) => (x.ToList().Concat(y.ToList()).ToList()));
+                BuildMap(ptBag);
             }
+
+            // ! compute unitLen
+            polyBag.TryPeek(out Polyline tmp);
+            unitLen = polyBag.Select(x => x.Length).Average() / (tmp.Count - 1);
         }
 
-        public void BuildMap(in List<Polyline> polyLst)
+        public void BuildMap(in ConcurrentBag<Point3d> ptLst)
         {
-            foreach (var tri in polyLst)
+            Parallel.ForEach(ptLst, pt =>
             {
-                this.AddPoly(in tri);
+                // for general cases, just build map and remove duplicated points
+                var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+                var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
+                var strLoc = Utils.PtString(pt);
 
-                if (tri.Length < unitLen)
-                    unitLen = tri.Length;
-            }
-            // one side length
-            unitLen /= 3;
+                if (res.Length == 0)
+                {
+                    kdMap.Add(kdKey, strLoc);
+                    ptMap.TryAdd(strLoc, pt);
+                }
+            });
+
+            // average 10 random selected pt to its nearest point as unitLen
+            var pt10 = ptLst.OrderBy(x => Guid.NewGuid()).Take(10).ToList();
+            unitLen = pt10.Select(x =>
+            {
+                // find the 2 nearest point and measure distance (0 and a p-p dist).
+                var res = kdMap.GetNearestNeighbours(new[] { (float)x.X, (float)x.Y, (float)x.Z }, 2);
+                var nearest2Dist = res.Select(m => ptMap[m.Value].DistanceTo(x)).ToList();
+                return nearest2Dist.Max();
+            }).Average();
         }
+
 
         public List<string> GetNearestPoint(in Point3d pt, int N)
         {
-            var resNode = kdMap.GetNearestNeighbours(new float[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, N);
+            var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, N);
 
             // error case
             if (resNode.Length == 0)
@@ -296,6 +320,9 @@ namespace BeingAliveLanguage
             this.envDetectingDist = envRange * sMap.unitLen;
             this.envT = envToggle;
 
+            this.rCrv.Clear();
+            this.rAbs.Clear();
+
             for (int i = 0; i < 6; i++)
             {
                 rCrv.Add(new List<Line>());
@@ -304,23 +331,69 @@ namespace BeingAliveLanguage
             }
         }
 
-        public List<List<Line>> GrowRoot()
+        public (List<List<Line>>, List<Line>) GrowRoot()
         {
-            for (int i = 0; i < phase; i++)
+            for (int i = 1; i < phase + 1; i++)
             {
                 switch (i)
                 {
-                    case 0:
+                    case 1:
                         DrawPhaseCentre(0);
                         break;
-                    case 1:
+                    case 2:
+                        DrawPhaseBranch(1);
+                        break;
+                    case 3:
+                        DrawPhaseBranch(2);
+                        break;
+                    case 4:
+                        DrawPhaseBranch(3);
+                        break;
+                    case 5:
+                        DrawPhaseExtend(4);
                         break;
                     default:
                         break;
                 }
             }
 
-            return rCrv;
+            foreach (var rLst in rCrv)
+            {
+                CreateAbsorbent(rLst);
+            }
+
+            return (rCrv, rAbs);
+        }
+
+        public void CreateAbsorbent(in List<Line> roots, int N = 5)
+        {
+            var rotAng = 40;
+
+            var rtDir = roots.Select(x => x.Direction).ToList();
+
+            foreach (var (ln, i) in roots.Select((ln, i) => (ln, i)))
+            {
+                if (ln.Length == 0)
+                    continue;
+
+                var segL = ln.Length * 0.2;
+                ln.ToNurbsCurve().DivideByCount(N, false, out Point3d[] basePt);
+
+                var dir0 = rtDir[i];
+                var dir1 = rtDir[i];
+
+                dir0.Unitize();
+                dir1.Unitize();
+
+                dir0.Rotate(Utils.ToRadian(rotAng), sMap.pln.Normal);
+                dir1.Rotate(Utils.ToRadian(-rotAng), sMap.pln.Normal);
+
+                foreach (var p in basePt)
+                {
+                    rAbs.Add(new Line(p, p + dir0 * segL));
+                    rAbs.Add(new Line(p, p + dir1 * segL));
+                }
+            }
         }
 
         protected void DrawPhaseCentre(int phaseId)
@@ -333,8 +406,50 @@ namespace BeingAliveLanguage
                 var dir = sMap.pln.PointAt(Math.Cos(ang * i), Math.Sin(ang * i), 0) - sMap.pln.Origin;
                 BranchExtend(phaseId, anchor, dir, curLen);
             }
+        }
 
-            // TODO: add AbsorbTrunk
+        protected void DrawPhaseBranch(int phaseId)
+        {
+            var preId = phaseId - 1;
+            var curLen = sMap.unitLen * scale * scaleFactor[phaseId];
+
+            // for each node, divide two branches
+            foreach (var (pid, i) in frontId[preId].Select((pid, i) => (pid, i)))
+            {
+                var curVec = frontDir[preId][i];
+                var curPt = sMap.ptMap[pid];
+
+                // v0, v1 are utilized
+                var v0 = curVec;
+                var v1 = curVec;
+                v0.Rotate(Utils.ToRadian(30), sMap.pln.Normal);
+                v1.Rotate(Utils.ToRadian(-30), sMap.pln.Normal);
+
+                BranchExtend(phaseId, curPt, v0, curLen);
+                BranchExtend(phaseId, curPt, v1, curLen);
+            }
+        }
+
+        protected void DrawPhaseExtend(int phaseId)
+        {
+            var preId = phaseId - 1;
+
+            foreach (var (pid, i) in frontId[preId].Select((pid, i) => (pid, i)))
+            {
+                // no branching, just extending
+                var preVec = frontDir[preId - 1][(int)(i / 2)];
+                var curVec = frontDir[preId][i];
+                var curLen = sMap.unitLen * scale * scaleFactor[phaseId];
+                var curPt = sMap.ptMap[pid];
+
+                // v0, v1 are unitized
+                var tmpVec = Vector3d.CrossProduct(curVec, preVec);
+                var sign = tmpVec * sMap.pln.Normal;
+                var ang = (sign >= 0 ? 15 : -15);
+
+                curVec.Rotate(Utils.ToRadian(ang), sMap.pln.Normal);
+                BranchExtend(phaseId, curPt, curVec, curLen);
+            }
         }
 
 
@@ -348,11 +463,13 @@ namespace BeingAliveLanguage
             var endP = sMap.ptMap[endPkey];
 
             var branchLn = new Line(startP, endP);
+            var unitDir = branchLn.Direction;
+            unitDir.Unitize();
 
             // draw
             rCrv[lvId].Add(branchLn);
             frontId[lvId].Add(endPkey);
-            frontDir[lvId].Add(branchLn.Direction);
+            frontDir[lvId].Add(unitDir);
         }
 
         /// <summary>
@@ -438,14 +555,14 @@ namespace BeingAliveLanguage
                 // enlarge the ray range by 15-deg
                 var v0_enlarge = v0;
                 var v1_enlarge = v1;
-                v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.pln.ZAxis);
-                v1_enlarge.Rotate(Utils.ToRadian(15), sMap.pln.ZAxis);
+                v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.pln.Normal);
+                v1_enlarge.Rotate(Utils.ToRadian(15), sMap.pln.Normal);
 
                 // calcuate angles between dir and the 4 vec
-                var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.pln.ZAxis);
-                var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.pln.ZAxis);
-                var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.ZAxis);
-                var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.ZAxis);
+                var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.pln.Normal);
+                var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.pln.Normal);
+                var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.Normal);
+                var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.Normal);
 
                 // clamp force
                 var K = envDetectingDist * envDetectingDist;
@@ -458,7 +575,7 @@ namespace BeingAliveLanguage
                 if (ang0 * ang0_rot < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang0_rot) < 90)
                 {
                     var rotA = pair.Value.Item2 == 'a' ? -ang0_rot : ang0_rot;
-                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.ZAxis);
+                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
 
                     newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
                 }
@@ -466,7 +583,7 @@ namespace BeingAliveLanguage
                 else if (ang1 * ang1_rot < 0 && Math.Abs(ang1) < 90 && Math.Abs(ang1_rot) < 90)
                 {
                     var rotA = pair.Value.Item2 == 'a' ? -ang1_rot : ang1_rot;
-                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.ZAxis);
+                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
 
                     newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
                 }
@@ -500,6 +617,7 @@ namespace BeingAliveLanguage
         readonly private List<double> scaleFactor = new List<double> { 1, 1.2, 1.5, 2, 2.5 };
 
         List<List<Line>> rCrv = new List<List<Line>>();
+        List<Line> rAbs = new List<Line>();
         List<List<string>> frontId = new List<List<string>>();
         List<List<Vector3d>> frontDir = new List<List<Vector3d>>();
     }
