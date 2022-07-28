@@ -186,7 +186,7 @@ namespace BeingAliveLanguage
 
         }
 
-        public RootSec(in SoilMap map, in Point3d anchor, string rootType = "s")
+        public RootSec(in SoilMap map, in Point3d anchor, string rootType = "single")
         {
             sMap = map;
             anc = anchor;
@@ -217,10 +217,10 @@ namespace BeingAliveLanguage
             int branchNum;
             switch (rType)
             {
-                case "s":
+                case "single":
                     branchNum = 1;
                     break;
-                case "m":
+                case "multi":
                     branchNum = 2;
                     break;
                 default:
@@ -320,7 +320,7 @@ namespace BeingAliveLanguage
                 }
             }
 
-            return new List<List<Line>>();
+            return rCrv;
         }
 
         protected void DrawPhaseCentre(int phaseId)
@@ -392,6 +392,10 @@ namespace BeingAliveLanguage
                 }
             }
 
+            // if not affected by the environment, return the original point
+            if (sortingDict.Count == 0)
+                return pt + scaledDir;
+
             // for how attractor and repeller affect the growth, considering the following cases:
             // 1. for a given area inside the detecting range, get the facing segment to the testing point.
             // 2. if the growing dir intersect the seg, growth intensity is affected;
@@ -399,6 +403,31 @@ namespace BeingAliveLanguage
             // 3. if the growing dir doesn't interset the seg, but near the "facing cone", growing direction is affected;
             // 4. otherwise, growing is not affected.
 
+            //                                                                                                                
+            //                  +-------------------------+                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  ---------------------------                                                      
+            //                   \                       /                                                       
+            //                    \                     /                                                        
+            //                     \                   /                                                         
+            //                      \                 /                                                          
+            //                       \               /                                                           
+            //            --       v1 \-           -/ v0                                                         
+            //              \--         \         /             --                                               
+            //                 \--       \       /          ---/                                                 
+            //                    \--     \     /        --/                                                     
+            //              v1_rot   \--   \   /      --/  v0_rot                                                
+            //                          \-- \ /   ---/                                                           
+            //                             \-   -/                     
 
             // each attractor/repeller curve act independently ==> resolve one by one, and average afterwards
             var ptCol = new List<Point3d>();
@@ -418,31 +447,39 @@ namespace BeingAliveLanguage
                 var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.ZAxis);
                 var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.ZAxis);
 
+                // clamp force
+                var K = envDetectingDist * envDetectingDist;
+                var forceAtt = Math.Min(K / (pair.Key * pair.Key), forceOutAttractor);
+                var forceRep = Math.Min(K / (pair.Key * pair.Key), forceOutRepeller);
+                var newDir = scaledDir;
+
                 // conditional decision:
                 // dir in [vec0_enlarge, vec0] => rotate CCW
+                if (ang0 * ang0_rot < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang0_rot) < 90)
+                {
+                    var rotA = pair.Value.Item2 == 'a' ? -ang0_rot : ang0_rot;
+                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.ZAxis);
 
-
-                // dir in [vec0, vec1] => grow with force
-
-
+                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
+                }
                 // dir in [vec1, vec1_enlarge] => rotate CW
+                else if (ang1 * ang1_rot < 0 && Math.Abs(ang1) < 90 && Math.Abs(ang1_rot) < 90)
+                {
+                    var rotA = pair.Value.Item2 == 'a' ? -ang1_rot : ang1_rot;
+                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.ZAxis);
+
+                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
+                }
+                // dir in [vec0, vec1] => grow with force
+                else if (ang0 * ang1 < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang1) < 90)
+                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
 
 
-
-                // clamp force
-                var force = Math.Max(1 / (pair.Key * pair.Key), 2);
-
-
-
+                ptCol.Add(pt + newDir);
             }
 
-
-
-            // return the modified point
-            return new Point3d();
+            return ptCol.Aggregate(new Point3d(0, 0, 0), (s, v) => s + v) / ptCol.Count;
         }
-
-
 
         protected SoilMap sMap = new SoilMap();
         protected Point3d anchor = new Point3d();
@@ -473,6 +510,7 @@ namespace BeingAliveLanguage
         public static void SelectMode(GH_Component _this, object sender, EventArgs e, ref string _mode, string _setTo)
         {
             _mode = _setTo;
+            _this.Message = _mode.ToUpper();
             _this.ExpireSolution(true);
         }
 

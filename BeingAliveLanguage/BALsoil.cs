@@ -70,6 +70,7 @@ namespace BeingAliveLanguage
             throw new NotImplementedException();
         }
 
+
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
         }

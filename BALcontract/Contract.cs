@@ -70,6 +70,8 @@ namespace BALcontract
         // get a signed angle value from two vectors given a normal vector
         public static Func<Vector3d, Vector3d, Vector3d, double> SignedVecAngle = (v0, v1, vN) =>
         {
+            v0.Unitize();
+            v1.Unitize();
             var dotValue = v0 * v1 * 0.9999999; // tolerance issue
             var angle = ToDegree(Math.Acos(dotValue));
             var crossValue = Vector3d.CrossProduct(v0, v1);

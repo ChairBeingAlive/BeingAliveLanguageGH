@@ -77,6 +77,22 @@ namespace BeingAliveLanguage
 
         private bool CheckMode(string _modeCheck) => mapMode == _modeCheck;
 
+        public override bool Write(GH_IWriter writer)
+        {
+            if (mapMode != "")
+                writer.SetString("mapMode", mapMode);
+            return base.Write(writer);
+        }
+        public override bool Read(GH_IReader reader)
+        {
+            if (reader.ItemExists("mapMode"))
+                mapMode = reader.GetString("mapMode");
+
+            Message = reader.GetString("mapMode").ToUpper();
+
+            return base.Read(reader);
+        }
+
         protected override System.Drawing.Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
 
@@ -120,11 +136,27 @@ namespace BeingAliveLanguage
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
             base.AppendAdditionalMenuItems(menu);
-            Menu_AppendItem(menu, "Single Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "s"), true, CheckMode("s"));
-            Menu_AppendItem(menu, "Multi  Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "m"), true, CheckMode("m"));
+            Menu_AppendItem(menu, "Single Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "single"), true, CheckMode("single"));
+            Menu_AppendItem(menu, "Multi  Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "multi"), true, CheckMode("multi"));
         }
 
         private bool CheckMode(string _modeCheck) => formMode == _modeCheck;
+
+        public override bool Write(GH_IWriter writer)
+        {
+            if (formMode != "")
+                writer.SetString("formMode", formMode);
+            return base.Write(writer);
+        }
+        public override bool Read(GH_IReader reader)
+        {
+            if (reader.ItemExists("formMode"))
+                formMode = reader.GetString("formMode");
+
+            Message = reader.GetString("formMode").ToUpper();
+
+            return base.Read(reader);
+        }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
@@ -149,7 +181,7 @@ namespace BeingAliveLanguage
 
         }
 
-        string formMode = "m";  // s-single, m-multi
+        string formMode = "multi";  // s-single, m-multi
         protected override System.Drawing.Bitmap Icon => null;
         public override Guid ComponentGuid => new Guid("A0E63559-41E8-4353-B78E-510E3FCEB577");
     }
@@ -244,24 +276,18 @@ namespace BeingAliveLanguage
             if (envToggle)
             {
                 foreach (var crv in envAtt)
-                {
                     if (!crv.IsClosed)
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Attractors contain non-closed curve.");
                         return;
                     }
 
-                }
-
                 foreach (var crv in envRep)
-                {
                     if (!crv.IsClosed)
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Repellers contain non-closed curve.");
                         return;
                     }
-
-                }
             }
 
             var root = new RootPlanar(sMap, anchor, scale, phase, divN, envAtt, envRep, envRange, envToggle);
@@ -272,7 +298,8 @@ namespace BeingAliveLanguage
             DA.SetDataList(3, rtRes[2]);
             DA.SetDataList(4, rtRes[3]);
 
-            var all = rtRes.Aggregate(new List<Line>(), (x, y) => x.Concat(y).ToList());
+            var allRt = rtRes.Aggregate(new List<Line>(), (x, y) => x.Concat(y).ToList());
+            DA.SetDataList(0, allRt);
 
         }
 
