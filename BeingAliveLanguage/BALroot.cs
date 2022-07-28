@@ -109,9 +109,16 @@ namespace BeingAliveLanguage
                     goo.CastTo<Rectangle3d>(out Rectangle3d c);
                     conPoly.Add(c.ToPolyline());
                 });
+                sMap.BuildMap(conPoly);
             }
 
             DA.SetData(0, sMap);
+
+        }
+
+        protected override void BeforeSolveInstance()
+        {
+            Message = mapMode.ToUpper();
         }
 
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)

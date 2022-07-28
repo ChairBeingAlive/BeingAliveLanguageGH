@@ -70,6 +70,15 @@ namespace BeingAliveLanguage
             throw new NotImplementedException();
         }
 
+        protected override void BeforeSolveInstance()
+        {
+            base.BeforeSolveInstance();
+        }
+
+        protected override void AfterSolveInstance()
+        {
+            base.AfterSolveInstance();
+        }
 
         public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
         {
