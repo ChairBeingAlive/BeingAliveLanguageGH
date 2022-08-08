@@ -31,7 +31,8 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddNumberParameter("Evapotraspiration", "ETR", "Real evapotranspiration (mm).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Evapotraspiration-Corrected", "ETP.corr", "Corrected evapotranspiration (mm/yr).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Evapotraspiration-Real", "ETR", "Real evapotranspiration (mm/yr).", GH_ParamAccess.list);
             pManager.AddNumberParameter("Surplus", "SUR", "The water that is not evapotranspired or held in the soil (mm).", GH_ParamAccess.list);
             pManager.AddNumberParameter("Deficit", "DEF", "The difference between the maximum evapotranspiration and the water in the system (mm).", GH_ParamAccess.list);
         }
@@ -86,9 +87,10 @@ namespace BeingAliveLanguage
             var deficit = etpCorrected.Zip(etr, (x, y) => (x - y)).ToList();
 
             // ! Set data output
-            DA.SetDataList(0, etr);
-            DA.SetDataList(1, surplus);
-            DA.SetDataList(2, reserve);
+            DA.SetDataList(0, etpCorrected);
+            DA.SetDataList(1, etr);
+            DA.SetDataList(2, surplus);
+            DA.SetDataList(3, reserve);
         }
     }
 }
