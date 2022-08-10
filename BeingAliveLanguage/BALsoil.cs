@@ -155,8 +155,8 @@ namespace BeingAliveLanguage
 
         public BALbaseDiv()
           : base("Soil Content", "balSoilContent",
-            "Generate soil map based on the ratio of 3 contents, and add rocks if provided.",
-            "BAL", "01::soil")
+                "Generate a soil map based on the ratio of 3 soil contents, and avoid rock area rocks if rock curves are provided.",
+                "BAL", "01::soil")
         {
         }
 
@@ -179,7 +179,7 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Sand Tri", "sandT", "Sand triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
-            pManager.AddCurveParameter("All Tri", "allT", "Clay triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("All Tri", "allT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -289,7 +289,7 @@ namespace BeingAliveLanguage
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
             pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
 
-            pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio[0, 1] in the soil for visualization purposes.", GH_ParamAccess.item, 0.5);
+            pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio [0, 1] in the soil for visualization purposes.", GH_ParamAccess.item, 0.5);
             pManager.AddIntegerParameter("Core Water Hatch Density", "dHatchCore", "Hatch density of the embedded water.", GH_ParamAccess.item, 3);
             pManager.AddIntegerParameter("Available Water Hatch Density", "dHatchAvail", "Hatch density of the current water.", GH_ParamAccess.item, 5);
             pManager[2].Optional = true;
@@ -299,13 +299,13 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles, representing soil content without any water.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Wilting Point", "soilWP", "Soil wilting point triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Field Capacity", "soilFC", "Soil field capacity triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Current WaterLine", "soilCW", "Current water stage.", GH_ParamAccess.list);
 
-            pManager.AddCurveParameter("Embedded Water Hatch", "waterEmbed", "The embedded water of the soil.", GH_ParamAccess.tree);
-            pManager.AddCurveParameter("Current Water Hatch", "waterCurrent", "The current water stage in the soil.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Embedded Water Hatch", "waterEmbed", "Hatch of the embedded water of the soil.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Current Water Hatch", "waterCurrent", "Hatch of the current water stage in the soil.", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
