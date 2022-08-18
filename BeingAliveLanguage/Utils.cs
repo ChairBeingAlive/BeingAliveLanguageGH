@@ -44,8 +44,22 @@ namespace BeingAliveLanguage
             }
         }
 
-        private void AddSectionalTri(in Polyline poly)
+        private void AddSectionalTriPt(in Polyline poly)
         {
+            // if triangle contains a 90deg corner, it is a side-triangle, ignore it.
+            for (int i = 0; i < 3; i++)
+            {
+                var v0 = poly[1] - poly[0];
+                var v1 = poly[2] - poly[1];
+                var v2 = poly[0] - poly[2];
+
+                double tol = 1e-3;
+                if (Math.Abs(Vector3d.Multiply(v0, v1)) < tol ||
+                    Math.Abs(Vector3d.Multiply(v1, v2)) < tol ||
+                    Math.Abs(Vector3d.Multiply(v2, v0)) < tol)
+                    return;
+            }
+
             // use kdTree for duplication removal
             // use concurrentDict for neighbour storage 
             for (int i = 0; i < 3; i++)
@@ -65,9 +79,21 @@ namespace BeingAliveLanguage
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, ""),
-                        new Tuple<float, string>(-1, "")
+                        new Tuple<float, string>(-1, ""),
+                        //new Tuple<float, string>(-1, ""),
+                        //new Tuple<float, string>(-1, "")
                     });
                 }
+                //    }
+                //}
+
+                //// to have a stable and thorough topoMapping of all pts, we need to separate this step from the above func.
+                //private void CreateSectionalTriTopoMap(in Polyline poly)
+                //{
+                //    for (int i = 0; i < 3; i++)
+                //    {
+                //        var pt = poly[i];
+                //        var strLoc = Utils.PtString(pt);
 
                 List<Point3d> surLst = new List<Point3d> { poly[(i + 1) % 3], poly[(i + 2) % 3] };
                 foreach (var pNext in surLst)
@@ -77,16 +103,22 @@ namespace BeingAliveLanguage
 
                     if (Math.Abs(ang - 60) < 1e-3)
                         AddNeighbour(strLoc, 0, pt, pNext);
+                    //else if (Math.Abs(ang - 90) < 1e-3)
+                    //    AddNeighbour(strLoc, 1, pt, pNext);
                     else if (Math.Abs(ang - 120) < 1e-3)
                         AddNeighbour(strLoc, 1, pt, pNext);
                     else if (Math.Abs(ang - 180) < 1e-3)
                         AddNeighbour(strLoc, 2, pt, pNext);
                     else if (Math.Abs(ang - 240) < 1e-3)
                         AddNeighbour(strLoc, 3, pt, pNext);
+                    //else if (Math.Abs(ang - 270) < 1e-3)
+                    //    AddNeighbour(strLoc, 5, pt, pNext);
                     else if (Math.Abs(ang - 300) < 1e-3)
                         AddNeighbour(strLoc, 4, pt, pNext);
-                    else if (Math.Abs(ang) < 1e-3)
+                    else if (Math.Abs(ang) < 1e-3 || Math.Abs(ang - 360) < 1e-3)
                         AddNeighbour(strLoc, 5, pt, pNext);
+                    else
+                        throw new ArgumentException($"Error: point {strLoc} has no neighbour!");
                 }
             }
         }
@@ -100,8 +132,21 @@ namespace BeingAliveLanguage
                 var polyLst = polyBag.ToList();
                 foreach (var tri in polyLst)
                 {
-                    this.AddSectionalTri(in tri);
+                    // 1. add all pts 
+                    this.AddSectionalTriPt(in tri);
+                    // 2. create topology mapping
+                    //this.CreateSectionalTriTopoMap(in tri);
                 }
+
+                // check topoMap is successfully built
+                foreach (var m in topoMap)
+                {
+                    var sumIdx = m.Value.Select(x => x.Item1).Sum();
+                    if (sumIdx == -6)
+                        throw new ArgumentException("Error: Topo map is not built successfully. Check if the plane is aligned with the triangles.");
+                }
+
+
             }
             // for planar version, adding to the kdTree can be parallel.
             else if (this.mapMode == "planar")
