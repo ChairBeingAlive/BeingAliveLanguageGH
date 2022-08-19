@@ -18,7 +18,7 @@ namespace BeingAliveLanguage
         public SoilMap()
         {
             this.pln = Plane.WorldXY;
-            this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
+            this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
             this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
             this.ptMap = new ConcurrentDictionary<string, Point3d>();
             this.distNorm = new Normal(3.5, 0.5);
@@ -28,7 +28,7 @@ namespace BeingAliveLanguage
         public SoilMap(in Plane pl, in string mapMode)
         {
             this.pln = pl;
-            this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
+            this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
             this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
             this.ptMap = new ConcurrentDictionary<string, Point3d>();
             this.distNorm = new Normal(3.5, 0.5);
@@ -66,12 +66,15 @@ namespace BeingAliveLanguage
             {
                 var pt = poly[i];
                 var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
-                var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
                 var strLoc = Utils.PtString(pt);
-
-                if (res.Length == 0)
+                if (kdMap.Add(kdKey, strLoc))
                 {
-                    kdMap.Add(kdKey, strLoc);
+                    //var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
+                    //var strLoc = Utils.PtString(pt);
+
+                    //if (res.Length == 0)
+                    //{
+                    //kdMap.Add(kdKey, strLoc);
                     ptMap.TryAdd(strLoc, pt);
                     topoMap.TryAdd(strLoc, new List<Tuple<float, string>> {
                         new Tuple<float, string>(-1, ""),
@@ -172,14 +175,18 @@ namespace BeingAliveLanguage
             {
                 // for general cases, just build map and remove duplicated points
                 var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
-                var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
                 var strLoc = Utils.PtString(pt);
-
-                if (res.Length == 0)
+                if (kdMap.Add(kdKey, strLoc))
                 {
-                    kdMap.Add(kdKey, strLoc);
                     ptMap.TryAdd(strLoc, pt);
                 }
+                //var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
+
+                //if (res.Length == 0)
+                //{
+                //    kdMap.Add(kdKey, strLoc);
+                //    ptMap.TryAdd(strLoc, pt);
+                //}
             });
 
             // average 10 random selected pt to its nearest point as unitLen
