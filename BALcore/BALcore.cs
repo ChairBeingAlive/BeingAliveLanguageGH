@@ -327,7 +327,7 @@ namespace BALcore
                 var tmpL = new List<Polyline>();
                 for (int j = 1; j < denEmbedWater + 1; j++)
                 {
-                    double ratio = j / (denEmbedWater + 1);
+                    double ratio = (double)j / (denEmbedWater + 1);
                     tmpL.Add(new Polyline(triCore[i].Zip(triWP[i], (x, y) => x * ratio + y * (1 - ratio))));
                 }
                 hatchCore.Add(tmpL);
@@ -335,7 +335,7 @@ namespace BALcore
                 var tmpL2 = new List<Polyline>();
                 for (int j = 1; j < denAvailWater + 1; j++)
                 {
-                    double ratio = j / (denAvailWater + 1);
+                    double ratio = (double)j / (denAvailWater + 1);
                     tmpL2.Add(new Polyline(triWP[i].Zip(curWaterLn[i], (x, y) => x * ratio + y * (1 - ratio))));
                 }
                 hatchPAW.Add(tmpL2);
