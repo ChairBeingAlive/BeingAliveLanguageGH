@@ -9,94 +9,93 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
-using BALcontract;
 using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
     // derived class that include MEF functionality
-    public class GH_BAL : GH_Component
-    {
-        protected GH_BAL(string name, string nickname, string description, string category, string subCategory)
-            : base(name, nickname, description, category, subCategory)
-        {
-        }
+    //public class GH_BAL : GH_Component
+    //{
+    //    protected GH_BAL(string name, string nickname, string description, string category, string subCategory)
+    //        : base(name, nickname, description, category, subCategory)
+    //    {
+    //    }
 
-        protected CompositionContainer _container;
-        public void LoadDll()
-        {
+    //    protected CompositionContainer _container;
+    //    public void LoadDll()
+    //    {
 
-            var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
-            string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
+    //        var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
+    //        string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
 
-            if (!System.IO.File.Exists(dllFile))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The core computation lib {0} does not exist.", dllFile));
-            }
+    //        if (!System.IO.File.Exists(dllFile))
+    //        {
+    //            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The core computation lib {0} does not exist.", dllFile));
+    //        }
 
-            // MEF
-            try
-            {
-                // An aggregate catalog that combines multiple catalogs.
-                var catalog = new AggregateCatalog();
-                catalog.Catalogs.Add(new AssemblyCatalog(Assembly.Load(System.IO.File.ReadAllBytes(dllFile))));
+    //        // MEF
+    //        try
+    //        {
+    //            // An aggregate catalog that combines multiple catalogs.
+    //            var catalog = new AggregateCatalog();
+    //            catalog.Catalogs.Add(new AssemblyCatalog(Assembly.Load(System.IO.File.ReadAllBytes(dllFile))));
 
-                // Create the CompositionContainer with the parts in the catalog.
-                _container = new CompositionContainer(catalog);
-                _container.ComposeParts(this);
+    //            // Create the CompositionContainer with the parts in the catalog.
+    //            _container = new CompositionContainer(catalog);
+    //            _container.ComposeParts(this);
 
-            }
-            catch (CompositionException compositionException)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, compositionException.ToString());
-                return;
-            }
-        }
+    //        }
+    //        catch (CompositionException compositionException)
+    //        {
+    //            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, compositionException.ToString());
+    //            return;
+    //        }
+    //    }
 
-        public override Guid ComponentGuid => throw new NotImplementedException();
+    //    public override Guid ComponentGuid => throw new NotImplementedException();
 
-        protected override void RegisterInputParams(GH_InputParamManager pManager)
-        {
-            throw new NotImplementedException();
-        }
+    //    protected override void RegisterInputParams(GH_InputParamManager pManager)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-        {
-            throw new NotImplementedException();
-        }
+    //    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        protected override void SolveInstance(IGH_DataAccess DA)
-        {
-            throw new NotImplementedException();
-        }
+    //    protected override void SolveInstance(IGH_DataAccess DA)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        protected override void BeforeSolveInstance()
-        {
-            base.BeforeSolveInstance();
-        }
+    //    protected override void BeforeSolveInstance()
+    //    {
+    //        base.BeforeSolveInstance();
+    //    }
 
-        protected override void AfterSolveInstance()
-        {
-            base.AfterSolveInstance();
-        }
+    //    protected override void AfterSolveInstance()
+    //    {
+    //        base.AfterSolveInstance();
+    //    }
 
-        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
-        {
-        }
+    //    public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+    //    {
+    //    }
 
-        //protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
-        //{
-        //base.AppendAdditionalComponentMenuItems(menu);
-        //    Menu_AppendItem(menu, "Default");
-        //}
+    //    //protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
+    //    //{
+    //    //base.AppendAdditionalComponentMenuItems(menu);
+    //    //    Menu_AppendItem(menu, "Default");
+    //    //}
 
-    }
+    //}
 
-    public class BALsoilBase : GH_BAL
+    public class BALsoilBase : GH_Component
     {
         // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
+        //[Import(typeof(IPlugin))]
+        //public IPlugin mFunc;
 
         public BALsoilBase()
           : base("Soil Base", "balSoilBase",
@@ -119,8 +118,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             Rectangle3d rec = new Rectangle3d();
             int rsl = 1;
 
@@ -130,7 +127,7 @@ namespace BeingAliveLanguage
             { return; }
 
             // call the actural function
-            var (uL, res) = mFunc.MakeTriMap(ref rec, rsl);
+            var (uL, res) = balCore.MakeTriMap(ref rec, rsl);
 
             GH_Structure<GH_Curve> triArray = new GH_Structure<GH_Curve>();
             for (int i = 0; i < res.Count; i++)
@@ -147,14 +144,10 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
     }
 
-    public class BALbaseDiv : GH_BAL
+    public class BALgeneralSoil : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
-
-        public BALbaseDiv()
-          : base("Soil Content", "balSoilContent",
+        public BALgeneralSoil()
+          : base("General Soil Content", "balGeneralSoil",
                 "Generate a soil map based on the ratio of 3 soil contents, and avoid rock area rocks if rock curves are provided.",
                 "BAL", "01::soil")
         {
@@ -184,8 +177,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             // get data
             List<Curve> triL = new List<Curve>();
             double rSand = 0;
@@ -206,7 +197,7 @@ namespace BeingAliveLanguage
             double[] ratio = new double[3] { rSand, rSilt, rClay };
 
             // call the actural function
-            var (sandT, siltT, clayT, soilInfo) = mFunc.DivBaseMap(in triPoly, in ratio, in rock);
+            var (sandT, siltT, clayT, soilInfo) = balCore.DivGeneralSoilMap(in triPoly, in ratio, in rock);
 
             DA.SetData(0, soilInfo);
             DA.SetDataList(1, sandT);
@@ -222,12 +213,91 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
     }
 
-    public class BALsoilInfo : GH_BAL
+    public class BALurbanSoil : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
+        public BALurbanSoil()
+          : base("Urban Soil Content", "balUrbanSoil",
+                "Generate a soil map based on the ratio of soil contents of different urban soil types.",
+                "BAL", "01::soil")
+        {
+        }
 
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddCurveParameter("Soil Base", "T", "soil base triangle map.", GH_ParamAccess.list);
+            pManager[0].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
+            pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item);
+            // TODO: if we should separate organic matter out
+            pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Relative Stone Size", "relStoneSZ", "The relative stone size [1, 10], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.item);
+            pManager[6].Optional = true; // rock can be optionally provided
+            //pManager.AddCurveParameter("Rocks", "R", "Curves represendting the rocks in the soil.", GH_ParamAccess.list);
+
+        }
+
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Sand Tri", "sandT", "Sand triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Biochar Tri", "biocharT", "Biochar triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Stone Poly", "stonePoly", "Stone polygons.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons of the three types.", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            // get data
+            List<Curve> triL = new List<Curve>();
+            double rSand = 0;
+            double rClay = 0;
+            double rBiochar = 0;
+            double rOM = 0;
+            double rStone = 0;
+            double relStoneSZ = 0;
+            List<Curve> rock = new List<Curve>();
+            if (!DA.GetDataList(0, triL))
+            { return; }
+            if (!DA.GetData(1, ref rSand))
+            { return; }
+            if (!DA.GetData(2, ref rClay))
+            { return; }
+            if (!DA.GetData(3, ref rBiochar))
+            { return; }
+            if (!DA.GetData(4, ref rOM))
+            { return; }
+            if (!DA.GetData(5, ref rStone))
+            { return; }
+            if (!DA.GetData(6, ref relStoneSZ))
+            { return; }
+            //DA.GetDataList(4, rock);
+
+            List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToPoly(x)).ToList();
+            double[] ratio = new double[5] { rSand, rClay, rBiochar, rOM, rStone };
+
+            // call the actural function
+            var (sandT, clayT, biocharT, stonePoly, soilInfo) = balCore.DivUrbanSoilMap(in triPoly, in ratio, in relStoneSZ);
+
+            DA.SetData(0, soilInfo);
+            DA.SetDataList(1, sandT);
+            DA.SetDataList(2, clayT);
+            DA.SetDataList(3, biocharT);
+            DA.SetDataList(4, stonePoly);
+
+            var allT = sandT.Concat(clayT).Concat(biocharT).Concat(stonePoly).ToList();
+            DA.SetDataList(5, allT);
+        }
+
+        protected override System.Drawing.Bitmap Icon => null;
+
+        public override Guid ComponentGuid => new Guid("4f0a934c-dd27-447c-a67b-a478940c2d6e");
+    }
+
+    public class BALsoilInfo : GH_Component 
+    {
         public BALsoilInfo() :
             base("Soil Information", "balSoilInfoText",
                 "Export the soil information in text format.",
@@ -248,8 +318,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             // get data
             SoilProperty soilInfo = new SoilProperty();
             List<Curve> triCrv = new List<Curve>();
@@ -258,7 +326,7 @@ namespace BeingAliveLanguage
             { return; }
 
 
-            var sText = mFunc.SoilText(soilInfo);
+            var sText = balCore.SoilText(soilInfo);
 
             // assign output
             DA.SetData(0, sText);
@@ -269,12 +337,8 @@ namespace BeingAliveLanguage
 
     }
 
-    public class BALsoilWaterOffset : GH_BAL
+    public class BALsoilWaterOffset : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
-
         public BALsoilWaterOffset()
           : base("Soil Water Visualization", "balSoilWaterVis",
             "Generate soil diagram with water info.",
@@ -310,8 +374,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             // get data
             SoilProperty soilInfo = new SoilProperty();
             List<Curve> triCrv = new List<Curve>();
@@ -330,7 +392,7 @@ namespace BeingAliveLanguage
 
             // compute offseted curves 
             var (triCore, triWP, triFC, triCW, embedWater, curWater) =
-                mFunc.OffsetWater(triCrv, soilInfo, rWater, denEmbedWater, denAvailWater);
+                balCore.OffsetWater(triCrv, soilInfo, rWater, denEmbedWater, denAvailWater);
 
 
             // assign output
@@ -364,12 +426,8 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
     }
 
-    public class BALsoilOrganicMatterInner : GH_BAL
+    public class BALsoilOrganicMatterInner : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
-
         public BALsoilOrganicMatterInner()
           : base("Soil Interior Organic Matter", "balSoilOG_in",
             "Generate soil inner organic matter based on given intensity.",
@@ -397,8 +455,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             // get data
             SoilProperty soilInfo = new SoilProperty();
             List<Curve> triCrv = new List<Curve>();
@@ -419,7 +475,7 @@ namespace BeingAliveLanguage
             }
 
             // compute
-            var (omLn, omProp) = mFunc.GenOrganicMatterInner(bnd, soilInfo, triCrv, dOM);
+            var (omLn, omProp) = balCore.GenOrganicMatterInner(bnd, soilInfo, triCrv, dOM);
 
             GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
             // output data
@@ -437,12 +493,8 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("B781B9DE-6953-4E8E-A71A-801592B99CBD");
     }
 
-    public class BALsoilOrganicMatterTop : GH_BAL
+    public class BALsoilOrganicMatterTop : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
-
         public BALsoilOrganicMatterTop()
           : base("Soil Surface Organic Matter", "balSoilOG_top",
             "Generate soil surface organic matter based on given intensity.",
@@ -472,8 +524,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             // get data
             Rectangle3d bnd = new Rectangle3d();
             double uL = 1;
@@ -514,7 +564,7 @@ namespace BeingAliveLanguage
 
 
             // compute
-            var omLn = mFunc.GenOrganicMatterTop(bnd, uL, sz, dOM, numLayer);
+            var omLn = balCore.GenOrganicMatterTop(bnd, uL, sz, dOM, numLayer);
 
             GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
             // output data
@@ -531,12 +581,8 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("6BE29C7A-7BE9-4DBD-9202-61FC5201E79F");
     }
 
-    public class BALsoilOrganicMatterTopAlter : GH_BAL
+    public class BALsoilOrganicMatterTopAlter : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
-
         public BALsoilOrganicMatterTopAlter()
           : base("Soil Surface Organic Matter (dependent version)", "balSoilOG_topDepend",
             "Generate soil surface organic matter based on properties from the inner organic matter.",
@@ -566,8 +612,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             // get data
             OrganicMatterProperty omProp = new OrganicMatterProperty();
             int sz = 0;
@@ -592,7 +636,7 @@ namespace BeingAliveLanguage
 
 
             // compute
-            var omLn = mFunc.GenOrganicMatterTop(omProp, sz, numLayer);
+            var omLn = balCore.GenOrganicMatterTop(omProp, sz, numLayer);
 
             GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
             // output data

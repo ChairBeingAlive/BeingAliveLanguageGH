@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Grasshopper;
 using Grasshopper.Kernel;
 using System.Drawing;
-using BALcontract;
 
 namespace BeingAliveLanguage
 {

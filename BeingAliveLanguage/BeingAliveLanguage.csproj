@@ -15,11 +15,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\BALcontract\BALcontract.csproj" />
-		<ProjectReference Include="..\BALcore\BALcore.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<Reference Include="System.ComponentModel.Composition" />
 		<Reference Include="System.Windows.Forms" />
 	</ItemGroup>

@@ -11,7 +11,6 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
 using System.Windows.Forms;
-using BALcontract;
 using BeingAliveLanguage;
 using GH_IO.Serialization;
 using System.Threading.Tasks;
@@ -19,11 +18,8 @@ using System.Collections.Concurrent;
 
 namespace BeingAliveLanguage
 {
-    public class BALRootSoilMap : GH_BAL
+    public class BALRootSoilMap : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
 
         /// <summary>
         /// Initializes a new instance of the MyComponent1 class.
@@ -56,8 +52,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             var pln = new Plane();
             DA.GetData(0, ref pln);
 
@@ -160,12 +154,8 @@ namespace BeingAliveLanguage
     /// <summary>
     /// Draw the root in sectional soil grid.
     /// </summary>
-    public class BALRootSec : GH_BAL
+    public class BALRootSec : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
-
         /// <summary>
         /// Initializes a new instance of the MyComponent1 class.
         /// </summary>
@@ -220,8 +210,6 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            this.LoadDll();
-
             var sMap = new SoilMap();
             var anchor = new Point3d();
             double radius = 10.0;
@@ -249,12 +237,8 @@ namespace BeingAliveLanguage
     /// <summary>
     /// Draw the root map in planar soil grid.
     /// </summary>
-    public class BALRootPlanar : GH_BAL
+    public class BALRootPlanar : GH_Component
     {
-        // import func collection from MEF.
-        [Import(typeof(IPlugin))]
-        public IPlugin mFunc;
-
         /// <summary>
         /// Initializes a new instance of the MyComponent1 class.
         /// </summary>
