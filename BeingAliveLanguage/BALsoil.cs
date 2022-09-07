@@ -193,6 +193,12 @@ namespace BeingAliveLanguage
             { return; }
             DA.GetDataList(4, rock);
 
+            if (rSand + rClay + rSilt != 1)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio if all content need to sum up to 1.");
+                return;
+            }
+
             List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToPoly(x)).ToList();
             double[] ratio = new double[3] { rSand, rSilt, rClay };
 
@@ -226,13 +232,13 @@ namespace BeingAliveLanguage
         {
             pManager.AddCurveParameter("Soil Base", "T", "soil base triangle map.", GH_ParamAccess.list);
             pManager[0].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
-            pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item, 0);
+            pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0);
+            pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item, 0);
+            pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Relative Stone Size", "relStoneSZ", "The relative stone size [1, 10], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item, 0);
             // TODO: if we should separate organic matter out
-            pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Relative Stone Size", "relStoneSZ", "The relative stone size [1, 10], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.item);
             pManager[6].Optional = true; // rock can be optionally provided
             //pManager.AddCurveParameter("Rocks", "R", "Curves represendting the rocks in the soil.", GH_ParamAccess.list);
 
@@ -240,7 +246,7 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+            //pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
             pManager.AddCurveParameter("Sand Tri", "sandT", "Sand triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Biochar Tri", "biocharT", "Biochar triangles.", GH_ParamAccess.list);
@@ -267,28 +273,55 @@ namespace BeingAliveLanguage
             { return; }
             if (!DA.GetData(3, ref rBiochar))
             { return; }
-            if (!DA.GetData(4, ref rOM))
+            if (!DA.GetData(4, ref rStone))
             { return; }
-            if (!DA.GetData(5, ref rStone))
+            if (!DA.GetData(5, ref rOM))
             { return; }
             if (!DA.GetData(6, ref relStoneSZ))
             { return; }
-            //DA.GetDataList(4, rock);
+
+            if (rSand + rClay + rBiochar + rOM + rStone != 1)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio if all content need to sum up to 1.");
+                return;
+            }
+            if (relStoneSZ < 1 || relStoneSZ > 10)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Relative stone size out of range [1 - 10].");
+            }
+
+            // ! step1: scaling the ratio of sand, clay, biochar, stone if organic matter is presented
+            if (rOM != 0)
+            {
+                var sum = rSand + rClay + rBiochar + rOM + rStone;
+                rSand /= sum;
+                rClay /= sum;
+                rBiochar /= sum;
+                rStone /= sum;
+            }
+
+            // ! step2: deciding the offset parameter using stone value if possible
+            // map range [1, 10] to [0.9, 0.6]
+            var rOffset = 0.9 - (relStoneSZ - 1) / 9 * 0.3;
+
+
+            // ! step3: 
 
             List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            double[] ratio = new double[5] { rSand, rClay, rBiochar, rOM, rStone };
+            double[] ratio = new double[5] { rSand, rClay, rBiochar, rStone, rOffset };
 
             // call the actural function
-            var (sandT, clayT, biocharT, stonePoly, soilInfo) = balCore.DivUrbanSoilMap(in triPoly, in ratio, in relStoneSZ);
+            var (sandT, clayT, biocharT, stonePoly) = balCore.DivUrbanSoilMap(in triPoly, in ratio, in relStoneSZ);
 
-            DA.SetData(0, soilInfo);
-            DA.SetDataList(1, sandT);
-            DA.SetDataList(2, clayT);
-            DA.SetDataList(3, biocharT);
-            DA.SetDataList(4, stonePoly);
+            int idx = 0;
+            //DA.SetData(0, soilInfo);
+            DA.SetDataList(idx++, sandT);
+            DA.SetDataList(idx++, clayT);
+            DA.SetDataList(idx++, biocharT);
+            DA.SetDataList(idx++, stonePoly);
 
             var allT = sandT.Concat(clayT).Concat(biocharT).Concat(stonePoly).ToList();
-            DA.SetDataList(5, allT);
+            DA.SetDataList(idx++, allT);
         }
 
         protected override System.Drawing.Bitmap Icon => null;
@@ -296,7 +329,7 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("4f0a934c-dd27-447c-a67b-a478940c2d6e");
     }
 
-    public class BALsoilInfo : GH_Component 
+    public class BALsoilInfo : GH_Component
     {
         public BALsoilInfo() :
             base("Soil Information", "balSoilInfoText",

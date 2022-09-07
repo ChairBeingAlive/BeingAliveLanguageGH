@@ -438,33 +438,61 @@ namespace BeingAliveLanguage
         /// <summary>
         /// Main Func: divide triMap into subdivisions based on the urban ratio
         /// </summary>
-        public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, SoilProperty)
+        public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
             DivUrbanSoilMap(in List<Polyline> triL, in double[] ratio, in double relStoneSZ)
         {
-            // ratio array order: sand, silt, clay
-            // TODO: need a overload func
-            var soilData = soilType(ratio[0], ratio[1], ratio[2]);
+            // ratio array order: sand, clay, biochar, stone
 
             // get area
             double totalArea = triL.Sum(x => triArea(x));
 
-            // sand
+            // ! sand
             List<Polyline> sandT = new List<Polyline>();
             var postSandT = triL;
-
-            if (ratio[0] != 0)
+            var totalASand = totalArea * ratio[0];
+            if (totalASand != 0)
             {
-                var totalASand = totalArea * ratio[0];
-                var numSand = (int)(Math.Round(triL.Count * ratio[0]));
+                var rSand = ratio[0];
+                var numSand = (int)(Math.Round(triL.Count * rSand));
 
                 sandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
                 postSandT = triL.Except(sandT).ToList();
             }
 
-            var totalAClay = totalArea * ratio[2];
-            // clay, biochar 
+            var rOffset = ratio[4];
+            var offsetSandT = sandT.Select(x => OffsetTri(x, rOffset)).ToList();
+
             var lv3T = subDivTriLst(subDivTriLst(postSandT));
 
+            // ! clay, biochar 
+            List<Polyline> clayT = new List<Polyline>();
+            var totalAclay = totalArea * ratio[1];
+            var postClayT = lv3T;
+            if (totalAclay != 0)
+            {
+                var rClay = ratio[1];
+                var numClay = (int)(Math.Round(lv3T.Count * rClay));
+                clayT = lv3T.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
+                postClayT = lv3T.Except(clayT).ToList();
+            }
+
+
+            List<Polyline> biocharT = new List<Polyline>();
+            var totalABiochar = totalArea * ratio[2];
+            var postBiocharT = postClayT;
+            if (totalABiochar != 0)
+            {
+                var rBiochar = ratio[2];
+                var numBiochar = (int)(Math.Round(lv3T.Count * rBiochar));
+                biocharT = postClayT.OrderBy(x => Guid.NewGuid()).Take(numBiochar).ToList();
+                postBiocharT = postClayT.Except(biocharT).ToList();
+            }
+
+            // stone
+            var preStoneT = postBiocharT;
+            var rStone = ratio[3];
+
+            var stoneT = preStoneT;
 
             // if rock exists, avoid it 
             //if (rock.Any() && rock[0] != null)
@@ -494,7 +522,7 @@ namespace BeingAliveLanguage
 
             // return
             //return (sandT, siltT, clayT, soilData);
-            return (sandT, sandT, sandT, sandT, soilData);
+            return (offsetSandT, clayT, biocharT, stoneT);
         }
 
 
@@ -633,35 +661,6 @@ namespace BeingAliveLanguage
         }
 
         /// <summary>
-        /// Main Func: Generate the top layer organic matter
-        /// </summary>
-        public static List<List<Line>> GenOrganicMatterTop(in Rectangle3d bnd, double uL, int type, double dOM, int layer)
-        {
-
-            var omP = new OrganicMatterProperty(bnd, dOM / 10, dOM, uL);
-            //// type: L - bigger triangle, M - middle triangle, S - small triangle.
-            //// Using the fixed type for sizing so that the top OM aligns with the soil
-            //var height = uL * 0.5 * Math.Sqrt(3) * 0.25 * Math.Pow(2, type);
-
-            //// create the top OM's boundary based on the soil boundary.
-            //var intWid = (int)Math.Round(bnd.Corner(1).DistanceTo(bnd.Corner(0)) / uL) * uL;
-            //var cornerB = bnd.Corner(3) + intWid * bnd.Plane.XAxis * 1.01 + bnd.Plane.YAxis * height * layer;
-            //Rectangle3d topBnd = new Rectangle3d(bnd.Plane, bnd.Corner(3), cornerB);
-
-            //var (_, omTri) = MakeTriMap(ref topBnd, layer);
-
-            //var flattenTri = omTri.SelectMany(x => x).ToList();
-            //var coreTri = flattenTri.Select(x => OffsetTri(x.ToPolyline().Duplicate(), 0.4));
-
-            //// generate division number and om lines
-            //double bigTriL = flattenTri[2].ToPolyline().Length;
-            //int divN = (int)Math.Round(flattenTri[1].ToPolyline().Length * dOM) * 3;
-            //var res = coreTri.Zip(flattenTri, (i, o) => createOM(i, o.ToPolyline(), divN)).ToList();
-
-            return GenOrganicMatterTop(omP, type, layer);
-        }
-
-        /// <summary>
         /// Main Func: (overload) Generate the top layer organic matter, using params from inner OM
         /// </summary>
         public static List<List<Line>> GenOrganicMatterTop(in OrganicMatterProperty omP, int type, int layer)
@@ -686,6 +685,16 @@ namespace BeingAliveLanguage
 
             return res;
         }
+
+        /// <summary>
+        /// Main Func: Generate the top layer organic matter
+        /// </summary>
+        public static List<List<Line>> GenOrganicMatterTop(in Rectangle3d bnd, double uL, int type, double dOM, int layer)
+        {
+            var omP = new OrganicMatterProperty(bnd, dOM / 10, dOM, uL);
+            return GenOrganicMatterTop(omP, type, layer);
+        }
+
     }
 
     class SoilMap
