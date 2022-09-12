@@ -441,7 +441,10 @@ namespace BeingAliveLanguage
         public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
             DivUrbanSoilMap(in List<Polyline> triL, in double[] ratio, in double relStoneSZ)
         {
-            // ratio array order: sand, clay, biochar, stone
+            // ratio array order:{ rSand, rClay, rBiochar, rStone}; 
+
+            // ! calculate the offset distance. map range [1, 10] to [0.9, 0.6]
+            var rOffset = 0.9 - (relStoneSZ - 1) / 9 * 0.3;
 
             // get area
             double totalArea = triL.Sum(x => triArea(x));
@@ -450,7 +453,7 @@ namespace BeingAliveLanguage
             List<Polyline> sandT = new List<Polyline>();
             var postSandT = triL;
             var totalASand = totalArea * ratio[0];
-            if (totalASand != 0)
+            if (totalASand > 0)
             {
                 var rSand = ratio[0];
                 var numSand = (int)(Math.Round(triL.Count * rSand));
@@ -459,16 +462,24 @@ namespace BeingAliveLanguage
                 postSandT = triL.Except(sandT).ToList();
             }
 
-            var rOffset = ratio[4];
-            var offsetSandT = sandT.Select(x => OffsetTri(x, rOffset)).ToList();
-
             var lv3T = subDivTriLst(subDivTriLst(postSandT));
+
+
+            // ! stone
+            // at this stage, there are a collection of small-level triangles to be grouped into stones.
+            var preStoneT = lv3T;
+            var rStone = ratio[3];
+
+            var stoneT = PickAndCluster(preStoneT, 50, 10, out List<Polyline> postStoneT);
+
+
+            //var stoneT = preStoneT;
 
             // ! clay, biochar 
             List<Polyline> clayT = new List<Polyline>();
             var totalAclay = totalArea * ratio[1];
-            var postClayT = lv3T;
-            if (totalAclay != 0)
+            var postClayT = postStoneT;
+            if (totalAclay > 0)
             {
                 var rClay = ratio[1];
                 var numClay = (int)(Math.Round(lv3T.Count * rClay));
@@ -476,11 +487,10 @@ namespace BeingAliveLanguage
                 postClayT = lv3T.Except(clayT).ToList();
             }
 
-
             List<Polyline> biocharT = new List<Polyline>();
             var totalABiochar = totalArea * ratio[2];
             var postBiocharT = postClayT;
-            if (totalABiochar != 0)
+            if (totalABiochar > 0)
             {
                 var rBiochar = ratio[2];
                 var numBiochar = (int)(Math.Round(lv3T.Count * rBiochar));
@@ -488,40 +498,10 @@ namespace BeingAliveLanguage
                 postBiocharT = postClayT.Except(biocharT).ToList();
             }
 
-            // stone
-            var preStoneT = postBiocharT;
-            var rStone = ratio[3];
 
-            var stoneT = preStoneT;
+            // ! offset
+            var offsetSandT = sandT.Select(x => OffsetTri(x, rOffset)).ToList();
 
-            // if rock exists, avoid it 
-            //if (rock.Any() && rock[0] != null)
-            //{
-            //    var rockLocal = rock;
-            //    Func<Polyline, bool> hitRock = tri =>
-            //    {
-            //        for (int i = 0; i < 3; i++)
-            //        {
-            //            foreach (var r in rockLocal)
-            //            {
-            //                r.TryGetPlane(out Plane pln);
-            //                var res = r.Contains(tri[i], pln, 0.01);
-            //                if (res == PointContainment.Inside || res == PointContainment.Coincident)
-            //                    return true;
-            //            }
-            //        }
-
-            //        return false;
-            //    };
-
-            //    // avoid rock area
-            //    clayT = clayT.Where(x => !hitRock(x)).ToList();
-            //    siltT = siltT.Where(x => !hitRock(x)).ToList();
-            //    sandT = sandT.Where(x => !hitRock(x)).ToList();
-            //}
-
-            // return
-            //return (sandT, siltT, clayT, soilData);
             return (offsetSandT, clayT, biocharT, stoneT);
         }
 

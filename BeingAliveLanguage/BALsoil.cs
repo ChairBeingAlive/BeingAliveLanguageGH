@@ -195,7 +195,7 @@ namespace BeingAliveLanguage
 
             if (rSand + rClay + rSilt != 1)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio if all content need to sum up to 1.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio of all content need to sum up to 1.");
                 return;
             }
 
@@ -275,14 +275,14 @@ namespace BeingAliveLanguage
             { return; }
             if (!DA.GetData(4, ref rStone))
             { return; }
-            if (!DA.GetData(5, ref rOM))
+            if (!DA.GetData(5, ref relStoneSZ))
             { return; }
-            if (!DA.GetData(6, ref relStoneSZ))
+            if (!DA.GetData(6, ref rOM))
             { return; }
 
             if (rSand + rClay + rBiochar + rOM + rStone != 1)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio if all content need to sum up to 1.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Ratio of all contents need to sum up to 1. Current value is {rSand + rClay + rBiochar + rOM + rStone}");
                 return;
             }
             if (relStoneSZ < 1 || relStoneSZ > 10)
@@ -293,7 +293,7 @@ namespace BeingAliveLanguage
             // ! step1: scaling the ratio of sand, clay, biochar, stone if organic matter is presented
             if (rOM != 0)
             {
-                var sum = rSand + rClay + rBiochar + rOM + rStone;
+                var sum = rSand + rClay + rBiochar + rStone;
                 rSand /= sum;
                 rClay /= sum;
                 rBiochar /= sum;
@@ -301,14 +301,11 @@ namespace BeingAliveLanguage
             }
 
             // ! step2: deciding the offset parameter using stone value if possible
-            // map range [1, 10] to [0.9, 0.6]
-            var rOffset = 0.9 - (relStoneSZ - 1) / 9 * 0.3;
 
 
-            // ! step3: 
-
+            // ! step3: conduct subdividing
             List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            double[] ratio = new double[5] { rSand, rClay, rBiochar, rStone, rOffset };
+            double[] ratio = new double[4] { rSand, rClay, rBiochar, rStone};
 
             // call the actural function
             var (sandT, clayT, biocharT, stonePoly) = balCore.DivUrbanSoilMap(in triPoly, in ratio, in relStoneSZ);
