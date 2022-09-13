@@ -476,7 +476,7 @@ namespace BeingAliveLanguage
             int stoneNum = (int)Math.Round(preStoneT.Count * rStone) / 20;
             double stoneApproxRadius = Math.Sqrt(stoneArea / stoneNum / Math.PI);
 
-            var (stoneT, postStoneT) = PickAndCluster(preStoneT, stoneNum, stoneApproxRadius);
+            var (stoneT, postStoneT) = PickAndCluster(preStoneT, stoneNum, stoneArea);
 
 
             //var stoneT = preStoneT;
@@ -547,39 +547,24 @@ namespace BeingAliveLanguage
                 var approxR = polyIn.Select(x => x.Length).Sum() / polyIn.Count;
                 for (int i = 0; i < stoneCen.Count; i++)
                 {
-                    var c = stoneCen[i];
-                    var kdRes = kdMap.GetNearestNeighbours(new[] { (float)c.X, (float)c.Y, (float)c.Z }, i);
+                    var c = stoneCen.GetPoints()[i];
+                    var kdRes = kdMap.GetNearestNeighbours(new[] { (float)c.X, (float)c.Y, (float)c.Z }, 1);
 
-                    polyCluster[i].Append(kdRes[0].Value);
+                    polyCluster[i].Add(kdRes[0].Value);
                     curArea += triArea(kdRes[0].Value);
                     kdMap.RemoveAt(kdRes[0].Point);
                 }
             }
 
-            //for (int i = 0; i < pickNum; i++)
-            //{
-            //    var idx = Utils.balRnd.Next(cenCollection.Count);
-            //    var res = kdMap.GetNearestNeighbours(new[] { (float)cenCollection[idx].X, (float)cenCollection[idx].Y, (float)cenCollection[idx].Z }, 40);
-
-            //    var polyCluster = new List<Polyline>();
-            //    foreach (var p in res)
-            //    {
-            //        if (kdMap.TryFindValueAt(p.Point, out Polyline pl))
-            //        {
-            //            if (cenCollection[idx].DistanceTo(pl.CenterPoint()) < approxR)
-            //            {
-            //                polyCluster.Add(pl);
-            //                kdMap.RemoveAt(p.Point);
-            //            }
-            //        }
-            //    }
-
-
+            // boolean the collected cluster to form rocks
             foreach (var pl in polyCluster)
             {
                 var crvRes = Curve.CreateBooleanUnion(pl.Select(x => x.ToPolylineCurve()).ToList(), 0.1);
-                crvRes[0].TryGetPolyline(out Polyline xPl);
-                stonePoly.Add(xPl);
+                if (crvRes.Length > 0)
+                {
+                    crvRes[0].TryGetPolyline(out Polyline xPl);
+                    stonePoly.Add(xPl);
+                }
             }
 
             // find the rest polyline and store
