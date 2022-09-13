@@ -51,6 +51,9 @@ namespace BeingAliveLanguage
 
     public static class Utils
     {
+
+        public static Random balRnd = new Random(Guid.NewGuid().GetHashCode());
+
         // convert the "Curve" type taken in by GH to a Rhino.Geometry.Polyline
         public static Polyline CvtCrvToPoly(in Curve c)
         {
@@ -469,8 +472,11 @@ namespace BeingAliveLanguage
             // at this stage, there are a collection of small-level triangles to be grouped into stones.
             var preStoneT = lv3T;
             var rStone = ratio[3];
+            double stoneArea = totalArea * rStone;
+            int stoneNum = (int)Math.Round(preStoneT.Count * rStone) / 20;
+            double stoneApproxRadius = Math.Sqrt(stoneArea / stoneNum / Math.PI);
 
-            var stoneT = PickAndCluster(preStoneT, 50, 10, out List<Polyline> postStoneT);
+            var (stoneT, postStoneT) = PickAndCluster(preStoneT, stoneNum, stoneApproxRadius);
 
 
             //var stoneT = preStoneT;
@@ -502,7 +508,90 @@ namespace BeingAliveLanguage
             // ! offset
             var offsetSandT = sandT.Select(x => OffsetTri(x, rOffset)).ToList();
 
-            return (offsetSandT, clayT, biocharT, stoneT);
+            return (postStoneT, clayT, biocharT, stoneT);
+            //return (offsetSandT, clayT, biocharT, stoneT);
+        }
+
+        static public (List<Polyline>, List<Polyline>) PickAndCluster(in List<Polyline> polyIn, int pickNum, double targetArea)
+        {
+            var stonePoly = new List<Polyline>();
+            var restPoly = new List<Polyline>();
+
+            var cenCollection = polyIn.Select(x => ((x[0] + x[1] + x[2]) / 3)).ToList();
+            var vertCollection = polyIn.Aggregate(new List<Point3d>(), (x, y) => x.ToList().Concat(y.ToList()).ToList());
+
+            // add both centre and vert
+            var ptCloud = new Rhino.Geometry.PointCloud(vertCollection);
+            ptCloud.AddRange(cenCollection);
+
+            // build a kd-map
+            var kdMap = new KdTree<float, Polyline>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
+            Parallel.ForEach(polyIn, pl =>
+            {
+                var cen = (pl[0] + pl[1] + pl[2]) / 3;
+                kdMap.Add(new[] { (float)cen.X, (float)cen.Y, (float)cen.Z }, pl);
+            });
+
+            // prepare the stone centre based on target number
+            var stoneCen = ptCloud.GetRandomSubsample((uint)pickNum);
+
+            double curArea = 0;
+            var polyCluster = new List<List<Polyline>>();
+            for (int i = 0; i < stoneCen.Count; i++)
+            {
+                polyCluster.Add(new List<Polyline>());
+            }
+
+            while (curArea < targetArea)
+            {
+                var approxR = polyIn.Select(x => x.Length).Sum() / polyIn.Count;
+                for (int i = 0; i < stoneCen.Count; i++)
+                {
+                    var c = stoneCen[i];
+                    var kdRes = kdMap.GetNearestNeighbours(new[] { (float)c.X, (float)c.Y, (float)c.Z }, i);
+
+                    polyCluster[i].Append(kdRes[0].Value);
+                    curArea += triArea(kdRes[0].Value);
+                    kdMap.RemoveAt(kdRes[0].Point);
+                }
+            }
+
+            //for (int i = 0; i < pickNum; i++)
+            //{
+            //    var idx = Utils.balRnd.Next(cenCollection.Count);
+            //    var res = kdMap.GetNearestNeighbours(new[] { (float)cenCollection[idx].X, (float)cenCollection[idx].Y, (float)cenCollection[idx].Z }, 40);
+
+            //    var polyCluster = new List<Polyline>();
+            //    foreach (var p in res)
+            //    {
+            //        if (kdMap.TryFindValueAt(p.Point, out Polyline pl))
+            //        {
+            //            if (cenCollection[idx].DistanceTo(pl.CenterPoint()) < approxR)
+            //            {
+            //                polyCluster.Add(pl);
+            //                kdMap.RemoveAt(p.Point);
+            //            }
+            //        }
+            //    }
+
+
+            foreach (var pl in polyCluster)
+            {
+                var crvRes = Curve.CreateBooleanUnion(pl.Select(x => x.ToPolylineCurve()).ToList(), 0.1);
+                crvRes[0].TryGetPolyline(out Polyline xPl);
+                stonePoly.Add(xPl);
+            }
+
+            // find the rest polyline and store
+            foreach (var ptKey in kdMap)
+            {
+                if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
+                {
+                    restPoly.Add(pl);
+                }
+            }
+
+            return (stonePoly, restPoly);
         }
 
 
@@ -975,7 +1064,7 @@ namespace BeingAliveLanguage
                     break;
 
                 // pop the first element
-                var rndIdx = new Random().Next(0, frontKey.Count()) % frontKey.Count;
+                var rndIdx = Utils.balRnd.Next(0, frontKey.Count()) % frontKey.Count;
                 var startPt = frontKey.ElementAt(rndIdx);
                 frontKey.Remove(startPt);
                 nextFrontKey.Clear();
@@ -1347,4 +1436,5 @@ namespace BeingAliveLanguage
             _this.ExpireSolution(true);
         }
     }
+
 }

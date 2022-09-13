@@ -13,90 +13,9 @@ using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
-    // derived class that include MEF functionality
-    //public class GH_BAL : GH_Component
-    //{
-    //    protected GH_BAL(string name, string nickname, string description, string category, string subCategory)
-    //        : base(name, nickname, description, category, subCategory)
-    //    {
-    //    }
-
-    //    protected CompositionContainer _container;
-    //    public void LoadDll()
-    //    {
-
-    //        var info = Instances.ComponentServer.FindAssemblyByObject(ComponentGuid);
-    //        string dllFile = info.Location.Replace(info.Name + ".gha", "BALcore.dll"); // hard coded
-
-    //        if (!System.IO.File.Exists(dllFile))
-    //        {
-    //            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The core computation lib {0} does not exist.", dllFile));
-    //        }
-
-    //        // MEF
-    //        try
-    //        {
-    //            // An aggregate catalog that combines multiple catalogs.
-    //            var catalog = new AggregateCatalog();
-    //            catalog.Catalogs.Add(new AssemblyCatalog(Assembly.Load(System.IO.File.ReadAllBytes(dllFile))));
-
-    //            // Create the CompositionContainer with the parts in the catalog.
-    //            _container = new CompositionContainer(catalog);
-    //            _container.ComposeParts(this);
-
-    //        }
-    //        catch (CompositionException compositionException)
-    //        {
-    //            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, compositionException.ToString());
-    //            return;
-    //        }
-    //    }
-
-    //    public override Guid ComponentGuid => throw new NotImplementedException();
-
-    //    protected override void RegisterInputParams(GH_InputParamManager pManager)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-
-    //    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-
-    //    protected override void SolveInstance(IGH_DataAccess DA)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-
-    //    protected override void BeforeSolveInstance()
-    //    {
-    //        base.BeforeSolveInstance();
-    //    }
-
-    //    protected override void AfterSolveInstance()
-    //    {
-    //        base.AfterSolveInstance();
-    //    }
-
-    //    public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
-    //    {
-    //    }
-
-    //    //protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
-    //    //{
-    //    //base.AppendAdditionalComponentMenuItems(menu);
-    //    //    Menu_AppendItem(menu, "Default");
-    //    //}
-
-    //}
 
     public class BALsoilBase : GH_Component
     {
-        // import func collection from MEF.
-        //[Import(typeof(IPlugin))]
-        //public IPlugin mFunc;
-
         public BALsoilBase()
           : base("Soil Base", "balSoilBase",
             "Generate a base map from the boundary rectangle.",
@@ -152,6 +71,8 @@ namespace BeingAliveLanguage
                 "BAL", "01::soil")
         {
         }
+
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -228,6 +149,8 @@ namespace BeingAliveLanguage
         {
         }
 
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddCurveParameter("Soil Base", "T", "soil base triangle map.", GH_ParamAccess.list);
@@ -235,7 +158,7 @@ namespace BeingAliveLanguage
             pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item, 0);
-            pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Relative Stone Size", "relStoneSZ", "The relative stone size [1, 10], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.item, 1);
             pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item, 0);
             // TODO: if we should separate organic matter out
@@ -280,6 +203,9 @@ namespace BeingAliveLanguage
             if (!DA.GetData(6, ref rOM))
             { return; }
 
+            if (rClay == 0 && rStone == 0)
+            { return; }
+
             if (rSand + rClay + rBiochar + rOM + rStone != 1)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Ratio of all contents need to sum up to 1. Current value is {rSand + rClay + rBiochar + rOM + rStone}");
@@ -305,7 +231,7 @@ namespace BeingAliveLanguage
 
             // ! step3: conduct subdividing
             List<Polyline> triPoly = triL.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            double[] ratio = new double[4] { rSand, rClay, rBiochar, rStone};
+            double[] ratio = new double[4] { rSand, rClay, rBiochar, rStone };
 
             // call the actural function
             var (sandT, clayT, biocharT, stonePoly) = balCore.DivUrbanSoilMap(in triPoly, in ratio, in relStoneSZ);
@@ -376,7 +302,7 @@ namespace BeingAliveLanguage
         {
         }
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -465,7 +391,7 @@ namespace BeingAliveLanguage
         {
         }
 
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -532,7 +458,7 @@ namespace BeingAliveLanguage
         {
         }
 
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -623,7 +549,7 @@ namespace BeingAliveLanguage
         /// <summary>
         /// icon position in a category
         /// </summary>
-        public override GH_Exposure Exposure => GH_Exposure.tertiary;
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
