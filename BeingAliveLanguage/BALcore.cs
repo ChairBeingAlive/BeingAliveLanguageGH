@@ -65,10 +65,19 @@ namespace BeingAliveLanguage
 
     }
 
-    public static class Utils
+    static class Utils
     {
 
         public static Random balRnd = new Random(Guid.NewGuid().GetHashCode());
+
+        public static double remap(double val, double originMin, double originMax, double targetMin, double targetMax)
+        {
+            // of original range is 0 length, return 0
+            if (originMax - originMin < 1e-5)
+            { return 0; }
+
+            return targetMin + val / (originMax - originMin) * (targetMax - targetMin);
+        }
 
         // convert the "Curve" type taken in by GH to a Rhino.Geometry.Polyline
         public static Polyline CvtCrvToPoly(in Curve c)
@@ -133,8 +142,29 @@ namespace BeingAliveLanguage
         }
 
 
-        // ! Climate Related
+        public static Polyline OffsetPoly(in Polyline poly, in Plane pln, in double ratio)
+        {
+            var curPoly = poly.ToList();
+            curPoly.RemoveAt(curPoly.Count - 1);
+            var cen = curPoly.Aggregate(new Point3d(0, 0, 0), (x, y) => x + y) / curPoly.Count;
 
+            var aveDist = curPoly.Select(x => x.DistanceTo(cen)).Sum() / curPoly.Count();
+            var offsetD = aveDist * 0;
+
+            var guideCrv = new Circle(pln, cen, 1).ToNurbsCurve();
+            if (Curve.DoDirectionsMatch(poly.ToPolylineCurve(), guideCrv))
+                poly.Reverse();
+
+            var tmpCrv = poly.ToPolylineCurve();
+
+            var offsetRes = tmpCrv.Offset(new Plane(poly.CenterPoint(), pln.XAxis, pln.YAxis), 0.2, 0.1, CurveOffsetCornerStyle.Sharp);
+            Curve offsetCrv = offsetRes[0];
+
+            return Utils.CvtCrvToPoly(offsetCrv);
+        }
+
+
+        // ! Climate Related
         // hard-coded ETP correction factor, new data can be interpolated from the chart
         static readonly Dictionary<int, List<double>> correctionFactorETP =
             new Dictionary<int, List<double>>() {
@@ -174,9 +204,10 @@ namespace BeingAliveLanguage
 
             return factorL;
         }
+
     }
 
-    public class balCore
+    class balCore
     {
         //  create a position vector from given 2D coordinates in a plane.
         private static readonly Func<Plane, double, double, Vector3d> createVec = (pln, x, y) =>
@@ -462,9 +493,6 @@ namespace BeingAliveLanguage
         {
             // ratio array order:{ rSand, rClay, rBiochar, rStone}; 
 
-            // ! calculate the offset distance. map range [1, 10] to [0.9, 0.6]
-            var rOffset = 0.9 - (relStoneSZ - 1) / 9 * 0.3;
-
             // get area
             double totalArea = sBase.soilT.Sum(x => triArea(x));
 
@@ -483,18 +511,14 @@ namespace BeingAliveLanguage
 
             var lv3T = subDivTriLst(subDivTriLst(postSandT));
 
-
             // ! stone
             // at this stage, there are a collection of small-level triangles to be grouped into stones.
             var preStoneT = lv3T;
             var rStone = ratio[3];
             double stoneArea = totalArea * rStone;
-            int stoneNum = (int)Math.Round(preStoneT.Count * rStone) / 20;
-            double stoneApproxRadius = Math.Sqrt(stoneArea / stoneNum / Math.PI);
+            double stoneR = 0.5 * Utils.remap(relStoneSZ, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width));
 
-            var (stoneT, postStoneT) = PickAndCluster(sBase, preStoneT, stoneNum, stoneArea);
-
-            //var stoneT = preStoneT;
+            var (stoneT, postStoneT) = PickAndCluster(sBase, preStoneT, stoneR, stoneArea);
 
             // ! clay, biochar 
             List<Polyline> clayT = new List<Polyline>();
@@ -504,8 +528,8 @@ namespace BeingAliveLanguage
             {
                 var rClay = ratio[1];
                 var numClay = (int)(Math.Round(lv3T.Count * rClay));
-                clayT = lv3T.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
-                postClayT = lv3T.Except(clayT).ToList();
+                clayT = postStoneT.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
+                postClayT = postStoneT.Except(clayT).ToList();
             }
 
             List<Polyline> biocharT = new List<Polyline>();
@@ -521,26 +545,33 @@ namespace BeingAliveLanguage
 
 
             // ! offset
-            var offsetSandT = sandT.Select(x => OffsetTri(x, rOffset)).ToList();
+            //var offsetSandT = sandT.Select(x => OffsetTri(x, rOffset)).ToList();
+            //var offsetClayT = clayT.Select(x => OffsetTri(x, rOffset)).ToList();
+            //var offsetbioT = biocharT.Select(x => OffsetTri(x, rOffset)).ToList();
 
-            return (postStoneT, clayT, biocharT, stoneT);
-            //return (offsetSandT, clayT, biocharT, stoneT);
+            var cPln = sBase.pln;
+            var bnd = sBase.bnd;
+            // ! calculate the offset distance. map range [1, 10] to [0.9, 0.6]
+            //var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.6);
+            var rOffset = 0.9;
+
+            var offsetSandT = sandT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+            var offsetClayT = clayT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+            var offsetbioT = biocharT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+            var offsetStoneT = stoneT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+
+            return (offsetClayT, clayT, offsetStoneT, stoneT);
         }
 
-        static public (List<Polyline>, List<Polyline>) PickAndCluster(in SoilBase sBase, in List<Polyline> polyIn, int pickNum, double targetArea)
+        static public (List<Polyline>, List<Polyline>) PickAndCluster(in SoilBase sBase, in List<Polyline> polyIn, double approxR, double targetArea)
         {
             var stonePoly = new List<Polyline>();
             var restPoly = new List<Polyline>();
 
-
             var cenCollection = polyIn.Select(x => ((x[0] + x[1] + x[2]) / 3)).ToList();
             var vertCollection = polyIn.Aggregate(new List<Point3d>(), (x, y) => x.ToList().Concat(y.ToList()).ToList());
 
-            // add both centre and vert
-            var ptCloud = new Rhino.Geometry.PointCloud(vertCollection);
-            ptCloud.AddRange(cenCollection);
-
-            // build a kd-map
+            // build a kd-map for polygon centre
             var kdMap = new KdTree<float, Polyline>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
             Parallel.ForEach(polyIn, pl =>
             {
@@ -548,72 +579,65 @@ namespace BeingAliveLanguage
                 kdMap.Add(new[] { (float)cen.X, (float)cen.Y, (float)cen.Z }, pl);
             });
 
-            // prepare the stone centre based on target number
-            var stoneCen = ptCloud.GetRandomSubsample((uint)pickNum);
 
+            var curPln = sBase.pln;
+            var pt2d = FastPoisson.GenerateSamples((float)(sBase.bnd.Width), (float)(sBase.bnd.Height), (float)approxR);
+            var stoneCen = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
+
+
+            // start to boolean stone curves
             double curArea = 0;
-            var polyCluster = new List<List<Polyline>>();
+            var polyCluster = new List<Curve>(stoneCen.Count);
             for (int i = 0; i < stoneCen.Count; i++)
             {
-                polyCluster.Add(new List<Polyline>());
+                var kdRes = kdMap.GetNearestNeighbours(new[] { (float)stoneCen[i].X, (float)stoneCen[i].Y, (float)stoneCen[i].Z }, 1);
+
+                polyCluster.Add(kdRes[0].Value.ToPolylineCurve());
+                kdMap.RemoveAt(kdRes[0].Point);
             }
 
-            //var approxR = polyIn.Select(x => x.Length).Sum() / polyIn.Count;
-            //var poissonD = new PoissonDiscSampling();
 
-            double approxR = Math.Sqrt(targetArea / pickNum / Math.PI);
-            //var bndRes = Curve.CreateBooleanUnion(polyIn.Select(x => x.ToPolylineCurve()).ToList(), 0.1);
+            // grow each stone area until the total area is reached
+            bool areaReached = false;
+            while (!areaReached)
+            {
+                for (int i = 0; i < stoneCen.Count; i++)
+                {
+                    var kdRes = kdMap.GetNearestNeighbours(new[] { (float)stoneCen[i].X, (float)stoneCen[i].Y, (float)stoneCen[i].Z }, 1);
+                    var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
+                    var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.1);
 
+                    if (booleanRes.Length == 1)
+                    {
+                        curArea += triArea(kdRes[0].Value);
+                        kdMap.RemoveAt(kdRes[0].Point);
+                        polyCluster[i] = booleanRes[0];
+                    }
 
-            var pt2d = FastPoisson.GenerateSamples((float)(sBase.bnd.Width), (float)(sBase.bnd.Height), (float)approxR);
-            var curPln = sBase.pln;
-            var pts = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
+                    if (curArea >= targetArea)
+                    {
+                        areaReached = true;
+                        break;
+                    }
+                }
+            }
 
-            stonePoly = pts.Select(x => new Rectangle3d(new Plane(x, Vector3d.XAxis, Vector3d.YAxis), new Interval(-1, 1), new Interval(-1, 1)).ToPolyline()).ToList();
+            polyCluster.ForEach(pl =>
+            {
+                if (pl.TryGetPolyline(out Polyline resPoly))
+                {
+                    stonePoly.Add(resPoly);
+                }
+            });
 
-
-
-            //FastPoisson.GenerateSamples()
-            //var stoneCen2 = poissonD.Sample(bndRes[0], approxR, Utils.balRnd.Next(10000), false);
-
-            //stonePoly = stoneCen2.Select(x => new Rectangle3d(new Plane(x, Vector3d.XAxis, Vector3d.YAxis), new Interval(-1, 1), new Interval(-1, 1)).ToPolyline()).ToList();
-
-            //while (true)
-            //{
-            //    for (int i = 0; i < stoneCen.Count; i++)
-            //    {
-            //        //var c = stoneCen.GetPoints()[i];
-            //        var c = stoneCen2[i];
-            //        var kdRes = kdMap.GetNearestNeighbours(new[] { (float)c.X, (float)c.Y, (float)c.Z }, 1);
-
-            //        polyCluster[i].Add(kdRes[0].Value);
-            //        curArea += triArea(kdRes[0].Value);
-            //        kdMap.RemoveAt(kdRes[0].Point);
-
-            //        if (curArea >= targetArea)
-            //            break;
-            //    }
-            //}
-
-            //// boolean the collected cluster to form rocks
-            //foreach (var pl in polyCluster)
-            //{
-            //    var crvRes = Curve.CreateBooleanUnion(pl.Select(x => x.ToPolylineCurve()).ToList(), 0.1);
-            //    if (crvRes.Length > 0)
-            //    {
-            //        crvRes[0].TryGetPolyline(out Polyline xPl);
-            //        stonePoly.Add(xPl);
-            //    }
-            //}
-
-            //// find the rest polyline and store
-            //foreach (var ptKey in kdMap)
-            //{
-            //    if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
-            //    {
-            //        restPoly.Add(pl);
-            //    }
-            //}
+            // find the rest polyline and store
+            foreach (var ptKey in kdMap)
+            {
+                if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
+                {
+                    restPoly.Add(pl);
+                }
+            }
 
             return (stonePoly, restPoly);
         }
@@ -1461,126 +1485,7 @@ namespace BeingAliveLanguage
         }
     }
 
-    class PoissonDiscSampling
-    {
-        ConcurrentBag<Point3d> samples;
-        Curve boundary;
-        double distance;
-        double distanceSquared;
-        double cellMinimum;
-        int seed;
-        bool random;
-
-        struct SampleCellArguments
-        {
-            public SampleCellArguments(Box cell, int depth)
-            {
-                this.cell = cell;
-                this.depth = depth;
-            }
-            public Box cell;
-            public int depth;
-        }
-
-        public List<Point3d> Sample(Curve curve, double distance, int seed, bool random)
-        {
-            if (distance <= 0)
-                return null;
-
-            curve.TryGetPlane(out Plane plane);
-            Box box = new Box(plane, curve);
-
-            //double cellLength = box.X.Length > box.Y.Length ? box.X.Length : box.Y.Length;
-
-            //Box cell = new Box(box.Plane, new Interval(box.X.Min, box.X.Min + cellLength), new Interval(box.Y.Min, box.Y.Min + cellLength), new Interval());
-            Box cell = new Box(box.Plane, box.X, box.Y, new Interval());
-
-            samples = new ConcurrentBag<Point3d>();
-            boundary = curve;
-            this.distance = distance;
-            distanceSquared = distance * distance;
-            cellMinimum = (distance / 2) / Math.Sqrt(2);
-            this.seed = seed;
-            this.random = random;
-
-            SampleCell(new SampleCellArguments(cell, 0));
-
-            return new List<Point3d>(samples);
-        }
-
-        void SampleCell(object argumentsObject)
-        {
-            SampleCellArguments arguments = (SampleCellArguments)argumentsObject;
-            Box cell = arguments.cell;
-            int depth = arguments.depth;
-
-            Random random = new Random(seed + depth);
-
-            Point3d sample = cell.PointAt(random.NextDouble(), random.NextDouble(), 0);
-
-            bool valid = true;
-            double t;
-            boundary.ClosestPoint(sample, out t);
-            if (sample.DistanceTo(boundary.PointAt(t)) < distance / 2)
-                valid = false;
-            if (valid)
-            {
-                if (boundary.Contains(sample, cell.Plane, Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance) == PointContainment.Outside)
-                    valid = false;
-            }
-            if (valid)
-            {
-                foreach (var point in samples)
-                {
-                    if (sample.DistanceToSquared(point) < distanceSquared)
-                    {
-                        valid = false;
-                        break;
-                    }
-                }
-            }
-            if (valid)
-                samples.Add(sample);
-
-            if (cell.X.Length < cellMinimum)
-                return;
-
-            List<Box> newCells = new List<Box>();
-            for (double u = 0; u < 1; u += 0.5)
-            {
-                for (double v = 0; v < 1; v += 0.5)
-                {
-                    Box newCell = new Box(cell.Plane, new Point3d[] { cell.PointAt(u, v, 0), cell.PointAt(u + 0.5, v + 0.5, 0) });
-                    newCells.Add(newCell);
-                }
-            }
-
-            List<Task> tasks = new List<Task>(4);
-            for (int i = newCells.Count - 1; i >= 0; i--)
-            {
-                Box newCell = newCells[random.Next(i)];
-                newCells.Remove(newCell);
-                SampleCellArguments newArguments = new SampleCellArguments(newCell, depth + 1);
-
-                if (this.random)
-                {
-                    Task task = new Task(new Action<object>(SampleCell), newArguments);
-                    tasks.Add(task);
-                    task.Start();
-                }
-                else
-                { SampleCell(newArguments); }
-            }
-
-            foreach (Task task in tasks)
-            {
-                task.Wait();
-            }
-            return;
-        }
-    }
-
-    public static class FastPoisson
+    static class FastPoisson
     {
         private static int _k = 30; // recommended value from the paper TODO provide a means for configuring this value
 
