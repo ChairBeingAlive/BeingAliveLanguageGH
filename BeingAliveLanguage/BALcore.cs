@@ -29,6 +29,22 @@ namespace BeingAliveLanguage
         }
     }
 
+    public struct SoilBase
+    {
+        public List<Polyline> soilT;
+        public double unitL;
+        public Plane pln;
+        public Rectangle3d bnd;
+
+        public SoilBase(Rectangle3d bound, Plane plane, List<Polyline> poly, double uL)
+        {
+            bnd = bound;
+            pln = plane;
+            soilT = poly;
+            unitL = uL;
+        }
+    }
+
     /// <summary>
     /// a basic struct holding organic matter properties to draw top OM
     /// </summary>
@@ -442,7 +458,7 @@ namespace BeingAliveLanguage
         /// Main Func: divide triMap into subdivisions based on the urban ratio
         /// </summary>
         public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
-            DivUrbanSoilMap(in List<Polyline> triL, in double[] ratio, in double relStoneSZ)
+            DivUrbanSoilMap(in SoilBase sBase, in double[] ratio, in double relStoneSZ)
         {
             // ratio array order:{ rSand, rClay, rBiochar, rStone}; 
 
@@ -450,19 +466,19 @@ namespace BeingAliveLanguage
             var rOffset = 0.9 - (relStoneSZ - 1) / 9 * 0.3;
 
             // get area
-            double totalArea = triL.Sum(x => triArea(x));
+            double totalArea = sBase.soilT.Sum(x => triArea(x));
 
             // ! sand
             List<Polyline> sandT = new List<Polyline>();
-            var postSandT = triL;
+            var postSandT = sBase.soilT;
             var totalASand = totalArea * ratio[0];
             if (totalASand > 0)
             {
                 var rSand = ratio[0];
-                var numSand = (int)(Math.Round(triL.Count * rSand));
+                var numSand = (int)(Math.Round(postSandT.Count * rSand));
 
-                sandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
-                postSandT = triL.Except(sandT).ToList();
+                sandT = postSandT.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
+                postSandT = sBase.soilT.Except(sandT).ToList();
             }
 
             var lv3T = subDivTriLst(subDivTriLst(postSandT));
@@ -476,8 +492,7 @@ namespace BeingAliveLanguage
             int stoneNum = (int)Math.Round(preStoneT.Count * rStone) / 20;
             double stoneApproxRadius = Math.Sqrt(stoneArea / stoneNum / Math.PI);
 
-            var (stoneT, postStoneT) = PickAndCluster(preStoneT, stoneNum, stoneArea);
-
+            var (stoneT, postStoneT) = PickAndCluster(sBase, preStoneT, stoneNum, stoneArea);
 
             //var stoneT = preStoneT;
 
@@ -512,10 +527,11 @@ namespace BeingAliveLanguage
             //return (offsetSandT, clayT, biocharT, stoneT);
         }
 
-        static public (List<Polyline>, List<Polyline>) PickAndCluster(in List<Polyline> polyIn, int pickNum, double targetArea)
+        static public (List<Polyline>, List<Polyline>) PickAndCluster(in SoilBase sBase, in List<Polyline> polyIn, int pickNum, double targetArea)
         {
             var stonePoly = new List<Polyline>();
             var restPoly = new List<Polyline>();
+
 
             var cenCollection = polyIn.Select(x => ((x[0] + x[1] + x[2]) / 3)).ToList();
             var vertCollection = polyIn.Aggregate(new List<Point3d>(), (x, y) => x.ToList().Concat(y.ToList()).ToList());
@@ -542,39 +558,62 @@ namespace BeingAliveLanguage
                 polyCluster.Add(new List<Polyline>());
             }
 
-            while (curArea < targetArea)
-            {
-                var approxR = polyIn.Select(x => x.Length).Sum() / polyIn.Count;
-                for (int i = 0; i < stoneCen.Count; i++)
-                {
-                    var c = stoneCen.GetPoints()[i];
-                    var kdRes = kdMap.GetNearestNeighbours(new[] { (float)c.X, (float)c.Y, (float)c.Z }, 1);
+            //var approxR = polyIn.Select(x => x.Length).Sum() / polyIn.Count;
+            //var poissonD = new PoissonDiscSampling();
 
-                    polyCluster[i].Add(kdRes[0].Value);
-                    curArea += triArea(kdRes[0].Value);
-                    kdMap.RemoveAt(kdRes[0].Point);
-                }
-            }
+            double approxR = Math.Sqrt(targetArea / pickNum / Math.PI);
+            //var bndRes = Curve.CreateBooleanUnion(polyIn.Select(x => x.ToPolylineCurve()).ToList(), 0.1);
 
-            // boolean the collected cluster to form rocks
-            foreach (var pl in polyCluster)
-            {
-                var crvRes = Curve.CreateBooleanUnion(pl.Select(x => x.ToPolylineCurve()).ToList(), 0.1);
-                if (crvRes.Length > 0)
-                {
-                    crvRes[0].TryGetPolyline(out Polyline xPl);
-                    stonePoly.Add(xPl);
-                }
-            }
 
-            // find the rest polyline and store
-            foreach (var ptKey in kdMap)
-            {
-                if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
-                {
-                    restPoly.Add(pl);
-                }
-            }
+            var pt2d = FastPoisson.GenerateSamples((float)(sBase.bnd.Width), (float)(sBase.bnd.Height), (float)approxR);
+            var curPln = sBase.pln;
+            var pts = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
+
+            stonePoly = pts.Select(x => new Rectangle3d(new Plane(x, Vector3d.XAxis, Vector3d.YAxis), new Interval(-1, 1), new Interval(-1, 1)).ToPolyline()).ToList();
+
+
+
+            //FastPoisson.GenerateSamples()
+            //var stoneCen2 = poissonD.Sample(bndRes[0], approxR, Utils.balRnd.Next(10000), false);
+
+            //stonePoly = stoneCen2.Select(x => new Rectangle3d(new Plane(x, Vector3d.XAxis, Vector3d.YAxis), new Interval(-1, 1), new Interval(-1, 1)).ToPolyline()).ToList();
+
+            //while (true)
+            //{
+            //    for (int i = 0; i < stoneCen.Count; i++)
+            //    {
+            //        //var c = stoneCen.GetPoints()[i];
+            //        var c = stoneCen2[i];
+            //        var kdRes = kdMap.GetNearestNeighbours(new[] { (float)c.X, (float)c.Y, (float)c.Z }, 1);
+
+            //        polyCluster[i].Add(kdRes[0].Value);
+            //        curArea += triArea(kdRes[0].Value);
+            //        kdMap.RemoveAt(kdRes[0].Point);
+
+            //        if (curArea >= targetArea)
+            //            break;
+            //    }
+            //}
+
+            //// boolean the collected cluster to form rocks
+            //foreach (var pl in polyCluster)
+            //{
+            //    var crvRes = Curve.CreateBooleanUnion(pl.Select(x => x.ToPolylineCurve()).ToList(), 0.1);
+            //    if (crvRes.Length > 0)
+            //    {
+            //        crvRes[0].TryGetPolyline(out Polyline xPl);
+            //        stonePoly.Add(xPl);
+            //    }
+            //}
+
+            //// find the rest polyline and store
+            //foreach (var ptKey in kdMap)
+            //{
+            //    if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
+            //    {
+            //        restPoly.Add(pl);
+            //    }
+            //}
 
             return (stonePoly, restPoly);
         }
@@ -1422,4 +1461,261 @@ namespace BeingAliveLanguage
         }
     }
 
+    class PoissonDiscSampling
+    {
+        ConcurrentBag<Point3d> samples;
+        Curve boundary;
+        double distance;
+        double distanceSquared;
+        double cellMinimum;
+        int seed;
+        bool random;
+
+        struct SampleCellArguments
+        {
+            public SampleCellArguments(Box cell, int depth)
+            {
+                this.cell = cell;
+                this.depth = depth;
+            }
+            public Box cell;
+            public int depth;
+        }
+
+        public List<Point3d> Sample(Curve curve, double distance, int seed, bool random)
+        {
+            if (distance <= 0)
+                return null;
+
+            curve.TryGetPlane(out Plane plane);
+            Box box = new Box(plane, curve);
+
+            //double cellLength = box.X.Length > box.Y.Length ? box.X.Length : box.Y.Length;
+
+            //Box cell = new Box(box.Plane, new Interval(box.X.Min, box.X.Min + cellLength), new Interval(box.Y.Min, box.Y.Min + cellLength), new Interval());
+            Box cell = new Box(box.Plane, box.X, box.Y, new Interval());
+
+            samples = new ConcurrentBag<Point3d>();
+            boundary = curve;
+            this.distance = distance;
+            distanceSquared = distance * distance;
+            cellMinimum = (distance / 2) / Math.Sqrt(2);
+            this.seed = seed;
+            this.random = random;
+
+            SampleCell(new SampleCellArguments(cell, 0));
+
+            return new List<Point3d>(samples);
+        }
+
+        void SampleCell(object argumentsObject)
+        {
+            SampleCellArguments arguments = (SampleCellArguments)argumentsObject;
+            Box cell = arguments.cell;
+            int depth = arguments.depth;
+
+            Random random = new Random(seed + depth);
+
+            Point3d sample = cell.PointAt(random.NextDouble(), random.NextDouble(), 0);
+
+            bool valid = true;
+            double t;
+            boundary.ClosestPoint(sample, out t);
+            if (sample.DistanceTo(boundary.PointAt(t)) < distance / 2)
+                valid = false;
+            if (valid)
+            {
+                if (boundary.Contains(sample, cell.Plane, Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance) == PointContainment.Outside)
+                    valid = false;
+            }
+            if (valid)
+            {
+                foreach (var point in samples)
+                {
+                    if (sample.DistanceToSquared(point) < distanceSquared)
+                    {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+            if (valid)
+                samples.Add(sample);
+
+            if (cell.X.Length < cellMinimum)
+                return;
+
+            List<Box> newCells = new List<Box>();
+            for (double u = 0; u < 1; u += 0.5)
+            {
+                for (double v = 0; v < 1; v += 0.5)
+                {
+                    Box newCell = new Box(cell.Plane, new Point3d[] { cell.PointAt(u, v, 0), cell.PointAt(u + 0.5, v + 0.5, 0) });
+                    newCells.Add(newCell);
+                }
+            }
+
+            List<Task> tasks = new List<Task>(4);
+            for (int i = newCells.Count - 1; i >= 0; i--)
+            {
+                Box newCell = newCells[random.Next(i)];
+                newCells.Remove(newCell);
+                SampleCellArguments newArguments = new SampleCellArguments(newCell, depth + 1);
+
+                if (this.random)
+                {
+                    Task task = new Task(new Action<object>(SampleCell), newArguments);
+                    tasks.Add(task);
+                    task.Start();
+                }
+                else
+                { SampleCell(newArguments); }
+            }
+
+            foreach (Task task in tasks)
+            {
+                task.Wait();
+            }
+            return;
+        }
+    }
+
+    public static class FastPoisson
+    {
+        private static int _k = 30; // recommended value from the paper TODO provide a means for configuring this value
+
+        //public struct Vector2
+        //{
+        //    public float X;
+        //    public float Y;
+
+        //    public Vector2(float width, float height)
+        //    {
+        //        X = width;
+        //        Y = height;
+        //    }
+
+        //    public DistanceSquared()
+        //}
+
+        /// <summary>
+        ///     Generates a Poisson distribution of <see cref="Vector2"/> within some rectangular shape defined by <paramref name="height"/> * <paramref name="width"/>.
+        /// </summary>
+        /// <param name="width">The width of the plane.</param>
+        /// <param name="height">The height of the plane.</param>
+        /// <param name="radius">The minimum distance between any two points.</param>
+        /// <returns>Enumeration of <see cref="Vector2"/> elements where no element is within <paramref name="radius"/> distance to any other element.</returns>
+        public static IEnumerable<System.Numerics.Vector2> GenerateSamples(float width, float height, float radius)
+        {
+            List<System.Numerics.Vector2> samples = new List<System.Numerics.Vector2>();
+            Random random = new Random(); // TODO evaluate whether this Random can generate uniformly random numbers
+
+            // cell size to guarantee that each cell within the accelerator grid can have at most one sample
+            float cellSize = radius / (float)Math.Sqrt(radius);
+
+            // dimensions of our accelerator grid
+            int acceleratorWidth = (int)Math.Ceiling(width / cellSize);
+            int acceleratorHeight = (int)Math.Ceiling(height / cellSize);
+
+            // backing accelerator grid to speed up rejection of generated samples
+            int[,] accelerator = new int[acceleratorHeight, acceleratorWidth];
+
+            // initializer point right at the center
+            System.Numerics.Vector2 initializer = new System.Numerics.Vector2(width / 2, height / 2);
+
+            // keep track of our active samples
+            List<System.Numerics.Vector2> activeSamples = new List<System.Numerics.Vector2>();
+
+            activeSamples.Add(initializer);
+
+            // begin sample generation
+            while (activeSamples.Count != 0)
+            {
+                // pop off the most recently added samples and begin generating addtional samples around it
+                int index = random.Next(0, activeSamples.Count);
+                System.Numerics.Vector2 currentOrigin = activeSamples[index];
+                bool isValid = false; // need to keep track whether or not the sample we have meets our criteria
+
+                // attempt to randomly place a point near our current origin up to _k rejections
+                for (int i = 0; i < _k; i++)
+                {
+                    // create a random direction to place a new sample at
+                    float angle = (float)(random.NextDouble() * Math.PI * 2);
+                    System.Numerics.Vector2 direction;
+                    direction.X = (float)Math.Sin(angle);
+                    direction.Y = (float)Math.Cos(angle);
+
+                    // create a random distance between r and 2r away for that direction
+                    float distance = random.Next((int)(radius * 100), (int)(2 * radius * 100)) / (float)100.0;
+                    direction.X *= distance;
+                    direction.Y *= distance;
+
+                    // create our generated sample from our currentOrigin plus our new direction vector
+                    System.Numerics.Vector2 generatedSample;
+                    generatedSample.X = currentOrigin.X + direction.X;
+                    generatedSample.Y = currentOrigin.Y + direction.Y;
+
+                    isValid = IsGeneratedSampleValid(generatedSample, width, height, radius, cellSize, samples, accelerator);
+
+                    if (isValid)
+                    {
+                        activeSamples.Add(generatedSample); // we may be able to add more samples around this valid generated sample later
+                        samples.Add(generatedSample);
+
+                        // mark the generated sample as "taken" on our accelerator
+                        accelerator[(int)(generatedSample.X / cellSize), (int)(generatedSample.Y / cellSize)] = samples.Count;
+
+                        break; // restart since we successfully generated a point
+                    }
+                }
+
+                if (!isValid)
+                {
+                    activeSamples.RemoveAt(index);
+                }
+            }
+            return samples;
+        }
+
+        private static bool IsGeneratedSampleValid(System.Numerics.Vector2 generatedSample, float width, float height, float radius, float cellSize, List<System.Numerics.Vector2> samples, int[,] accelerator)
+        {
+            // is our generated sample within our boundaries?
+            if (generatedSample.X < 0 || generatedSample.X >= height || generatedSample.Y < 0 || generatedSample.Y >= width)
+            {
+                return false; // out of bounds
+            }
+
+            int acceleratorX = (int)(generatedSample.X / cellSize);
+            int acceleratorY = (int)(generatedSample.Y / cellSize);
+
+            // TODO - for some reason my math for initially have +/- 2 for the area bounds causes some points to just slip
+            //        through with a distance just below the radis - bumping this up to +/- 3 solves it at the cost of additional compute
+            // create our search area bounds
+            int startX = Math.Max(0, acceleratorX - 3);
+            int endX = Math.Min(acceleratorX + 3, accelerator.GetLength(0) - 1);
+
+            int startY = Math.Max(0, acceleratorY - 3);
+            int endY = Math.Min(acceleratorY + 3, accelerator.GetLength(1) - 1);
+
+            // search within our boundaries for another sample
+            for (int x = startX; x <= endX; x++)
+            {
+                for (int y = startY; y <= endY; y++)
+                {
+                    int index = accelerator[x, y] - 1; // index of sample at this point (if there is one)
+
+                    if (index >= 0) // in each point for the accelerator where we have a sample we put the current size of the number of samples
+                    {
+                        // compute Euclidean distance squared (more performant as there is no square root)
+                        float distance = System.Numerics.Vector2.DistanceSquared(generatedSample, samples[index]);
+                        if (distance < radius * radius)
+                        {
+                            return false; // too close to another point
+                        }
+                    }
+                }
+            }
+            return true; // this is a valid generated sample as there are no other samples too close to it
+        }
+    }
 }
