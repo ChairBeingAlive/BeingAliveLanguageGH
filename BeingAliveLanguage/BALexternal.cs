@@ -1,0 +1,56 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Clipper2Lib;
+using Rhino.Geometry;
+//using ClipperLib;
+
+namespace BeingAliveLanguage
+{
+    //using PathD = List<PointD>;
+    using PathsD = List<List<PointD>>;
+
+    public static class ClipperUtils
+    {
+        public static Polyline OffsetPolygon(in Plane pln, in Polyline polyIn, in double dis)
+        {
+            // ! 1. construct plane conversion
+            Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, pln);
+            Transform toWorld = Transform.ChangeBasis(pln, Plane.WorldXY);
+
+            // ! 2. convert rhino polyline to clipper paths, remove last point
+            List<double> polyInArray = new List<double>();
+            for (int i = 0; i < polyIn.Count - 1; i++)
+            {
+                //pln.RemapToPlaneSpace(polyIn[i], out Point3d p2d);
+                Point3d p2d = polyIn[i];
+                p2d.Transform(toLocal);
+
+                polyInArray.Add(p2d.X);
+                polyInArray.Add(p2d.Y);
+            }
+
+
+            var polyPath = new PathsD();
+            polyPath.Add(Clipper.MakePath(polyInArray.ToArray()));
+
+
+            // ! 3. offset
+            var res = Clipper.InflatePaths(polyPath, dis, JoinType.Miter, EndType.Polygon, dis * 2);
+            var resOut = res[0].ToList();
+
+            // ! 4. convert back, add last point
+            var polyOut = new Polyline();
+            for (int i = 0; i < resOut.Count; i++)
+            {
+                var pt = new Point3d(resOut[i].x, resOut[i].y, 0);
+                pt.Transform(toWorld);
+
+                polyOut.Add(pt);
+            }
+            polyOut.Add(polyOut[0]);
+
+            return polyOut;
+        }
+    }
+}

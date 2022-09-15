@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using MathNet.Numerics.Distributions;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
+using Clipper2Lib;
 
 namespace BeingAliveLanguage
 {
@@ -162,7 +163,6 @@ namespace BeingAliveLanguage
 
             return Utils.CvtCrvToPoly(offsetCrv);
         }
-
 
         // ! Climate Related
         // hard-coded ETP correction factor, new data can be interpolated from the chart
@@ -555,10 +555,15 @@ namespace BeingAliveLanguage
             //var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.6);
             var rOffset = 0.9;
 
-            var offsetSandT = sandT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
-            var offsetClayT = clayT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
-            var offsetbioT = biocharT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
-            var offsetStoneT = stoneT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+            //var offsetSandT = sandT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+            //var offsetClayT = clayT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+            //var offsetbioT = biocharT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+            //var offsetStoneT = stoneT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
+
+
+
+            var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetStoneT = stoneT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
 
             return (offsetClayT, clayT, offsetStoneT, stoneT);
         }
