@@ -143,27 +143,6 @@ namespace BeingAliveLanguage
         }
 
 
-        public static Polyline OffsetPoly(in Polyline poly, in Plane pln, in double ratio)
-        {
-            var curPoly = poly.ToList();
-            curPoly.RemoveAt(curPoly.Count - 1);
-            var cen = curPoly.Aggregate(new Point3d(0, 0, 0), (x, y) => x + y) / curPoly.Count;
-
-            var aveDist = curPoly.Select(x => x.DistanceTo(cen)).Sum() / curPoly.Count();
-            var offsetD = aveDist * 0;
-
-            var guideCrv = new Circle(pln, cen, 1).ToNurbsCurve();
-            if (Curve.DoDirectionsMatch(poly.ToPolylineCurve(), guideCrv))
-                poly.Reverse();
-
-            var tmpCrv = poly.ToPolylineCurve();
-
-            var offsetRes = tmpCrv.Offset(new Plane(poly.CenterPoint(), pln.XAxis, pln.YAxis), 0.2, 0.1, CurveOffsetCornerStyle.Sharp);
-            Curve offsetCrv = offsetRes[0];
-
-            return Utils.CvtCrvToPoly(offsetCrv);
-        }
-
         // ! Climate Related
         // hard-coded ETP correction factor, new data can be interpolated from the chart
         static readonly Dictionary<int, List<double>> correctionFactorETP =
@@ -545,25 +524,13 @@ namespace BeingAliveLanguage
 
 
             // ! offset
-            //var offsetSandT = sandT.Select(x => OffsetTri(x, rOffset)).ToList();
-            //var offsetClayT = clayT.Select(x => OffsetTri(x, rOffset)).ToList();
-            //var offsetbioT = biocharT.Select(x => OffsetTri(x, rOffset)).ToList();
-
             var cPln = sBase.pln;
-            var bnd = sBase.bnd;
             // ! calculate the offset distance. map range [1, 10] to [0.9, 0.6]
             //var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.6);
-            var rOffset = 0.9;
+            var rOffset = 2.5;
 
-            //var offsetSandT = sandT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
-            //var offsetClayT = clayT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
-            //var offsetbioT = biocharT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
-            //var offsetStoneT = stoneT.Select(x => Utils.OffsetPoly(x, cPln, rOffset)).ToList();
-
-
-
-            var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            var offsetStoneT = stoneT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, -rOffset)).ToList();
+            var offsetStoneT = stoneT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, -rOffset)).ToList();
 
             return (offsetClayT, clayT, offsetStoneT, stoneT);
         }
@@ -608,6 +575,7 @@ namespace BeingAliveLanguage
             {
                 for (int i = 0; i < stoneCen.Count; i++)
                 {
+                    // todo: check zero length result
                     var kdRes = kdMap.GetNearestNeighbours(new[] { (float)stoneCen[i].X, (float)stoneCen[i].Y, (float)stoneCen[i].Z }, 1);
                     var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
                     var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.1);
