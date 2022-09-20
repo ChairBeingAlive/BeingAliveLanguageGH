@@ -12,7 +12,7 @@ namespace BeingAliveLanguage
 
     public static class ClipperUtils
     {
-        public static Polyline OffsetPolygon(in Plane pln, in Polyline polyIn, in double dis)
+        public static Polyline OffsetPolygon(in Plane pln, in Polyline polyIn, in double ratio)
         {
             // ! 1. construct plane conversion
             Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, pln);
@@ -36,7 +36,11 @@ namespace BeingAliveLanguage
 
 
             // ! 3. offset
-            var res = Clipper.InflatePaths(polyPath, dis, JoinType.Miter, EndType.Polygon, dis * 2);
+            var cen = polyIn.Aggregate(new Point3d(), (x, y) => x + y) / polyIn.Count;
+            var aveR = polyIn.Select(x => x.DistanceTo(cen)).ToList().Sum() / polyIn.Count;
+            var dis = -(1 - ratio) * aveR;
+            //var dis = -1;
+            var res = Clipper.InflatePaths(polyPath, dis, JoinType.Miter, EndType.Polygon, Math.Abs(dis) * 2);
             var resOut = res[0].ToList();
 
             // ! 4. convert back, add last point

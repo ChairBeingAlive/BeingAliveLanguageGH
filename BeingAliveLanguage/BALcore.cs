@@ -8,11 +8,32 @@ using MathNet.Numerics.Distributions;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Clipper2Lib;
+using System.Security.Policy;
 
 namespace BeingAliveLanguage
 {
+
     /// <summary>
-    /// a basic soil info container used for both coreLib and ghLib
+    /// The base information of initialized soil, used for soil/root computing.
+    /// </summary>
+    public struct SoilBase
+    {
+        public List<Polyline> soilT;
+        public double unitL;
+        public Plane pln;
+        public Rectangle3d bnd;
+
+        public SoilBase(Rectangle3d bound, Plane plane, List<Polyline> poly, double uL)
+        {
+            bnd = bound;
+            pln = plane;
+            soilT = poly;
+            unitL = uL;
+        }
+    }
+
+    /// <summary>
+    /// a basic soil info container.
     /// </summary>
     public struct SoilProperty
     {
@@ -27,22 +48,6 @@ namespace BeingAliveLanguage
             fieldCapacity = fc;
             wiltingPoint = wp;
             saturation = sa;
-        }
-    }
-
-    public struct SoilBase
-    {
-        public List<Polyline> soilT;
-        public double unitL;
-        public Plane pln;
-        public Rectangle3d bnd;
-
-        public SoilBase(Rectangle3d bound, Plane plane, List<Polyline> poly, double uL)
-        {
-            bnd = bound;
-            pln = plane;
-            soilT = poly;
-            unitL = uL;
         }
     }
 
@@ -522,15 +527,23 @@ namespace BeingAliveLanguage
                 postBiocharT = postClayT.Except(biocharT).ToList();
             }
 
+            // if there're small triangles left, give it to the bigger 
+            if (postBiocharT.Count > 0)
+            {
+                if (clayT.Count > biocharT.Count)
+                    clayT = clayT.Concat(postBiocharT).ToList();
+                else
+                    biocharT = biocharT.Concat(postBiocharT).ToList();
+            }
 
             // ! offset
             var cPln = sBase.pln;
             // ! calculate the offset distance. map range [1, 10] to [0.9, 0.6]
-            //var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.6);
-            var rOffset = 2.5;
+            var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.8);
+            //var rOffset = 2.5;
 
-            var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, -rOffset)).ToList();
-            var offsetStoneT = stoneT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, -rOffset)).ToList();
+            var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetStoneT = stoneT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
 
             return (offsetClayT, clayT, offsetStoneT, stoneT);
         }
@@ -573,32 +586,46 @@ namespace BeingAliveLanguage
             bool areaReached = false;
             while (!areaReached)
             {
+                // the zeroCnt is used to guarantee that when curArea cannot expand to targetArea, we also stop safely.
+                int zeroCnt = 0;
                 for (int i = 0; i < stoneCen.Count; i++)
                 {
-                    // todo: check zero length result
                     var kdRes = kdMap.GetNearestNeighbours(new[] { (float)stoneCen[i].X, (float)stoneCen[i].Y, (float)stoneCen[i].Z }, 1);
-                    var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
-                    var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.1);
 
-                    if (booleanRes.Length == 1)
+                    if (kdRes.Length == 0)
                     {
-                        curArea += triArea(kdRes[0].Value);
-                        kdMap.RemoveAt(kdRes[0].Point);
-                        polyCluster[i] = booleanRes[0];
+                        zeroCnt += 1;
                     }
-
-                    if (curArea >= targetArea)
+                    else
                     {
-                        areaReached = true;
-                        break;
+                        var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
+                        var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.1);
+
+                        if (booleanRes.Length == 1)
+                        {
+                            curArea += triArea(kdRes[0].Value);
+                            kdMap.RemoveAt(kdRes[0].Point);
+                            polyCluster[i] = booleanRes[0];
+                        }
+
+                        if (curArea >= targetArea)
+                        {
+                            areaReached = true;
+                            break;
+                        }
                     }
                 }
+
+                // stone cannot expand anymore
+                if (zeroCnt == stoneCen.Count)
+                    break;
             }
 
             polyCluster.ForEach(pl =>
             {
                 if (pl.TryGetPolyline(out Polyline resPoly))
                 {
+                    resPoly.MergeColinearSegments(0.1, true);
                     stonePoly.Add(resPoly);
                 }
             });
