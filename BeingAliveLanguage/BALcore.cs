@@ -148,6 +148,11 @@ namespace BeingAliveLanguage
             return (v0, v1);
         }
 
+        public static List<T> Rotate<T>(this List<T> list, int offset)
+        {
+            return list.Skip(offset).Concat(list.Take(offset)).ToList();
+        }
+
 
         // ! Climate Related
         // hard-coded ETP correction factor, new data can be interpolated from the chart
@@ -473,7 +478,7 @@ namespace BeingAliveLanguage
         /// <summary>
         /// Main Func: divide triMap into subdivisions based on the urban ratio
         /// </summary>
-        public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
+        public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
             DivUrbanSoilMap(in SoilBase sBase, in double[] ratio, in double relStoneSZ)
         {
             // ratio array order:{ rSand, rClay, rBiochar, rStone}; 
@@ -499,11 +504,15 @@ namespace BeingAliveLanguage
             // ! stone
             // at this stage, there are a collection of small-level triangles to be grouped into stones.
             var preStoneT = lv3T;
+            var stoneT = new List<Polyline>();
             var rStone = ratio[3];
             double stoneArea = totalArea * rStone;
-            double stoneR = 0.5 * Utils.remap(relStoneSZ, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width));
-
-            var (stoneT, postStoneT) = PickAndCluster(sBase, preStoneT, stoneR, stoneArea);
+            var postStoneT = preStoneT;
+            if (stoneArea > 0)
+            {
+                double stoneR = 0.5 * Utils.remap(relStoneSZ, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width));
+                (stoneT, postStoneT) = PickAndCluster(sBase, preStoneT, stoneR, stoneArea);
+            }
 
             // ! clay, biochar 
             List<Polyline> clayT = new List<Polyline>();
@@ -537,20 +546,9 @@ namespace BeingAliveLanguage
                     biocharT = biocharT.Concat(postBiocharT).ToList();
             }
 
-            // ! offset
-            var cPln = sBase.pln;
-            // ! calculate the offset distance. map range [1, 10] to [0.9, 0.6]
-            var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.8);
-            //var rOffset = 2.5;
-
-            var offsetSandT = sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            var offsetBiocharT = biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            var offsetStoneT = stoneT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-
-            return (postStoneT, offsetClayT, offsetStoneT, stoneT, lv3T);
-            //return (offsetSandT, offsetClayT, offsetStoneT, stoneT);
+            return (sandT, clayT, biocharT, stoneT);
         }
+
 
         static public (List<Polyline>, List<Polyline>) PickAndCluster(in SoilBase sBase, in List<Polyline> polyIn, double approxR, double targetArea)
         {
@@ -751,8 +749,26 @@ namespace BeingAliveLanguage
             if (divN <= 0)
                 return new List<Line>();
 
-            var param = polyin.ToPolylineCurve().DivideByCount(divN, true, out Point3d[] startPt);
-            var endPt = param.Select(x => polyout.ToPolylineCurve().PointAt(x)).ToArray();
+            // adjust and align seams
+            var nonRepLst = polyout.Take(polyout.Count - 1);
+            var disLst = nonRepLst.Select(x => x.DistanceTo(polyin[0])).ToList();
+            int minIdx = disLst.IndexOf(disLst.Min());
+            var rotatedLst = nonRepLst.Skip(minIdx).Concat(nonRepLst.Take(minIdx)).ToList();
+            rotatedLst.Add(rotatedLst[0]);
+            var polyoutRot = new Polyline(rotatedLst);
+
+            // set domain
+            var nurbIn = polyin.ToNurbsCurve();
+            nurbIn.Domain = new Interval(0, 1);
+
+            var nurbOut = polyoutRot.ToNurbsCurve();
+            nurbOut.Domain = new Interval(0, 1);
+
+
+            // make lines
+            var param = nurbIn.DivideByCount(divN, true, out Point3d[] startPt);
+            var endPt = param.Select(x => nurbOut.PointAt(x)).ToArray();
+            //var endPt = param.Select(x => polyout.ToPolylineCurve().PointAt(x / polyin.Length * polyout.Length)).ToArray();
 
             var curLn = startPt.Zip(endPt, (s, e) => new Line(s, e)).ToList();
 
@@ -835,6 +851,27 @@ namespace BeingAliveLanguage
             return GenOrganicMatterTop(omP, type, layer);
         }
 
+        /// <summary>
+        /// Main Func: Generate the urban soil organic matter
+        /// </summary>
+        public static List<Line> GenOrganicMatterUrban(in SoilBase sBase, in List<Polyline> polyIn, in List<Polyline> polyInOffset, double rOM)
+        {
+            var res = new List<Line>();
+            if (rOM != 0)
+            {
+                double relOM = rOM * 500;
+                for (int i = 0; i < polyIn.Count; i++)
+                {
+                    // for each triangle, divide pts based on the density param, and create OM lines
+                    int divN = (int)Math.Round(polyIn[i].Length / sBase.unitL * relOM);
+
+                    var omLn = createOM(polyIn[i], polyInOffset[i], divN);
+                    res.AddRange(omLn);
+                }
+            }
+
+            return res;
+        }
     }
 
     class SoilMap

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Clipper2Lib;
 using Rhino.Geometry;
+using BeingAliveLanguage;
 //using ClipperLib;
 
 namespace BeingAliveLanguage
@@ -44,7 +45,7 @@ namespace BeingAliveLanguage
             var resOut = res[0].ToList();
 
             // ! 4. convert back, add last point
-            var polyOut = new Polyline();
+            var polyOut = new List<Point3d>();
             for (int i = 0; i < resOut.Count; i++)
             {
                 var pt = new Point3d(resOut[i].x, resOut[i].y, 0);
@@ -52,9 +53,15 @@ namespace BeingAliveLanguage
 
                 polyOut.Add(pt);
             }
+
+
+            //int lstOffset = 1;
+            //polyOut = polyOut.Skip(lstOffset).Concat(polyOut.Take(lstOffset)).ToList();
+
             polyOut.Add(polyOut[0]);
 
-            return polyOut;
+            return new Polyline(polyOut);
         }
+
     }
 }

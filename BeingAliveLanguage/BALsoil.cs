@@ -178,7 +178,8 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Biochar Tri", "biocharT", "Biochar triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Stone Poly", "stonePoly", "Stone polygons.", GH_ParamAccess.list);
-            pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons of the three types.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons.", GH_ParamAccess.list);
+            pManager.AddLineParameter("Organic Matther", "OM", "Collection of organic matters.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -239,18 +240,32 @@ namespace BeingAliveLanguage
             double[] ratio = new double[4] { rSand, rClay, rBiochar, rStone };
 
             // call the actural function
-            var (sandT, clayT, biocharT, stonePoly, lv3T) = balCore.DivUrbanSoilMap(in sBase, in ratio, in relStoneSZ);
+            var (sandT, clayT, biocharT, stonePoly) = balCore.DivUrbanSoilMap(in sBase, in ratio, in relStoneSZ);
+            var allT = sandT.Concat(clayT).Concat(biocharT).Concat(stonePoly).ToList();
 
+            // ! step4: offset polylines
+
+            var cPln = sBase.pln;
+            var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.8);
+
+            var offsetSandT = sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetBiocharT = biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetStoneT = stonePoly.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetAllT = offsetSandT.Concat(offsetClayT).Concat(offsetBiocharT).Concat(offsetStoneT).ToList();
+
+
+            // ! step5: create organic matter
+            var omLn = balCore.GenOrganicMatterUrban(sBase, allT, offsetAllT, rOM);
+
+            // ! assignment
             int idx = 0;
-            //DA.SetData(0, soilInfo);
-            DA.SetDataList(idx++, sandT);
-            DA.SetDataList(idx++, clayT);
-            DA.SetDataList(idx++, biocharT);
-            DA.SetDataList(idx++, stonePoly);
-
-            DA.SetDataList(idx++, lv3T);
-            //var allT = sandT.Concat(clayT).Concat(biocharT).Concat(stonePoly).ToList();
-            //DA.SetDataList(idx++, allT);
+            DA.SetDataList(idx++, offsetSandT);
+            DA.SetDataList(idx++, offsetClayT);
+            DA.SetDataList(idx++, offsetBiocharT);
+            DA.SetDataList(idx++, offsetStoneT);
+            DA.SetDataList(idx++, offsetAllT);
+            DA.SetDataList(idx++, omLn);
         }
 
         protected override System.Drawing.Bitmap Icon => null;
