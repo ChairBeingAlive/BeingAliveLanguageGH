@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Clipper2Lib;
 using System.Security.Policy;
+using System.Data;
 
 namespace BeingAliveLanguage
 {
@@ -472,7 +473,7 @@ namespace BeingAliveLanguage
         /// <summary>
         /// Main Func: divide triMap into subdivisions based on the urban ratio
         /// </summary>
-        public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
+        public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
             DivUrbanSoilMap(in SoilBase sBase, in double[] ratio, in double relStoneSZ)
         {
             // ratio array order:{ rSand, rClay, rBiochar, rStone}; 
@@ -542,64 +543,82 @@ namespace BeingAliveLanguage
             var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.8);
             //var rOffset = 2.5;
 
+            var offsetSandT = sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetBiocharT = biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetStoneT = stoneT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
 
-            return (offsetClayT, clayT, offsetStoneT, stoneT);
+            return (postStoneT, offsetClayT, offsetStoneT, stoneT, lv3T);
+            //return (offsetSandT, offsetClayT, offsetStoneT, stoneT);
         }
 
         static public (List<Polyline>, List<Polyline>) PickAndCluster(in SoilBase sBase, in List<Polyline> polyIn, double approxR, double targetArea)
         {
             var stonePoly = new List<Polyline>();
             var restPoly = new List<Polyline>();
+            var curPln = sBase.pln;
 
             var cenCollection = polyIn.Select(x => ((x[0] + x[1] + x[2]) / 3)).ToList();
             var vertCollection = polyIn.Aggregate(new List<Point3d>(), (x, y) => x.ToList().Concat(y.ToList()).ToList());
 
-            // build a kd-map for polygon centre
-            var kdMap = new KdTree<float, Polyline>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
-            Parallel.ForEach(polyIn, pl =>
+            Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, curPln);
+            Transform toWorld = Transform.ChangeBasis(curPln, Plane.WorldXY);
+
+            // build a kd-map for polygon centre. We need to transform into 2d, otherwise, collision box will overlap
+            var kdMap = new KdTree<double, Polyline>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
+            //Parallel.ForEach(polyIn, pl =>
+            //{
+            //    var cen = (pl[0] + pl[1] + pl[2]) / 3;
+            //    cen.Transform(toLocal);
+            //    kdMap.Add(new[] { cen.X, cen.Y }, pl);
+            //});
+
+            foreach (var pl in polyIn)
             {
                 var cen = (pl[0] + pl[1] + pl[2]) / 3;
-                kdMap.Add(new[] { (float)cen.X, (float)cen.Y, (float)cen.Z }, pl);
-            });
+                cen.Transform(toLocal);
+                kdMap.Add(new[] { cen.X, cen.Y }, pl);
+            }
 
+            // generate poisson disc distribution point, scale the pt2d down a bit to avoid point generated near the border
+            var pt2d = FastPoisson.GenerateSamples((float)(sBase.bnd.Width), (float)(sBase.bnd.Height), (float)approxR).ToList();
+            var fastCen = pt2d.Aggregate(new System.Numerics.Vector2(), (x, y) => x + y) / pt2d.Count;
+            pt2d = pt2d.Select(x => fastCen + (x - fastCen) * (float)0.93).ToList();
 
-            var curPln = sBase.pln;
-            var pt2d = FastPoisson.GenerateSamples((float)(sBase.bnd.Width), (float)(sBase.bnd.Height), (float)approxR);
             var stoneCen = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
-
 
             // start to boolean stone curves
             double curArea = 0;
             var polyCluster = new List<Curve>(stoneCen.Count);
+
+            // the starting centre triangle
             for (int i = 0; i < stoneCen.Count; i++)
             {
-                var kdRes = kdMap.GetNearestNeighbours(new[] { (float)stoneCen[i].X, (float)stoneCen[i].Y, (float)stoneCen[i].Z }, 1);
-
+                var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCen[i].X, stoneCen[i].Y }, 1);
                 polyCluster.Add(kdRes[0].Value.ToPolylineCurve());
+
                 kdMap.RemoveAt(kdRes[0].Point);
             }
 
+            // idx list, used for randomize sequence when growing stone
+            var indexes = Enumerable.Range(0, stoneCen.Count).ToList();
+            indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
 
-            // grow each stone area until the total area is reached
             bool areaReached = false;
+
             while (!areaReached)
             {
-                // the zeroCnt is used to guarantee that when curArea cannot expand to targetArea, we also stop safely.
-                int zeroCnt = 0;
-                for (int i = 0; i < stoneCen.Count; i++)
+                // the recordArea is used to guarantee that when curArea cannot expand to targetArea, we also stop safely.
+                double recordArea = curArea;
+                //for (int i = 0; i < stoneCen.Count; i++)
+                foreach (var i in indexes)
                 {
-                    var kdRes = kdMap.GetNearestNeighbours(new[] { (float)stoneCen[i].X, (float)stoneCen[i].Y, (float)stoneCen[i].Z }, 1);
+                    var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCen[i].X, stoneCen[i].Y }, 1);
 
-                    if (kdRes.Length == 0)
-                    {
-                        zeroCnt += 1;
-                    }
-                    else
+                    if (kdRes.Length != 0)
                     {
                         var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
-                        var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.1);
+                        var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.5);
 
                         if (booleanRes.Length == 1)
                         {
@@ -614,10 +633,13 @@ namespace BeingAliveLanguage
                             break;
                         }
                     }
+
+                    // randomize the stone list
+                    indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
                 }
 
                 // stone cannot expand anymore
-                if (zeroCnt == stoneCen.Count)
+                if (recordArea == curArea)
                     break;
             }
 
@@ -639,6 +661,7 @@ namespace BeingAliveLanguage
                 }
             }
 
+            //return (stonePoly, polyClusterTemp);
             return (stonePoly, restPoly);
         }
 

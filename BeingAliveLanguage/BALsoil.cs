@@ -239,7 +239,7 @@ namespace BeingAliveLanguage
             double[] ratio = new double[4] { rSand, rClay, rBiochar, rStone };
 
             // call the actural function
-            var (sandT, clayT, biocharT, stonePoly) = balCore.DivUrbanSoilMap(in sBase, in ratio, in relStoneSZ);
+            var (sandT, clayT, biocharT, stonePoly, lv3T) = balCore.DivUrbanSoilMap(in sBase, in ratio, in relStoneSZ);
 
             int idx = 0;
             //DA.SetData(0, soilInfo);
@@ -248,8 +248,9 @@ namespace BeingAliveLanguage
             DA.SetDataList(idx++, biocharT);
             DA.SetDataList(idx++, stonePoly);
 
-            var allT = sandT.Concat(clayT).Concat(biocharT).Concat(stonePoly).ToList();
-            DA.SetDataList(idx++, allT);
+            DA.SetDataList(idx++, lv3T);
+            //var allT = sandT.Concat(clayT).Concat(biocharT).Concat(stonePoly).ToList();
+            //DA.SetDataList(idx++, allT);
         }
 
         protected override System.Drawing.Bitmap Icon => null;
