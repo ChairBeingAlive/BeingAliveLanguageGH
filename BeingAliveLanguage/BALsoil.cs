@@ -246,7 +246,7 @@ namespace BeingAliveLanguage
             // ! step4: offset polylines
 
             var cPln = sBase.pln;
-            var rOffset = Utils.remap(relStoneSZ, 1, 10, 1, 0.8);
+            var rOffset = Utils.remap(relStoneSZ, 1, 10, 0.95, 0.75);
 
             var offsetSandT = sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();

@@ -757,6 +757,7 @@ namespace BeingAliveLanguage
             rotatedLst.Add(rotatedLst[0]);
             var polyoutRot = new Polyline(rotatedLst);
 
+            // todo: for complex crv, this is not stable. Explore methods to do it per segment
             // set domain
             var nurbIn = polyin.ToNurbsCurve();
             nurbIn.Domain = new Interval(0, 1);
@@ -859,7 +860,7 @@ namespace BeingAliveLanguage
             var res = new List<Line>();
             if (rOM != 0)
             {
-                double relOM = rOM * 500;
+                double relOM = Utils.remap(rOM, 0, 0.2, 20, 50);
                 for (int i = 0; i < polyIn.Count; i++)
                 {
                     // for each triangle, divide pts based on the density param, and create OM lines
