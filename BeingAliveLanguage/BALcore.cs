@@ -744,12 +744,9 @@ namespace BeingAliveLanguage
         private static readonly Func<double, double> CustomExpFit = x => 0.0210324 * Math.Exp(3.8621 * x);
 
         // create organic matter around a triangle
-        private static readonly Func<Polyline, Polyline, int, List<Line>> createOM = (polyout, polyin, divN) =>
+        private static readonly Func<Polyline, Polyline, double, List<Line>> createOM = (polyout, polyin, divN) =>
         {
-            if (divN <= 0)
-                return new List<Line>();
-
-            // adjust and align seams
+            // ! important: adjust and align seams
             var nonRepLst = polyout.Take(polyout.Count - 1);
             var disLst = nonRepLst.Select(x => x.DistanceTo(polyin[0])).ToList();
             int minIdx = disLst.IndexOf(disLst.Min());
@@ -757,23 +754,35 @@ namespace BeingAliveLanguage
             rotatedLst.Add(rotatedLst[0]);
             var polyoutRot = new Polyline(rotatedLst);
 
-            // todo: for complex crv, this is not stable. Explore methods to do it per segment
-            // set domain
-            var nurbIn = polyin.ToNurbsCurve();
-            nurbIn.Domain = new Interval(0, 1);
+            // ! for each segment, decide divN and make subdivision
+            // relOM: 20 - 50
 
-            var nurbOut = polyoutRot.ToNurbsCurve();
-            nurbOut.Domain = new Interval(0, 1);
+            List<Line> res = new List<Line>();
+            // omitting the last overlapping point
+            for (int i = 0; i < polyoutRot.Count - 1; i++)
+            {
+                var segOutter = new Line(polyoutRot[i], polyoutRot[i + 1]);
+                var segInner = new Line(polyin[i], polyin[i + 1]);
+
+                int subdivN = (int)Math.Round(segOutter.Length / polyoutRot.Length * divN);
 
 
-            // make lines
-            var param = nurbIn.DivideByCount(divN, true, out Point3d[] startPt);
-            var endPt = param.Select(x => nurbOut.PointAt(x)).ToArray();
-            //var endPt = param.Select(x => polyout.ToPolylineCurve().PointAt(x / polyin.Length * polyout.Length)).ToArray();
+                var nurbIn = segOutter.ToNurbsCurve();
+                nurbIn.Domain = new Interval(0, 1);
 
-            var curLn = startPt.Zip(endPt, (s, e) => new Line(s, e)).ToList();
+                var nurbOut = segInner.ToNurbsCurve();
+                nurbOut.Domain = new Interval(0, 1);
 
-            return curLn;
+                // make lines
+                var param = nurbIn.DivideByCount(subdivN, true, out Point3d[] startPt);
+                var endPt = param.Select(x => nurbOut.PointAt(x)).ToArray();
+
+                var curLn = startPt.Zip(endPt, (s, e) => new Line(s, e)).ToList();
+
+                res.AddRange(curLn);
+            }
+
+            return res;
         };
 
         /// <summary>
@@ -858,14 +867,13 @@ namespace BeingAliveLanguage
         public static List<Line> GenOrganicMatterUrban(in SoilBase sBase, in List<Polyline> polyIn, in List<Polyline> polyInOffset, double rOM)
         {
             var res = new List<Line>();
+
+            double relOM = Utils.remap(rOM, 0, 0.2, 15, 50);
             if (rOM != 0)
             {
-                double relOM = Utils.remap(rOM, 0, 0.2, 20, 50);
                 for (int i = 0; i < polyIn.Count; i++)
                 {
-                    // for each triangle, divide pts based on the density param, and create OM lines
                     int divN = (int)Math.Round(polyIn[i].Length / sBase.unitL * relOM);
-
                     var omLn = createOM(polyIn[i], polyInOffset[i], divN);
                     res.AddRange(omLn);
                 }
