@@ -167,7 +167,6 @@ namespace BeingAliveLanguage
             pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item, 0);
             // TODO: if we should separate organic matter out
             pManager[6].Optional = true; // rock can be optionally provided
-            //pManager.AddCurveParameter("Rocks", "R", "Curves represendting the rocks in the soil.", GH_ParamAccess.list);
 
         }
 
@@ -257,6 +256,9 @@ namespace BeingAliveLanguage
 
             // ! step5: create organic matter
             var omLn = balCore.GenOrganicMatterUrban(sBase, allT, offsetAllT, rOM);
+            var biocharFilling = balCore.GenOrganicMatterBiochar(sBase, offsetBiocharT);
+
+            omLn.AddRange(biocharFilling);
 
             // ! assignment
             int idx = 0;

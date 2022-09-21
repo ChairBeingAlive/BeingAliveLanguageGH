@@ -881,6 +881,27 @@ namespace BeingAliveLanguage
 
             return res;
         }
+
+        /// <summary>
+        /// Main Func: Generate the biochar filling 
+        /// </summary>
+        public static List<Line> GenOrganicMatterBiochar(in SoilBase sBase, in List<Polyline> polyT)
+        {
+
+            List<Line> res = new List<Line>();
+
+            polyT.ForEach(x =>
+            {
+                var cen = (x[0] + x[1] + x[2]) / 3;
+                var param = x.ToNurbsCurve().DivideByCount(18, true);
+                var og = param.Select(t => new Line(x.PointAt(t), cen)).ToList();
+                res.AddRange(og);
+            });
+
+            return res;
+        }
+
+
     }
 
     class SoilMap
