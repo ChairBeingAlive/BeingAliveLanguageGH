@@ -10,6 +10,7 @@ using Grasshopper.Kernel;
 using Clipper2Lib;
 using System.Security.Policy;
 using System.Data;
+using System.Runtime.Remoting.Messaging;
 
 namespace BeingAliveLanguage
 {
@@ -479,20 +480,19 @@ namespace BeingAliveLanguage
         /// Main Func: divide triMap into subdivisions based on the urban ratio
         /// </summary>
         public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
-            DivUrbanSoilMap(in SoilBase sBase, in double[] ratio, in double relStoneSZ)
+            DivUrbanSoilMap(in SoilBase sBase, in double rSand, in double rClay, in double rBiochar, in List<double> rStone, in List<double> szStone)
         {
             // ratio array order:{ rSand, rClay, rBiochar, rStone}; 
 
             // get area
             double totalArea = sBase.soilT.Sum(x => triArea(x));
 
-            // ! sand
+            #region sand    
             List<Polyline> sandT = new List<Polyline>();
             var postSandT = sBase.soilT;
-            var totalASand = totalArea * ratio[0];
+            var totalASand = totalArea * rSand;
             if (totalASand > 0)
             {
-                var rSand = ratio[0];
                 var numSand = (int)(Math.Round(postSandT.Count * rSand));
 
                 sandT = postSandT.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
@@ -500,38 +500,43 @@ namespace BeingAliveLanguage
             }
 
             var lv3T = subDivTriLst(subDivTriLst(postSandT));
+            #endregion
 
-            // ! stone
+            #region Stone
             // at this stage, there are a collection of small-level triangles to be grouped into stones.
             var preStoneT = lv3T;
             var stoneT = new List<Polyline>();
-            var rStone = ratio[3];
-            double stoneArea = totalArea * rStone;
+            List<double> stoneArea = rStone.Select(x => x + totalArea).ToList();
             var postStoneT = preStoneT;
-            if (stoneArea > 0)
+
+            // todo: for multiple stone type, figure out how to do this part
+            if (stoneArea.Sum() > 0)
             {
+                CreateNeighbourMap(preStoneT, out var nbMap);
+                CreateCentreMap(preStoneT, out var cenMap);
+
+
                 double stoneR = 0.5 * Utils.remap(relStoneSZ, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width));
                 (stoneT, postStoneT) = PickAndCluster(sBase, preStoneT, stoneR, stoneArea);
             }
+            #endregion
 
-            // ! clay, biochar 
+            #region clay, biochar 
             List<Polyline> clayT = new List<Polyline>();
-            var totalAclay = totalArea * ratio[1];
+            var totalAclay = totalArea * rClay;
             var postClayT = postStoneT;
             if (totalAclay > 0)
             {
-                var rClay = ratio[1];
                 var numClay = (int)(Math.Round(lv3T.Count * rClay));
                 clayT = postStoneT.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
                 postClayT = postStoneT.Except(clayT).ToList();
             }
 
             List<Polyline> biocharT = new List<Polyline>();
-            var totalABiochar = totalArea * ratio[2];
+            var totalABiochar = totalArea * rBiochar;
             var postBiocharT = postClayT;
             if (totalABiochar > 0)
             {
-                var rBiochar = ratio[2];
                 var numBiochar = (int)(Math.Round(lv3T.Count * rBiochar));
                 biocharT = postClayT.OrderBy(x => Guid.NewGuid()).Take(numBiochar).ToList();
                 postBiocharT = postClayT.Except(biocharT).ToList();
@@ -545,8 +550,44 @@ namespace BeingAliveLanguage
                 else
                     biocharT = biocharT.Concat(postBiocharT).ToList();
             }
+            #endregion
 
             return (sandT, clayT, biocharT, stoneT);
+        }
+
+        static public void CreateCentreMap(in List<Polyline> polyIn, out Dictionary<string, Polyline> cenMap)
+        {
+            cenMap = new Dictionary<string, Polyline>();
+
+            foreach (var x in polyIn)
+            {
+                var cen = Utils.PtString((x[0] + x[1] + x[2]) / 3);
+                cenMap.Add(cen, x);
+            }
+        }
+
+        static public void CreateNeighbourMap(in List<Polyline> polyIn, out Dictionary<string, HashSet<string>> nMap)
+        {
+            nMap = new Dictionary<string, HashSet<string>>();
+
+            // add 3 edges as key and associate the edge to the centre of the triangle
+            foreach (var x in polyIn)
+            {
+                var cen = Utils.PtString((x[0] + x[1] + x[2]) / 3);
+
+                for (int i = 0; i < 3; i++)
+                {
+                    var p0 = Utils.PtString(x[i]);
+                    var p1 = Utils.PtString(x[i + 1]);
+
+                    if (!nMap.ContainsKey(p0 + p1))
+                    {
+                        nMap[p0 + p1] = new HashSet<string>();
+                    }
+                    nMap[p0 + p1].Add(cen);
+                }
+            }
+
         }
 
 

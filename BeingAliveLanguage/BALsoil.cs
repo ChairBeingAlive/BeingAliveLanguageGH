@@ -162,8 +162,8 @@ namespace BeingAliveLanguage
             pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item, 1);
             pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item, 0);
-            pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.item, 0);
-            pManager.AddNumberParameter("Relative Stone Size", "relStoneSZ", "The relative stone size [1, 10], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Relative Stone Size", "szStone", "The relative stone size [1, 10], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.list, 0);
             pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item, 0);
             // TODO: if we should separate organic matter out
             pManager[6].Optional = true; // rock can be optionally provided
@@ -189,8 +189,8 @@ namespace BeingAliveLanguage
             double rClay = 0;
             double rBiochar = 0;
             double rOM = 0;
-            double rStone = 0;
-            double relStoneSZ = 0;
+            var rStone = new List<double>();
+            var szStone = new List<double>();
             List<Curve> rock = new List<Curve>();
 
             if (!DA.GetData(0, ref sBase))
@@ -201,22 +201,22 @@ namespace BeingAliveLanguage
             { return; }
             if (!DA.GetData(3, ref rBiochar))
             { return; }
-            if (!DA.GetData(4, ref rStone))
+            if (!DA.GetDataList(4, rStone))
             { return; }
-            if (!DA.GetData(5, ref relStoneSZ))
+            if (!DA.GetDataList(5, szStone))
             { return; }
             if (!DA.GetData(6, ref rOM))
             { return; }
 
-            if (rClay == 0 && rStone == 0)
+            if (rClay == 0 && rStone.Sum() == 0)
             { return; }
 
-            if (rSand + rClay + rBiochar + rOM + rStone != 1)
+            if (rSand + rClay + rBiochar + rOM + rStone.Sum() != 1)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Ratio of all contents need to sum up to 1. Current value is {rSand + rClay + rBiochar + rOM + rStone}");
                 return;
             }
-            if (relStoneSZ < 1 || relStoneSZ > 10)
+            if (szStone.Any(x => x < 1 || x > 10))
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Relative stone size out of range [1 - 10].");
             }
@@ -224,28 +224,27 @@ namespace BeingAliveLanguage
             // ! step1: scaling the ratio of sand, clay, biochar, stone if organic matter is presented
             if (rOM != 0)
             {
-                var sum = rSand + rClay + rBiochar + rStone;
+                var sum = rSand + rClay + rBiochar + rStone.Sum();
                 rSand /= sum;
                 rClay /= sum;
                 rBiochar /= sum;
-                rStone /= sum;
+                rStone = rStone.Select(x => x/ sum).ToList();
             }
 
             // ! step2: deciding the offset parameter using stone value if possible
 
 
             // ! step3: conduct subdividing
-            //List<Polyline> triPoly = sBase.soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
             double[] ratio = new double[4] { rSand, rClay, rBiochar, rStone };
 
             // call the actural function
-            var (sandT, clayT, biocharT, stonePoly) = balCore.DivUrbanSoilMap(in sBase, in ratio, in relStoneSZ);
+            var (sandT, clayT, biocharT, stonePoly) = balCore.DivUrbanSoilMap(in sBase, in rSand, in rClay, in rBiochar, in rStone, in szStone);
             var allT = sandT.Concat(clayT).Concat(biocharT).Concat(stonePoly).ToList();
 
             // ! step4: offset polylines
 
             var cPln = sBase.pln;
-            var rOffset = Utils.remap(relStoneSZ, 1, 10, 0.95, 0.75);
+            var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.95, 0.75);
 
             var offsetSandT = sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
