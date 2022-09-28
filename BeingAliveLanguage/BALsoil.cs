@@ -213,7 +213,7 @@ namespace BeingAliveLanguage
 
             if (rSand + rClay + rBiochar + rOM + rStone.Sum() != 1)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Ratio of all contents need to sum up to 1. Current value is {rSand + rClay + rBiochar + rOM + rStone}");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Ratio of all contents need to sum up to 1. Current value is {rSand + rClay + rBiochar + rOM + rStone.Sum()}");
                 return;
             }
             if (szStone.Any(x => x < 1 || x > 10))
@@ -228,27 +228,23 @@ namespace BeingAliveLanguage
                 rSand /= sum;
                 rClay /= sum;
                 rBiochar /= sum;
-                rStone = rStone.Select(x => x/ sum).ToList();
+                rStone = rStone.Select(x => x / sum).ToList();
             }
 
-            // ! step2: deciding the offset parameter using stone value if possible
-
-
             // ! step3: conduct subdividing
-            double[] ratio = new double[4] { rSand, rClay, rBiochar, rStone };
-
             // call the actural function
-            var (sandT, clayT, biocharT, stonePoly) = balCore.DivUrbanSoilMap(in sBase, in rSand, in rClay, in rBiochar, in rStone, in szStone);
-            var allT = sandT.Concat(clayT).Concat(biocharT).Concat(stonePoly).ToList();
+            var urbanS = new SoilUrban(sBase, rSand, rClay, rBiochar, rStone, szStone);
+            urbanS.Build();
+            urbanS.CollectAll(out List<Polyline> allT);
 
             // ! step4: offset polylines
 
             var cPln = sBase.pln;
             var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.95, 0.75);
 
-            var offsetSandT = sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            var offsetClayT = clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            var offsetBiocharT = biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetSandT = urbanS.sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetClayT = urbanS.clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+            var offsetBiocharT = urbanS.biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetStoneT = stonePoly.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetAllT = offsetSandT.Concat(offsetClayT).Concat(offsetBiocharT).Concat(offsetStoneT).ToList();
 

@@ -11,6 +11,8 @@ using Clipper2Lib;
 using System.Security.Policy;
 using System.Data;
 using System.Runtime.Remoting.Messaging;
+using MathNet.Numerics;
+using Rhino.Collections;
 
 namespace BeingAliveLanguage
 {
@@ -306,7 +308,7 @@ namespace BeingAliveLanguage
 
 
         // lambda func to compute triangle area using Heron's Formula
-        private static readonly Func<Polyline, double> triArea = poly =>
+        public static readonly Func<Polyline, double> triArea = poly =>
         {
             var dA = poly[1].DistanceTo(poly[2]);
             var dB = poly[2].DistanceTo(poly[0]);
@@ -365,7 +367,7 @@ namespace BeingAliveLanguage
         };
 
         // subdiv a big triangle into 4 smaller ones
-        static Func<List<Polyline>, List<Polyline>> subDivTriLst = triLst =>
+        public static Func<List<Polyline>, List<Polyline>> subDivTriLst = triLst =>
         {
             List<Polyline> resLst = new List<Polyline>();
 
@@ -411,6 +413,41 @@ namespace BeingAliveLanguage
 
             return resLst;
         };
+
+        public static void CreateCentreMap(in List<Polyline> polyIn, out Dictionary<string, Polyline> cenMap)
+        {
+            cenMap = new Dictionary<string, Polyline>();
+
+            foreach (var x in polyIn)
+            {
+                var cen = Utils.PtString((x[0] + x[1] + x[2]) / 3);
+                cenMap.Add(cen, x);
+            }
+        }
+
+        public static void CreateNeighbourMap(in List<Polyline> polyIn, out Dictionary<string, HashSet<string>> nMap)
+        {
+            nMap = new Dictionary<string, HashSet<string>>();
+
+            // add 3 edges as key and associate the edge to the centre of the triangle
+            foreach (var x in polyIn)
+            {
+                var cen = Utils.PtString((x[0] + x[1] + x[2]) / 3);
+
+                for (int i = 0; i < 3; i++)
+                {
+                    var p0 = Utils.PtString(x[i]);
+                    var p1 = Utils.PtString(x[i + 1]);
+
+                    if (!nMap.ContainsKey(p0 + p1))
+                    {
+                        nMap[p0 + p1] = new HashSet<string>();
+                    }
+                    nMap[p0 + p1].Add(cen);
+                }
+            }
+        }
+
 
         /// <summary>
         /// Main Func: divide triMap into subdivisions based on the general soil ratio
@@ -474,234 +511,6 @@ namespace BeingAliveLanguage
 
             // return
             return (sandT, siltT, clayT, soilData);
-        }
-
-        /// <summary>
-        /// Main Func: divide triMap into subdivisions based on the urban ratio
-        /// </summary>
-        public static (List<Polyline>, List<Polyline>, List<Polyline>, List<Polyline>)
-            DivUrbanSoilMap(in SoilBase sBase, in double rSand, in double rClay, in double rBiochar, in List<double> rStone, in List<double> szStone)
-        {
-            // ratio array order:{ rSand, rClay, rBiochar, rStone}; 
-
-            // get area
-            double totalArea = sBase.soilT.Sum(x => triArea(x));
-
-            #region sand    
-            List<Polyline> sandT = new List<Polyline>();
-            var postSandT = sBase.soilT;
-            var totalASand = totalArea * rSand;
-            if (totalASand > 0)
-            {
-                var numSand = (int)(Math.Round(postSandT.Count * rSand));
-
-                sandT = postSandT.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
-                postSandT = sBase.soilT.Except(sandT).ToList();
-            }
-
-            var lv3T = subDivTriLst(subDivTriLst(postSandT));
-            #endregion
-
-            #region Stone
-            // at this stage, there are a collection of small-level triangles to be grouped into stones.
-            var preStoneT = lv3T;
-            var stoneT = new List<Polyline>();
-            List<double> stoneArea = rStone.Select(x => x + totalArea).ToList();
-            var postStoneT = preStoneT;
-
-            // todo: for multiple stone type, figure out how to do this part
-            if (stoneArea.Sum() > 0)
-            {
-                CreateNeighbourMap(preStoneT, out var nbMap);
-                CreateCentreMap(preStoneT, out var cenMap);
-
-
-                double stoneR = 0.5 * Utils.remap(relStoneSZ, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width));
-                (stoneT, postStoneT) = PickAndCluster(sBase, preStoneT, stoneR, stoneArea);
-            }
-            #endregion
-
-            #region clay, biochar 
-            List<Polyline> clayT = new List<Polyline>();
-            var totalAclay = totalArea * rClay;
-            var postClayT = postStoneT;
-            if (totalAclay > 0)
-            {
-                var numClay = (int)(Math.Round(lv3T.Count * rClay));
-                clayT = postStoneT.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
-                postClayT = postStoneT.Except(clayT).ToList();
-            }
-
-            List<Polyline> biocharT = new List<Polyline>();
-            var totalABiochar = totalArea * rBiochar;
-            var postBiocharT = postClayT;
-            if (totalABiochar > 0)
-            {
-                var numBiochar = (int)(Math.Round(lv3T.Count * rBiochar));
-                biocharT = postClayT.OrderBy(x => Guid.NewGuid()).Take(numBiochar).ToList();
-                postBiocharT = postClayT.Except(biocharT).ToList();
-            }
-
-            // if there're small triangles left, give it to the bigger 
-            if (postBiocharT.Count > 0)
-            {
-                if (clayT.Count > biocharT.Count)
-                    clayT = clayT.Concat(postBiocharT).ToList();
-                else
-                    biocharT = biocharT.Concat(postBiocharT).ToList();
-            }
-            #endregion
-
-            return (sandT, clayT, biocharT, stoneT);
-        }
-
-        static public void CreateCentreMap(in List<Polyline> polyIn, out Dictionary<string, Polyline> cenMap)
-        {
-            cenMap = new Dictionary<string, Polyline>();
-
-            foreach (var x in polyIn)
-            {
-                var cen = Utils.PtString((x[0] + x[1] + x[2]) / 3);
-                cenMap.Add(cen, x);
-            }
-        }
-
-        static public void CreateNeighbourMap(in List<Polyline> polyIn, out Dictionary<string, HashSet<string>> nMap)
-        {
-            nMap = new Dictionary<string, HashSet<string>>();
-
-            // add 3 edges as key and associate the edge to the centre of the triangle
-            foreach (var x in polyIn)
-            {
-                var cen = Utils.PtString((x[0] + x[1] + x[2]) / 3);
-
-                for (int i = 0; i < 3; i++)
-                {
-                    var p0 = Utils.PtString(x[i]);
-                    var p1 = Utils.PtString(x[i + 1]);
-
-                    if (!nMap.ContainsKey(p0 + p1))
-                    {
-                        nMap[p0 + p1] = new HashSet<string>();
-                    }
-                    nMap[p0 + p1].Add(cen);
-                }
-            }
-
-        }
-
-
-        static public (List<Polyline>, List<Polyline>) PickAndCluster(in SoilBase sBase, in List<Polyline> polyIn, double approxR, double targetArea)
-        {
-            var stonePoly = new List<Polyline>();
-            var restPoly = new List<Polyline>();
-            var curPln = sBase.pln;
-
-            var cenCollection = polyIn.Select(x => ((x[0] + x[1] + x[2]) / 3)).ToList();
-            var vertCollection = polyIn.Aggregate(new List<Point3d>(), (x, y) => x.ToList().Concat(y.ToList()).ToList());
-
-            Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, curPln);
-            Transform toWorld = Transform.ChangeBasis(curPln, Plane.WorldXY);
-
-            // build a kd-map for polygon centre. We need to transform into 2d, otherwise, collision box will overlap
-            var kdMap = new KdTree<double, Polyline>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
-            //Parallel.ForEach(polyIn, pl =>
-            //{
-            //    var cen = (pl[0] + pl[1] + pl[2]) / 3;
-            //    cen.Transform(toLocal);
-            //    kdMap.Add(new[] { cen.X, cen.Y }, pl);
-            //});
-
-            foreach (var pl in polyIn)
-            {
-                var cen = (pl[0] + pl[1] + pl[2]) / 3;
-                cen.Transform(toLocal);
-                kdMap.Add(new[] { cen.X, cen.Y }, pl);
-            }
-
-            // generate poisson disc distribution point, scale the pt2d down a bit to avoid point generated near the border
-            var pt2d = FastPoisson.GenerateSamples((float)(sBase.bnd.Width), (float)(sBase.bnd.Height), (float)approxR).ToList();
-            var fastCen = pt2d.Aggregate(new System.Numerics.Vector2(), (x, y) => x + y) / pt2d.Count;
-            pt2d = pt2d.Select(x => fastCen + (x - fastCen) * (float)0.93).ToList();
-
-            var stoneCen = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
-
-            // start to boolean stone curves
-            double curArea = 0;
-            var polyCluster = new List<Curve>(stoneCen.Count);
-
-            // the starting centre triangle
-            for (int i = 0; i < stoneCen.Count; i++)
-            {
-                var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCen[i].X, stoneCen[i].Y }, 1);
-                polyCluster.Add(kdRes[0].Value.ToPolylineCurve());
-
-                kdMap.RemoveAt(kdRes[0].Point);
-            }
-
-            // idx list, used for randomize sequence when growing stone
-            var indexes = Enumerable.Range(0, stoneCen.Count).ToList();
-            indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
-
-            bool areaReached = false;
-
-            while (!areaReached)
-            {
-                // the recordArea is used to guarantee that when curArea cannot expand to targetArea, we also stop safely.
-                double recordArea = curArea;
-                //for (int i = 0; i < stoneCen.Count; i++)
-                foreach (var i in indexes)
-                {
-                    var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCen[i].X, stoneCen[i].Y }, 1);
-
-                    if (kdRes.Length != 0)
-                    {
-                        var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
-                        var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.5);
-
-                        if (booleanRes.Length == 1)
-                        {
-                            curArea += triArea(kdRes[0].Value);
-                            kdMap.RemoveAt(kdRes[0].Point);
-                            polyCluster[i] = booleanRes[0];
-                        }
-
-                        if (curArea >= targetArea)
-                        {
-                            areaReached = true;
-                            break;
-                        }
-                    }
-
-                    // randomize the stone list
-                    indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
-                }
-
-                // stone cannot expand anymore
-                if (recordArea == curArea)
-                    break;
-            }
-
-            polyCluster.ForEach(pl =>
-            {
-                if (pl.TryGetPolyline(out Polyline resPoly))
-                {
-                    resPoly.MergeColinearSegments(0.1, true);
-                    stonePoly.Add(resPoly);
-                }
-            });
-
-            // find the rest polyline and store
-            foreach (var ptKey in kdMap)
-            {
-                if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
-                {
-                    restPoly.Add(pl);
-                }
-            }
-
-            //return (stonePoly, polyClusterTemp);
-            return (stonePoly, restPoly);
         }
 
 
@@ -945,6 +754,247 @@ namespace BeingAliveLanguage
 
     }
 
+    class SoilUrban
+    {
+        struct StoneCluster
+        {
+            public Point3d cen;
+            public List<Polyline> T;
+            public Polyline bndCrv;
+        }
+
+        SoilBase sBase;
+        readonly double rSand, rClay, rBiochar, totalArea;
+        readonly List<double> rStone;
+        readonly List<double> szStone;
+        public List<Polyline> sandT, clayT, biocharT;
+        public List<List<Polyline>> stonePoly;
+
+        public SoilUrban(in SoilBase sBase, in double rSand, in double rClay, in double rBiochar, in List<double> rStone, in List<double> szStone)
+        {
+            this.sBase = sBase;
+            this.rSand = rSand;
+            this.rClay = rClay;
+            this.rBiochar = rBiochar;
+            this.rStone = rStone;
+            this.szStone = szStone;
+
+            this.totalArea = sBase.soilT.Sum(x => balCore.triArea(x));
+        }
+
+        /// <summary>
+        /// main func divide triMap into subdivisions based on the urban ratio
+        /// </summary>
+        public void Build()
+        {
+            #region sand    
+            List<Polyline> sandT = new List<Polyline>();
+            var postSandT = sBase.soilT;
+            var totalASand = totalArea * rSand;
+            if (totalASand > 0)
+            {
+                var numSand = (int)(Math.Round(postSandT.Count * rSand));
+
+                sandT = postSandT.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
+                postSandT = sBase.soilT.Except(sandT).ToList();
+            }
+
+            var lv3T = balCore.subDivTriLst(balCore.subDivTriLst(postSandT));
+            #endregion
+
+            #region Stone
+            // at this stage, there are a collection of small-level triangles to be grouped into stones.
+            var preStoneT = lv3T;
+            var postStoneT = preStoneT;
+
+            // todo: for multiple stone type, figure out how to do this part
+            if (rStone.Sum() > 0)
+            {
+                var totalRatio = rStone.Sum();
+                var relStoneRatio = rStone.Select(x => x / totalRatio).ToList();
+                (stonePoly, postStoneT) = PickAndCluster(preStoneT, relStoneRatio, szStone);
+            }
+            #endregion
+
+            #region clay, biochar 
+            var totalAclay = totalArea * rClay;
+            var postClayT = postStoneT;
+            if (totalAclay > 0)
+            {
+                var numClay = (int)Math.Round(lv3T.Count * rClay);
+                clayT = postStoneT.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
+                postClayT = postStoneT.Except(clayT).ToList();
+            }
+
+            var totalABiochar = totalArea * rBiochar;
+            var postBiocharT = postClayT;
+            if (totalABiochar > 0)
+            {
+                var numBiochar = (int)(Math.Round(lv3T.Count * rBiochar));
+                biocharT = postClayT.OrderBy(x => Guid.NewGuid()).Take(numBiochar).ToList();
+                postBiocharT = postClayT.Except(biocharT).ToList();
+            }
+
+            // if there're small triangles left, give it to the bigger 
+            if (postBiocharT.Count > 0)
+            {
+                if (clayT.Count > biocharT.Count)
+                    clayT = clayT.Concat(postBiocharT).ToList();
+                else
+                    biocharT = biocharT.Concat(postBiocharT).ToList();
+            }
+            #endregion
+        }
+
+
+        /// <summary>
+        /// Main func: pick and cluster lv3 triangles into stones, according to the input sz and ratio list
+        /// </summary>
+        public (List<List<Polyline>>, List<Polyline>) PickAndCluster(in List<Polyline> polyIn, List<double> ratioLst, List<double> szLst)
+        {
+            var stonePoly = new List<Polyline>();
+            var restPoly = new List<Polyline>();
+            var curPln = sBase.pln;
+
+            List<double> stoneR = new List<double>();
+            foreach (var sz in szLst)
+            {
+                stoneR.Add(0.5 * Utils.remap(sz, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width)));
+            }
+            List<double> stoneArea = ratioLst.Select(x => x * totalArea).ToList();
+
+            Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, curPln);
+            Transform toWorld = Transform.ChangeBasis(curPln, Plane.WorldXY);
+
+            balCore.CreateNeighbourMap(polyIn, out var nbMap);
+            balCore.CreateCentreMap(polyIn, out var cenMap);
+
+            // build a kd-map for polygon centre. We need to transform into 2d, otherwise, collision box will overlap
+            var kdMap = new KdTree<double, Polyline>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
+            foreach (var pl in polyIn)
+            {
+                var cen = (pl[0] + pl[1] + pl[2]) / 3;
+                cen.Transform(toLocal);
+                kdMap.Add(new[] { cen.X, cen.Y }, pl);
+            }
+
+            #region Poisson Disc sampling for stone centres
+            // ! generate poisson disc distribution point, scale the pt2d down a bit to avoid point generated near the border
+            var weightedR = stoneR.Zip(szLst, (x, y) => x * y).Sum() / szLst.Sum();
+            var pt2d = FastPoisson.GenerateSamples((float)(sBase.bnd.Width), (float)(sBase.bnd.Height), (float)weightedR).ToList();
+            var fastCen = pt2d.Aggregate(new System.Numerics.Vector2(), (x, y) => x + y) / pt2d.Count;
+            pt2d = pt2d.Select(x => fastCen + (x - fastCen) * (float)0.93).ToList();
+
+            var stoneCen = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
+            #endregion
+
+            // ! separate the stoneCen into several clusters according to the number of stone types, and collect the initial triangle
+            var rnd = new Random();
+            var cenCluster = new List<List<Point3d>>();
+            var polyCluster = new List<List<Curve>>();
+            foreach (var x in ratioLst)
+            {
+                var cnt = (int)Math.Round(x * stoneCen.Count());
+                var curLst = stoneCen.OrderBy(_ => rnd.Next()).Take(cnt).ToList();
+                cenCluster.Add(new List<Point3d>(curLst));
+                stoneCen = stoneCen.Except(curLst).ToList();
+
+                // record centre triangle
+                for (int i = 0; i < curLst.Count; i++)
+                {
+                    var kdRes = kdMap.GetNearestNeighbours(new[] { curLst[i].X, curLst[i].Y }, 1);
+                    polyCluster.Add(new List<Curve> { kdRes[0].Value.ToPolylineCurve() });
+
+                    kdMap.RemoveAt(kdRes[0].Point);
+                }
+            }
+
+            // start to aggregate stone triangles and boolean into bigger ones. The target area for each cluster is stoneArea[i]
+            double curArea = 0;
+            //var polyCluster = new List<Curve>(stoneCen.Count);
+
+            //// the starting centre triangle
+            //for (int i = 0; i < stoneCen.Count; i++)
+            //{
+            //    var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCen[i].X, stoneCen[i].Y }, 1);
+            //    polyCluster.Add(kdRes[0].Value.ToPolylineCurve());
+
+            //    kdMap.RemoveAt(kdRes[0].Point);
+            //}
+
+            // idx list, used for randomize sequence when growing stone
+            var indexes = Enumerable.Range(0, stoneCen.Count).ToList();
+            indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
+
+            bool areaReached = false;
+
+            while (!areaReached)
+            {
+                // the recordArea is used to guarantee that when curArea cannot expand to targetArea, we also stop safely.
+                double recordArea = curArea;
+                //for (int i = 0; i < stoneCen.Count; i++)
+                foreach (var i in indexes)
+                {
+                    var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCen[i].X, stoneCen[i].Y }, 1);
+
+                    if (kdRes.Length != 0)
+                    {
+                        var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
+                        var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.5);
+
+                        if (booleanRes.Length == 1)
+                        {
+                            curArea += triArea(kdRes[0].Value);
+                            kdMap.RemoveAt(kdRes[0].Point);
+                            polyCluster[i] = booleanRes[0];
+                        }
+
+                        if (curArea >= targetArea)
+                        {
+                            areaReached = true;
+                            break;
+                        }
+                    }
+
+                    // randomize the stone list
+                    indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
+                }
+
+                // stone cannot expand anymore
+                if (recordArea == curArea)
+                    break;
+            }
+
+            polyCluster.ForEach(pl =>
+            {
+                if (pl.TryGetPolyline(out Polyline resPoly))
+                {
+                    resPoly.MergeColinearSegments(0.1, true);
+                    stonePoly.Add(resPoly);
+                }
+            });
+
+            // find the rest polyline and store
+            foreach (var ptKey in kdMap)
+            {
+                if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
+                {
+                    restPoly.Add(pl);
+                }
+            }
+
+            //return (stonePoly, polyClusterTemp);
+            return (stonePoly, restPoly);
+        }
+
+
+        public void CollectAll(out List<Polyline> allT)
+        {
+            allT = new List<Polyline>();
+        }
+
+    }
+
     class SoilMap
     {
         public SoilMap()
@@ -1131,7 +1181,6 @@ namespace BeingAliveLanguage
                 return nearest2Dist.Max();
             }).Average();
         }
-
 
         public List<string> GetNearestPoint(in Point3d pt, int N)
         {
