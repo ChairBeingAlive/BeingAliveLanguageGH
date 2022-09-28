@@ -176,7 +176,7 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Sand Tri", "sandT", "Sand triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Biochar Tri", "biocharT", "Biochar triangles.", GH_ParamAccess.list);
-            pManager.AddCurveParameter("Stone Poly", "stonePoly", "Stone polygons.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Stone Poly", "stonePoly", "Stone polygons.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons.", GH_ParamAccess.list);
             pManager.AddLineParameter("Organic Matther", "OM", "Collection of organic matters.", GH_ParamAccess.list);
         }
@@ -245,9 +245,19 @@ namespace BeingAliveLanguage
             var offsetSandT = urbanS.sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetClayT = urbanS.clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetBiocharT = urbanS.biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            var offsetStoneT = stonePoly.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            var offsetAllT = offsetSandT.Concat(offsetClayT).Concat(offsetBiocharT).Concat(offsetStoneT).ToList();
 
+            //var offsetStoneT = stonePoly.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+
+            GH_Structure<GH_Curve> offsetStonePoly = new GH_Structure<GH_Curve>();
+
+            for (int i = 0; i < urbanS.stonePoly.Count; i++)
+            {
+                var path = new GH_Path(i);
+                offsetStonePoly.AppendRange(urbanS.stonePoly[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
+                // todo: offset
+            }
+
+            var offsetAllT = allT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
 
             // ! step5: create organic matter
             var omLn = balCore.GenOrganicMatterUrban(sBase, allT, offsetAllT, rOM);
@@ -260,7 +270,9 @@ namespace BeingAliveLanguage
             DA.SetDataList(idx++, offsetSandT);
             DA.SetDataList(idx++, offsetClayT);
             DA.SetDataList(idx++, offsetBiocharT);
-            DA.SetDataList(idx++, offsetStoneT);
+
+            DA.SetDataTree(idx++, offsetStonePoly);
+
             DA.SetDataList(idx++, offsetAllT);
             DA.SetDataList(idx++, omLn);
         }

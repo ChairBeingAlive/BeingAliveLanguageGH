@@ -13,6 +13,8 @@ using System.Data;
 using System.Runtime.Remoting.Messaging;
 using MathNet.Numerics;
 using Rhino.Collections;
+using System.Diagnostics;
+using System.CodeDom;
 
 namespace BeingAliveLanguage
 {
@@ -414,14 +416,16 @@ namespace BeingAliveLanguage
             return resLst;
         };
 
-        public static void CreateCentreMap(in List<Polyline> polyIn, out Dictionary<string, Polyline> cenMap)
+        public static void CreateCentreMap(in List<Polyline> polyIn, out Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap)
         {
-            cenMap = new Dictionary<string, Polyline>();
+            cenMap = new Dictionary<string, ValueTuple<Point3d, Polyline>>();
 
             foreach (var x in polyIn)
             {
-                var cen = Utils.PtString((x[0] + x[1] + x[2]) / 3);
-                cenMap.Add(cen, x);
+                Point3d cenPt = (x[0] + x[1] + x[2]) / 3;
+                var cen = Utils.PtString(cenPt);
+                (Point3d pt, Polyline poly) val = (cenPt, x);
+                cenMap.Add(cen, val);
             }
         }
 
@@ -754,22 +758,72 @@ namespace BeingAliveLanguage
 
     }
 
-    class SoilUrban
+
+    struct StoneCluster
     {
-        struct StoneCluster
+        public Point3d cen;
+        public List<Polyline> T;
+        public Polyline bndCrv;
+        public int typeId;
+
+        public HashSet<string> strIdBound;
+        public HashSet<string> strIdInside;
+        public HashSet<string> strIdNeigh;
+        public Dictionary<string, double> distMap;
+
+
+        public StoneCluster(
+            int id, in Point3d cenIn,
+            in Dictionary<string, (Point3d, Polyline)> ptMap,
+            in Dictionary<string, HashSet<string>> nbMap = null)
         {
-            public Point3d cen;
-            public List<Polyline> T;
-            public Polyline bndCrv;
+            typeId = id;
+            cen = cenIn;
+            T = new List<Polyline>();
+            bndCrv = new Polyline();
+
+            strIdBound = new HashSet<string>();
+            strIdInside = new HashSet<string>();
+            strIdNeigh = new HashSet<string>();
+            distMap = new Dictionary<string, double>();
+
+            var key = Utils.PtString(cenIn);
+
+            strIdInside.Add(key);
+            strIdBound.Add(key);
+            distMap.Add(key, cen.DistanceTo(cenIn));
+
+            if (nbMap != null)
+            {
+                foreach (var it in nbMap[key])
+                {
+                    strIdNeigh.Add(it);
+                    distMap.Add(it, cen.DistanceTo(ptMap[key].Item1));
+                }
+            }
         }
 
-        SoilBase sBase;
-        readonly double rSand, rClay, rBiochar, totalArea;
-        readonly List<double> rStone;
-        readonly List<double> szStone;
-        public List<Polyline> sandT, clayT, biocharT;
-        public List<List<Polyline>> stonePoly;
+        public void MakeBoolean(in Dictionary<string, (Point3d, Polyline)> ptMap)
+        {
+            if (strIdInside.Count != 0)
+            {
+                List<Curve> tmpCollection = new List<Curve>();
+                foreach (var s in strIdInside)
+                {
+                    var crv = ptMap[s].Item2.ToPolylineCurve();
+                    tmpCollection.Add(crv);
+                }
 
+                var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.5).ToList();
+                Debug.Assert(booleanRes.Count == 1);
+
+                booleanRes[0].TryGetPolyline(out this.bndCrv);
+            }
+        }
+    }
+
+    class SoilUrban
+    {
         public SoilUrban(in SoilBase sBase, in double rSand, in double rClay, in double rBiochar, in List<double> rStone, in List<double> szStone)
         {
             this.sBase = sBase;
@@ -812,7 +866,7 @@ namespace BeingAliveLanguage
             {
                 var totalRatio = rStone.Sum();
                 var relStoneRatio = rStone.Select(x => x / totalRatio).ToList();
-                (stonePoly, postStoneT) = PickAndCluster(preStoneT, relStoneRatio, szStone);
+                postStoneT = PickAndCluster(preStoneT, relStoneRatio, szStone);
             }
             #endregion
 
@@ -850,24 +904,16 @@ namespace BeingAliveLanguage
         /// <summary>
         /// Main func: pick and cluster lv3 triangles into stones, according to the input sz and ratio list
         /// </summary>
-        public (List<List<Polyline>>, List<Polyline>) PickAndCluster(in List<Polyline> polyIn, List<double> ratioLst, List<double> szLst)
+        public List<Polyline> PickAndCluster(in List<Polyline> polyIn, List<double> ratioLst, List<double> szLst)
         {
-            var stonePoly = new List<Polyline>();
-            var restPoly = new List<Polyline>();
             var curPln = sBase.pln;
-
-            List<double> stoneR = new List<double>();
-            foreach (var sz in szLst)
-            {
-                stoneR.Add(0.5 * Utils.remap(sz, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width)));
-            }
-            List<double> stoneArea = ratioLst.Select(x => x * totalArea).ToList();
-
             Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, curPln);
             Transform toWorld = Transform.ChangeBasis(curPln, Plane.WorldXY);
 
-            balCore.CreateNeighbourMap(polyIn, out var nbMap);
-            balCore.CreateCentreMap(polyIn, out var cenMap);
+            balCore.CreateNeighbourMap(polyIn, out nbMap);
+            balCore.CreateCentreMap(polyIn, out cenMap);
+
+            List<double> areaLst = ratioLst.Select(x => x * totalArea).ToList(); // the target area for each stone type
 
             // build a kd-map for polygon centre. We need to transform into 2d, otherwise, collision box will overlap
             var kdMap = new KdTree<double, Polyline>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
@@ -876,6 +922,13 @@ namespace BeingAliveLanguage
                 var cen = (pl[0] + pl[1] + pl[2]) / 3;
                 cen.Transform(toLocal);
                 kdMap.Add(new[] { cen.X, cen.Y }, pl);
+            }
+
+            // convert relative stone radii for generating distributed points 
+            List<double> stoneR = new List<double>();
+            foreach (var sz in szLst)
+            {
+                stoneR.Add(0.5 * Utils.remap(sz, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width)));
             }
 
             #region Poisson Disc sampling for stone centres
@@ -889,102 +942,151 @@ namespace BeingAliveLanguage
             #endregion
 
             // ! separate the stoneCen into several clusters according to the number of stone types, and collect the initial triangle
-            var rnd = new Random();
-            var cenCluster = new List<List<Point3d>>();
-            var polyCluster = new List<List<Curve>>();
+            // we use a new struct "StoneCluster" to store info related to the final stones
+            var stoneCol = new List<StoneCluster>(stoneCen.Count);
+            HashSet<String> allCenStr = stoneCen.Select(x => Utils.PtString(x)).ToHashSet();
+
+            #region Initialize Stone Collection
+            int idxCnt = 0;
+            var tmpStoneCen = stoneCen;
             foreach (var x in ratioLst)
             {
                 var cnt = (int)Math.Round(x * stoneCen.Count());
-                var curLst = stoneCen.OrderBy(_ => rnd.Next()).Take(cnt).ToList();
-                cenCluster.Add(new List<Point3d>(curLst));
-                stoneCen = stoneCen.Except(curLst).ToList();
+                var curLst = tmpStoneCen.OrderBy(_ => Utils.balRnd.Next()).Take(cnt).ToList();
 
                 // record centre triangle
                 for (int i = 0; i < curLst.Count; i++)
                 {
                     var kdRes = kdMap.GetNearestNeighbours(new[] { curLst[i].X, curLst[i].Y }, 1);
-                    polyCluster.Add(new List<Curve> { kdRes[0].Value.ToPolylineCurve() });
 
+                    stoneCol.Add(new StoneCluster(idxCnt++, curLst[i], cenMap, nbMap));
                     kdMap.RemoveAt(kdRes[0].Point);
+                    allCenStr.Remove(Utils.PtString(curLst[i]));
                 }
+
+                tmpStoneCen = tmpStoneCen.Except(curLst).ToList();
             }
+            Debug.Assert(stoneCen.Count == stoneCol.Count);
+            #endregion 
 
             // start to aggregate stone triangles and boolean into bigger ones. The target area for each cluster is stoneArea[i]
-            double curArea = 0;
-            //var polyCluster = new List<Curve>(stoneCen.Count);
-
-            //// the starting centre triangle
-            //for (int i = 0; i < stoneCen.Count; i++)
-            //{
-            //    var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCen[i].X, stoneCen[i].Y }, 1);
-            //    polyCluster.Add(kdRes[0].Value.ToPolylineCurve());
-
-            //    kdMap.RemoveAt(kdRes[0].Point);
-            //}
-
-            // idx list, used for randomize sequence when growing stone
-            var indexes = Enumerable.Range(0, stoneCen.Count).ToList();
-            indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
 
             bool areaReached = false;
+            List<double> stoneTypeArea = Enumerable.Repeat(0.0, ratioLst.Count).ToList(); // store the total area of each stone type
 
+            Debug.Assert(allCenStr.Count == stoneCen.Count);
+
+            // idx list, used for randomize sequence when growing stone
+            var indexes = Enumerable.Range(0, stoneCol.Count).ToList();
+            indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
             while (!areaReached)
             {
-                // the recordArea is used to guarantee that when curArea cannot expand to targetArea, we also stop safely.
-                double recordArea = curArea;
-                //for (int i = 0; i < stoneCen.Count; i++)
+                // the recordArea is used to guarantee that when stoneTypeArea cannot expand to targetArea, we also stop safely.
+                double recordArea = stoneTypeArea.Sum();
                 foreach (var i in indexes)
                 {
-                    var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCen[i].X, stoneCen[i].Y }, 1);
 
-                    if (kdRes.Length != 0)
+                    // ! 1. select a triangle in the frontBorder set based on distance
+                    var nearestT = stoneCol[i].strIdBound.OrderBy(x => stoneCol[i].distMap[x]).First();
+                    var curStoneType = stoneCol[i].typeId;
+
+                    // ! 2. find a neighbour of this triangle, expand, and update corresponding set
+                    bool expanded = false;
+                    foreach (var it in nbMap[nearestT])
                     {
-                        var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
-                        var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.5);
+                        // this foreach run 3 times max
 
-                        if (booleanRes.Length == 1)
+                        if (allCenStr.Contains(it))
                         {
-                            curArea += triArea(kdRes[0].Value);
-                            kdMap.RemoveAt(kdRes[0].Point);
-                            polyCluster[i] = booleanRes[0];
-                        }
+                            // remove it from the outer set
+                            allCenStr.Remove(it);
 
-                        if (curArea >= targetArea)
-                        {
-                            areaReached = true;
-                            break;
+                            // add all neighbour that are in the outer set
+                            stoneCol[i].strIdNeigh.Add(it);
+
+                            // but only expand once
+                            if (!expanded && stoneTypeArea[curStoneType] < areaLst[curStoneType])
+                            {
+                                stoneCol[i].strIdInside.Add(it); // add to the collection
+                                stoneCol[i].strIdBound.Add(it); // add to the bound
+                                stoneCol[i].strIdBound.Remove(nearestT); // remove the previous
+
+                                // ! 3. update area of each stone type
+                                stoneTypeArea[curStoneType] += balCore.triArea(cenMap[it].Item2); // add up area
+
+                                expanded = true;
+                            }
                         }
                     }
 
-                    // randomize the stone list
-                    indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
+                    // ! 5. compare area condition
+                    if (stoneTypeArea.Sum() >= areaLst.Sum())
+                    {
+                        areaReached = true;
+                        break; // foreach loop
+                    }
+
+                    //var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCol[i].cen.X, stoneCen[i].Y }, 1);
+
+                    //if (kdRes.Length != 0)
+                    //{
+                    //    var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
+                    //    var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.5);
+
+                    //    if (booleanRes.Length == 1)
+                    //    {
+                    //        curArea += triArea(kdRes[0].Value);
+                    //        kdMap.RemoveAt(kdRes[0].Point);
+                    //        polyCluster[i] = booleanRes[0];
+                    //    }
+
+                    //    if (curArea >= targetArea)
+                    //    {
+                    //        areaReached = true;
+                    //        break;
+                    //    }
+                    //}
                 }
+                // randomize the stone list for the next iteration
+                indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
 
                 // stone cannot expand anymore
-                if (recordArea == curArea)
+                if (recordArea == stoneTypeArea.Sum())
                     break;
             }
 
-            polyCluster.ForEach(pl =>
+            // ! collect polyline for each stone and boolean
+            stonePoly = Enumerable.Repeat(new List<Polyline>(), ratioLst.Count).ToList();
+            stoneCol.ForEach(x =>
             {
-                if (pl.TryGetPolyline(out Polyline resPoly))
-                {
-                    resPoly.MergeColinearSegments(0.1, true);
-                    stonePoly.Add(resPoly);
-                }
+                x.T = x.strIdInside.Select(id => cenMap[id].Item2).ToList(); // optional
+                x.MakeBoolean(cenMap);
+                stonePoly[x.typeId].Add(x.bndCrv);
             });
 
+            var restPoly = allCenStr.Select(id => cenMap[id].Item2).ToList();
+
+            //polyCluster.ForEach(pl =>
+            //{
+            //    if (pl.TryGetPolyline(out Polyline resPoly))
+            //    {
+            //        resPoly.MergeColinearSegments(0.1, true);
+            //        stonePoly.Add(resPoly);
+            //    }
+            //});
+
             // find the rest polyline and store
-            foreach (var ptKey in kdMap)
-            {
-                if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
-                {
-                    restPoly.Add(pl);
-                }
-            }
+            //foreach (var ptKey in kdMap)
+            //{
+            //    if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
+            //    {
+            //        restPoly.Add(pl);
+            //    }
+            //}
 
             //return (stonePoly, polyClusterTemp);
-            return (stonePoly, restPoly);
+            //return (stonePoly, restPoly);
+            return restPoly;
         }
 
 
@@ -993,6 +1095,15 @@ namespace BeingAliveLanguage
             allT = new List<Polyline>();
         }
 
+        SoilBase sBase;
+        readonly double rSand, rClay, rBiochar, totalArea;
+        readonly List<double> rStone;
+        readonly List<double> szStone;
+        public List<Polyline> sandT, clayT, biocharT;
+        public List<List<Polyline>> stonePoly;
+
+        public Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap;
+        public Dictionary<string, HashSet<string>> nbMap;
     }
 
     class SoilMap
@@ -1693,7 +1804,7 @@ namespace BeingAliveLanguage
         public static IEnumerable<System.Numerics.Vector2> GenerateSamples(float width, float height, float radius)
         {
             List<System.Numerics.Vector2> samples = new List<System.Numerics.Vector2>();
-            Random random = new Random(); // TODO evaluate whether this Random can generate uniformly random numbers
+            //Random random = new Random(); // TODO evaluate whether this Random can generate uniformly random numbers
 
             // cell size to guarantee that each cell within the accelerator grid can have at most one sample
             float cellSize = radius / (float)Math.Sqrt(radius);
@@ -1717,7 +1828,7 @@ namespace BeingAliveLanguage
             while (activeSamples.Count != 0)
             {
                 // pop off the most recently added samples and begin generating addtional samples around it
-                int index = random.Next(0, activeSamples.Count);
+                int index = Utils.balRnd.Next(0, activeSamples.Count);
                 System.Numerics.Vector2 currentOrigin = activeSamples[index];
                 bool isValid = false; // need to keep track whether or not the sample we have meets our criteria
 
@@ -1725,13 +1836,13 @@ namespace BeingAliveLanguage
                 for (int i = 0; i < _k; i++)
                 {
                     // create a random direction to place a new sample at
-                    float angle = (float)(random.NextDouble() * Math.PI * 2);
+                    float angle = (float)(Utils.balRnd.NextDouble() * Math.PI * 2);
                     System.Numerics.Vector2 direction;
                     direction.X = (float)Math.Sin(angle);
                     direction.Y = (float)Math.Cos(angle);
 
                     // create a random distance between r and 2r away for that direction
-                    float distance = random.Next((int)(radius * 100), (int)(2 * radius * 100)) / (float)100.0;
+                    float distance = Utils.balRnd.Next((int)(radius * 100), (int)(2 * radius * 100)) / (float)100.0;
                     direction.X *= distance;
                     direction.Y *= distance;
 
