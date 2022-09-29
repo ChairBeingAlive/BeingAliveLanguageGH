@@ -15,6 +15,7 @@ using MathNet.Numerics;
 using Rhino.Collections;
 using System.Diagnostics;
 using System.CodeDom;
+using Eto.Forms;
 
 namespace BeingAliveLanguage
 {
@@ -431,7 +432,7 @@ namespace BeingAliveLanguage
 
         public static void CreateNeighbourMap(in List<Polyline> polyIn, out Dictionary<string, HashSet<string>> nMap)
         {
-            nMap = new Dictionary<string, HashSet<string>>();
+            var edgeMap = new Dictionary<string, HashSet<string>>();
 
             // add 3 edges as key and associate the edge to the centre of the triangle
             foreach (var x in polyIn)
@@ -443,11 +444,32 @@ namespace BeingAliveLanguage
                     var p0 = Utils.PtString(x[i]);
                     var p1 = Utils.PtString(x[i + 1]);
 
-                    if (!nMap.ContainsKey(p0 + p1))
+                    if (!edgeMap.ContainsKey(p0 + p1))
+                        edgeMap.Add(p0 + p1, new HashSet<string>());
+
+                    edgeMap[p0 + p1].Add(cen);
+                }
+            }
+
+            // each triangle has three edges, collect their shared triangle as neighbours, using their centre PtString
+            nMap = new Dictionary<string, HashSet<string>>();
+            foreach (var x in polyIn)
+            {
+                var cen = Utils.PtString((x[0] + x[1] + x[2]) / 3);
+
+                for (int i = 0; i < 3; i++)
+                {
+                    var p0 = Utils.PtString(x[i]);
+                    var p1 = Utils.PtString(x[i + 1]);
+
+                    if (!nMap.ContainsKey(cen))
+                        nMap.Add(cen, new HashSet<string>());
+
+                    foreach (var item in edgeMap[p0 + p1])
                     {
-                        nMap[p0 + p1] = new HashSet<string>();
+                        if (cen != item)
+                            nMap[cen].Add(item);
                     }
-                    nMap[p0 + p1].Add(cen);
                 }
             }
         }
@@ -892,8 +914,15 @@ namespace BeingAliveLanguage
             // if there're small triangles left, give it to the bigger 
             if (postBiocharT.Count > 0)
             {
-                if (clayT.Count > biocharT.Count)
+                if (clayT == null)
+                    biocharT = biocharT.Concat(postBiocharT).ToList();
+
+                else if (biocharT == null)
                     clayT = clayT.Concat(postBiocharT).ToList();
+
+                else if (clayT.Count > biocharT.Count)
+                    clayT = clayT.Concat(postBiocharT).ToList();
+
                 else
                     biocharT = biocharT.Concat(postBiocharT).ToList();
             }
@@ -914,14 +943,16 @@ namespace BeingAliveLanguage
             balCore.CreateCentreMap(polyIn, out cenMap);
 
             List<double> areaLst = ratioLst.Select(x => x * totalArea).ToList(); // the target area for each stone type
+            HashSet<string> allTriCenStr = new HashSet<string>(cenMap.Keys);
 
             // build a kd-map for polygon centre. We need to transform into 2d, otherwise, collision box will overlap
-            var kdMap = new KdTree<double, Polyline>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
+            var kdMap = new KdTree<double, Point3d>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
             foreach (var pl in polyIn)
             {
                 var cen = (pl[0] + pl[1] + pl[2]) / 3;
+                var originalCen = cen;
                 cen.Transform(toLocal);
-                kdMap.Add(new[] { cen.X, cen.Y }, pl);
+                kdMap.Add(new[] { cen.X, cen.Y }, originalCen);
             }
 
             // convert relative stone radii for generating distributed points 
@@ -938,13 +969,13 @@ namespace BeingAliveLanguage
             var fastCen = pt2d.Aggregate(new System.Numerics.Vector2(), (x, y) => x + y) / pt2d.Count;
             pt2d = pt2d.Select(x => fastCen + (x - fastCen) * (float)0.93).ToList();
 
+            // Notice: stoneCen is not aligned with polyTri cen.
             var stoneCen = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
             #endregion
 
             // ! separate the stoneCen into several clusters according to the number of stone types, and collect the initial triangle
             // we use a new struct "StoneCluster" to store info related to the final stones
             var stoneCol = new List<StoneCluster>(stoneCen.Count);
-            HashSet<String> allCenStr = stoneCen.Select(x => Utils.PtString(x)).ToHashSet();
 
             #region Initialize Stone Collection
             int idxCnt = 0;
@@ -959,12 +990,13 @@ namespace BeingAliveLanguage
                 {
                     var kdRes = kdMap.GetNearestNeighbours(new[] { curLst[i].X, curLst[i].Y }, 1);
 
-                    stoneCol.Add(new StoneCluster(idxCnt++, curLst[i], cenMap, nbMap));
+                    stoneCol.Add(new StoneCluster(idxCnt, kdRes[0].Value, cenMap, nbMap));
                     kdMap.RemoveAt(kdRes[0].Point);
-                    allCenStr.Remove(Utils.PtString(curLst[i]));
                 }
 
                 tmpStoneCen = tmpStoneCen.Except(curLst).ToList();
+
+                idxCnt++; // next stone type
             }
             Debug.Assert(stoneCen.Count == stoneCol.Count);
             #endregion 
@@ -973,8 +1005,6 @@ namespace BeingAliveLanguage
 
             bool areaReached = false;
             List<double> stoneTypeArea = Enumerable.Repeat(0.0, ratioLst.Count).ToList(); // store the total area of each stone type
-
-            Debug.Assert(allCenStr.Count == stoneCen.Count);
 
             // idx list, used for randomize sequence when growing stone
             var indexes = Enumerable.Range(0, stoneCol.Count).ToList();
@@ -992,14 +1022,13 @@ namespace BeingAliveLanguage
 
                     // ! 2. find a neighbour of this triangle, expand, and update corresponding set
                     bool expanded = false;
+                    // this foreach run 3 times max
                     foreach (var it in nbMap[nearestT])
                     {
-                        // this foreach run 3 times max
-
-                        if (allCenStr.Contains(it))
+                        if (allTriCenStr.Contains(it))
                         {
                             // remove it from the outer set
-                            allCenStr.Remove(it);
+                            allTriCenStr.Remove(it);
 
                             // add all neighbour that are in the outer set
                             stoneCol[i].strIdNeigh.Add(it);
@@ -1064,7 +1093,7 @@ namespace BeingAliveLanguage
                 stonePoly[x.typeId].Add(x.bndCrv);
             });
 
-            var restPoly = allCenStr.Select(id => cenMap[id].Item2).ToList();
+            var restPoly = allTriCenStr.Select(id => cenMap[id].Item2).ToList();
 
             //polyCluster.ForEach(pl =>
             //{
