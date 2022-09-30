@@ -52,18 +52,6 @@ Alternatively, users can also download and install the plugin from the Food4Rhin
 
 
 ---
-## Author
-The tools is created by [Dr. Zhao MA](https://beyond-disciplines.com) at the research group [Chair of Being Alive](https://www.gali-izard.arch.ethz.ch), ETH Zurich.
-
-The author would like to thank the following colleagues for their generous contribution: Prof. Teresa Gali-Izard, Luke Harris, Bonnie-Kate Walker, Cara Turett, Uxia Varela.
-
-
-## License 
-BeingAliveLanguage is released under an [GPL license](https://www.gnu.org/licenses/gpl-3.0.en.html).
-
-BeingAliveLanguage is created and maintained by academics: Please cite `BeingAliveLanguage` or otherwise give a shout-out if and when it contributes to published works.
-
-
 ## Credit & Citation 
 Author: [Zhao Ma](https://beyond-disciplines.com)
 
@@ -78,3 +66,16 @@ If `BeingAliveLanguage` contributes to an academic publication, please cite it a
   year = {2022}
 }
 ```
+
+## Author
+The tools is created by [Dr. Zhao MA](https://beyond-disciplines.com) at the research group [Chair of Being Alive](https://www.gali-izard.arch.ethz.ch), ETH Zurich.
+
+The author would like to thank the following colleagues for their generous contribution: Prof. Teresa Gali-Izard, Luke Harris, Bonnie-Kate Walker, Cara Turett, Uxia Varela.
+
+
+## License 
+BeingAliveLanguage is released under an [GPL license](https://www.gnu.org/licenses/gpl-3.0.en.html).
+
+BeingAliveLanguage is created and maintained by academics: Please cite `BeingAliveLanguage` or otherwise give a shout-out if and when it contributes to published works.
+
+
