@@ -26,30 +26,29 @@
 
 
 ## Introduction
-**BeingAliveLanguage** is a Grasshopper plugin containing a set of tools developed by the research group [Chair of Being Alive](https://www.gali-izard.arch.ethz.ch) at *ETH Zurich*.
+The `BeingAliveLanguage` plugin for `Grasshopper` implements a set of tools using the definition for translating and visualizing soil related information created by [Chair of Being Alive](https://www.gali-izard.arch.ethz.ch). 
+
 
 This software allows the user to quickly create various diagramic visualizations of *soil information*, such as *soil water content*, *soil-root interaction*, *soil horizon*.
 
-The definition and algorithm is created by the [Chair of Being Alive](https://www.gali-izard.arch.ethz.ch). 
+The tool serves for both the landscape design field and environment/agriculture related fields, hoping to support various decision-making processes when the end-users are provided with complex information.
 
+For more background info, please visit the description of the translation language system: [Drawing Language](https://gali-izard.arch.ethz.ch/language-description).
 
-For background info, please visit the description of the *aliveLanguage* system at the chair's website: [Drawing Language](https://gali-izard.arch.ethz.ch/language-description).
-
-
-## Goal
-
-The `BeingAliveLanguage` plugin for `Grasshopper` implements a set of tools using the  definition for translating and visualizing soil related information created by [Chair of Being Alive](https://www.gali-izard.arch.ethz.ch). The tool serves for both the landscape design field and environment/agriculture related fields, hoping to support various decision-making processes when the end-users are provided with complex information.
+## Usage
+Please refer to the main website of the software for more information: [BeingAliveLanguage @ ETH Zurich](https://beingalivelanguage.arch.ethz.ch)
 
 
 ## Install 
+### Embedded `PackageManager`
 For *Rhino 7+*, users can use the embedded `PackageManager` to install the plugin:
-
 
 1. Typing `PackageManager` in the cmd window.
 1. Searching `BeingAliveLanguage` and install.
 
-## Usage
-Please refer to the main website of the software for more information: [BeingAliveLanguage @ ETH Zurich](https://beingalivelanguage.arch.ethz.ch)
+### Food4Rhino
+Alternatively, users can also download and install the plugin from the Food4Rhino website:
+- [BeingAliveLanguage @ Food4Rhino](https://www.food4rhino.com/en/app/beingalivelanguage)
 
 
 ---
