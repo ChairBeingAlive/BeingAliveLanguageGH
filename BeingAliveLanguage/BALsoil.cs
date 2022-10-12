@@ -252,8 +252,7 @@ namespace BeingAliveLanguage
             for (int i = 0; i < urbanS.stonePoly.Count; i++)
             {
                 var path = new GH_Path(i);
-                offsetStonePoly.AppendRange(urbanS.stonePoly[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
-                // todo: offset
+                offsetStonePoly.AppendRange(urbanS.stonePoly[i].Select(x => new GH_Curve(ClipperUtils.OffsetPolygon(cPln, x, rOffset).ToPolylineCurve())), path);
             }
 
             var offsetAllT = allT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
