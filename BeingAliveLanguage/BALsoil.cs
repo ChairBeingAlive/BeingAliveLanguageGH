@@ -179,6 +179,9 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Stone Poly", "stonePoly", "Stone polygons.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons.", GH_ParamAccess.list);
             pManager.AddLineParameter("Organic Matther", "OM", "Collection of organic matters.", GH_ParamAccess.list);
+
+            pManager.AddPointParameter("StoneCentre", "stoneCen", "Centres of the stone.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("StoneCol", "stoneCollection", "Collections of the stone poly.", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -273,6 +276,21 @@ namespace BeingAliveLanguage
 
             DA.SetDataList(idx++, offsetAllT);
             DA.SetDataList(idx++, omLn);
+
+
+            // ! helper assignment
+            DA.SetDataList(idx++, urbanS.stoneCen);
+
+            GH_Structure<GH_Curve> stoneColTree = new GH_Structure<GH_Curve>();
+            for (int i = 0; i < urbanS.stoneCollection.Count; i++)
+            {
+                var path = new GH_Path(i);
+                stoneColTree.AppendRange(urbanS.stoneCollection[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
+            }
+            DA.SetDataTree(idx++, stoneColTree);
+
+
+
         }
 
         protected override System.Drawing.Bitmap Icon => null;

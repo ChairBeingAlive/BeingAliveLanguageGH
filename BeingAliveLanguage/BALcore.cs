@@ -994,7 +994,7 @@ namespace BeingAliveLanguage
             pt2d = pt2d.Select(x => fastCen + (x - fastCen) * (float)0.93).ToList();
 
             // Notice: stoneCen is not aligned with polyTri cen.
-            var stoneCen = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
+            stoneCen = pt2d.Select(x => curPln.Origin + curPln.XAxis * x.Y + curPln.YAxis * x.X).ToList();
             #endregion
 
             // ! separate the stoneCen into several clusters according to the number of stone types, and collect the initial triangle
@@ -1016,6 +1016,9 @@ namespace BeingAliveLanguage
 
                     stoneCol.Add(new StoneCluster(idxCnt, kdRes[0].Value, cenMap, nbMap));
                     kdMap.RemoveAt(kdRes[0].Point);
+
+                    // if added to the stone, then remove it from the allT
+                    allTriCenStr.Remove(Utils.PtString(kdRes[0].Value));
                 }
 
                 tmpStoneCen = tmpStoneCen.Except(curLst).ToList();
@@ -1033,7 +1036,8 @@ namespace BeingAliveLanguage
             // idx list, used for randomize sequence when growing stone
             var indexes = Enumerable.Range(0, stoneCol.Count).ToList();
             indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
-            while (!areaReached)
+            //while (!areaReached)
+            for (int n = 0; n < 0; n++)
             {
                 // the recordArea is used to guarantee that when stoneTypeArea cannot expand to targetArea, we also stop safely.
                 double recordArea = stoneTypeArea.Sum();
@@ -1081,27 +1085,6 @@ namespace BeingAliveLanguage
                         areaReached = true;
                         break; // foreach loop
                     }
-
-                    //var kdRes = kdMap.GetNearestNeighbours(new[] { stoneCol[i].cen.X, stoneCen[i].Y }, 1);
-
-                    //if (kdRes.Length != 0)
-                    //{
-                    //    var tmpCollection = new List<Curve> { polyCluster[i], kdRes[0].Value.ToPolylineCurve() };
-                    //    var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.5);
-
-                    //    if (booleanRes.Length == 1)
-                    //    {
-                    //        curArea += triArea(kdRes[0].Value);
-                    //        kdMap.RemoveAt(kdRes[0].Point);
-                    //        polyCluster[i] = booleanRes[0];
-                    //    }
-
-                    //    if (curArea >= targetArea)
-                    //    {
-                    //        areaReached = true;
-                    //        break;
-                    //    }
-                    //}
                 }
                 // randomize the stone list for the next iteration
                 indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
@@ -1113,35 +1096,21 @@ namespace BeingAliveLanguage
 
             // ! collect polyline for each stone and boolean
             stonePoly = Enumerable.Repeat(new List<Polyline>(), ratioLst.Count).ToList();
+
+            stoneCollection = new List<List<Polyline>>();
             stoneCol.ForEach(x =>
             {
                 x.T = x.strIdInside.Select(id => cenMap[id].Item2).ToList(); // optional
+                stoneCollection.Add(x.T);
+                //stonePolyCen.Add(x.cen);
+
                 x.MakeBoolean(cenMap);
                 stonePoly[x.typeId].Add(x.bndCrv);
             });
 
+            //todo: make correct set boolean of restPoly
             var restPoly = allTriCenStr.Select(id => cenMap[id].Item2).ToList();
 
-            //polyCluster.ForEach(pl =>
-            //{
-            //    if (pl.TryGetPolyline(out Polyline resPoly))
-            //    {
-            //        resPoly.MergeColinearSegments(0.1, true);
-            //        stonePoly.Add(resPoly);
-            //    }
-            //});
-
-            // find the rest polyline and store
-            //foreach (var ptKey in kdMap)
-            //{
-            //    if (kdMap.TryFindValueAt(ptKey.Point, out Polyline pl))
-            //    {
-            //        restPoly.Add(pl);
-            //    }
-            //}
-
-            //return (stonePoly, polyClusterTemp);
-            //return (stonePoly, restPoly);
             return restPoly;
         }
 
@@ -1157,6 +1126,9 @@ namespace BeingAliveLanguage
         readonly List<double> szStone;
         public List<Polyline> sandT, clayT, biocharT;
         public List<List<Polyline>> stonePoly;
+
+        public List<Point3d> stoneCen;
+        public List<List<Polyline>> stoneCollection;
 
         public Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap;
         public Dictionary<string, HashSet<string>> nbMap;
