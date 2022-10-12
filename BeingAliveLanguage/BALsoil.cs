@@ -238,7 +238,6 @@ namespace BeingAliveLanguage
             urbanS.CollectAll(out List<Polyline> allT);
 
             // ! step4: offset polylines
-
             var cPln = sBase.pln;
             var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.95, 0.75);
 
@@ -246,8 +245,8 @@ namespace BeingAliveLanguage
             var offsetClayT = urbanS.clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetBiocharT = urbanS.biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
 
+            // ! For stone polylines, we need to create a tree structure for storing them
             //var offsetStoneT = stonePoly.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-
             GH_Structure<GH_Curve> offsetStonePoly = new GH_Structure<GH_Curve>();
 
             for (int i = 0; i < urbanS.stonePoly.Count; i++)

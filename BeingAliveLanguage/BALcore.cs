@@ -444,10 +444,16 @@ namespace BeingAliveLanguage
                     var p0 = Utils.PtString(x[i]);
                     var p1 = Utils.PtString(x[i + 1]);
 
+                    // do the following for both dir, in case point order in triangles not CCW
                     if (!edgeMap.ContainsKey(p0 + p1))
                         edgeMap.Add(p0 + p1, new HashSet<string>());
 
                     edgeMap[p0 + p1].Add(cen);
+
+                    if (!edgeMap.ContainsKey(p1 + p0))
+                        edgeMap.Add(p1 + p0, new HashSet<string>());
+
+                    edgeMap[p1 + p0].Add(cen);
                 }
             }
 
@@ -791,7 +797,7 @@ namespace BeingAliveLanguage
         public HashSet<string> strIdBound;
         public HashSet<string> strIdInside;
         public HashSet<string> strIdNeigh;
-        public Dictionary<string, double> distMap;
+        public Dictionary<string, double> distMap; // store the distances of other pts to the current stone centre
 
 
         public StoneCluster(
@@ -820,8 +826,20 @@ namespace BeingAliveLanguage
                 foreach (var it in nbMap[key])
                 {
                     strIdNeigh.Add(it);
-                    distMap.Add(it, cen.DistanceTo(ptMap[key].Item1));
+                    AddToDistMap(it, cen.DistanceTo(ptMap[it].Item1));
+                    //distMap.Add(it, cen.DistanceTo(ptMap[it].Item1));
                 }
+            }
+        }
+
+        public void AddToDistMap(string id, double dist)
+        {
+            if (!distMap.ContainsKey(id))
+                distMap.Add(id, dist);
+            else
+            {
+                Debug.Assert(Math.Abs(distMap[id] - dist) < 1e-2);
+                distMap[id] = dist;
             }
         }
 
@@ -856,6 +874,11 @@ namespace BeingAliveLanguage
             this.szStone = szStone;
 
             this.totalArea = sBase.soilT.Sum(x => balCore.triArea(x));
+
+            sandT = new List<Polyline>();
+            clayT = new List<Polyline>();
+            biocharT = new List<Polyline>();
+            stonePoly = new List<List<Polyline>>();
         }
 
         /// <summary>
@@ -864,7 +887,8 @@ namespace BeingAliveLanguage
         public void Build()
         {
             #region sand    
-            List<Polyline> sandT = new List<Polyline>();
+            //List<Polyline> sandT = new List<Polyline>();
+            sandT.Clear();
             var postSandT = sBase.soilT;
             var totalASand = totalArea * rSand;
             if (totalASand > 0)
@@ -1038,6 +1062,9 @@ namespace BeingAliveLanguage
                             {
                                 stoneCol[i].strIdInside.Add(it); // add to the collection
                                 stoneCol[i].strIdBound.Add(it); // add to the bound
+
+                                stoneCol[i].AddToDistMap(it, stoneCol[i].cen.DistanceTo(cenMap[it].Item1));
+                                //stoneCol[i].distMap.Add(it, stoneCol[i].cen.DistanceTo(cenMap[it].Item1));
                                 stoneCol[i].strIdBound.Remove(nearestT); // remove the previous
 
                                 // ! 3. update area of each stone type
