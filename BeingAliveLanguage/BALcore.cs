@@ -1010,9 +1010,12 @@ namespace BeingAliveLanguage
                 var curLst = tmpStoneCen.OrderBy(_ => Utils.balRnd.Next()).Take(cnt).ToList();
 
                 // record centre triangle
-                for (int i = 0; i < curLst.Count; i++)
+                foreach (var pt in curLst)
                 {
-                    var kdRes = kdMap.GetNearestNeighbours(new[] { curLst[i].X, curLst[i].Y }, 1);
+                    var tmpP = pt;
+                    tmpP.Transform(toLocal);
+                    //var kdRes = kdMap.GetNearestNeighbours(new[] { curLst[i].X, curLst[i].Y }, 1);
+                    var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
 
                     stoneCol.Add(new StoneCluster(idxCnt, kdRes[0].Value, cenMap, nbMap));
                     kdMap.RemoveAt(kdRes[0].Point);
@@ -1037,7 +1040,7 @@ namespace BeingAliveLanguage
             var indexes = Enumerable.Range(0, stoneCol.Count).ToList();
             indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
             //while (!areaReached)
-            for (int n = 0; n < 0; n++)
+            for (int n = 0; n < 2; n++)
             {
                 // the recordArea is used to guarantee that when stoneTypeArea cannot expand to targetArea, we also stop safely.
                 double recordArea = stoneTypeArea.Sum();
