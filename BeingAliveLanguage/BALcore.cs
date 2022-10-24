@@ -794,7 +794,6 @@ namespace BeingAliveLanguage
         public Polyline bndCrv;
         public int typeId;
 
-        public HashSet<string> strIdBound;
         public HashSet<string> strIdInside;
         public HashSet<string> strIdNeigh;
         public Dictionary<string, double> distMap; // store the distances of other pts to the current stone centre
@@ -810,7 +809,6 @@ namespace BeingAliveLanguage
             T = new List<Polyline>();
             bndCrv = new Polyline();
 
-            strIdBound = new HashSet<string>();
             strIdInside = new HashSet<string>();
             strIdNeigh = new HashSet<string>();
             distMap = new Dictionary<string, double>();
@@ -818,7 +816,6 @@ namespace BeingAliveLanguage
             var key = Utils.PtString(cenIn);
 
             strIdInside.Add(key);
-            strIdBound.Add(key);
             distMap.Add(key, cen.DistanceTo(cenIn));
 
             if (nbMap != null)
@@ -827,7 +824,6 @@ namespace BeingAliveLanguage
                 {
                     strIdNeigh.Add(it);
                     AddToDistMap(it, cen.DistanceTo(ptMap[it].Item1));
-                    //distMap.Add(it, cen.DistanceTo(ptMap[it].Item1));
                 }
             }
         }
@@ -963,11 +959,14 @@ namespace BeingAliveLanguage
             Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, curPln);
             Transform toWorld = Transform.ChangeBasis(curPln, Plane.WorldXY);
 
+            // nbMap: mapping of each triangle to the neighbouring triangles
             balCore.CreateNeighbourMap(polyIn, out nbMap);
+            // cenMap: mapping of centre to the triangle centre Point3D and triangle polyline
             balCore.CreateCentreMap(polyIn, out cenMap);
 
             List<double> areaLst = ratioLst.Select(x => x * totalArea).ToList(); // the target area for each stone type
             HashSet<string> allTriCenStr = new HashSet<string>(cenMap.Keys);
+            HashSet<string> pickedTriCenStr = new HashSet<string>();
 
             // build a kd-map for polygon centre. We need to transform into 2d, otherwise, collision box will overlap
             var kdMap = new KdTree<double, Point3d>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
@@ -1020,8 +1019,9 @@ namespace BeingAliveLanguage
                     stoneCol.Add(new StoneCluster(idxCnt, kdRes[0].Value, cenMap, nbMap));
                     kdMap.RemoveAt(kdRes[0].Point);
 
-                    // if added to the stone, then remove it from the allT
-                    allTriCenStr.Remove(Utils.PtString(kdRes[0].Value));
+                    // if added to the stone, then also store the picked cenId for all stones
+                    pickedTriCenStr.Add(Utils.PtString(kdRes[0].Value));
+                    //allTriCenStr.Remove(Utils.PtString(kdRes[0].Value));
                 }
 
                 tmpStoneCen = tmpStoneCen.Except(curLst).ToList();
@@ -1037,48 +1037,54 @@ namespace BeingAliveLanguage
             List<double> stoneTypeArea = Enumerable.Repeat(0.0, ratioLst.Count).ToList(); // store the total area of each stone type
 
             // idx list, used for randomize sequence when growing stone
-            var indexes = Enumerable.Range(0, stoneCol.Count).ToList();
-            indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
-            //while (!areaReached)
-            for (int n = 0; n < 2; n++)
+            var stoneIndices = Enumerable.Range(0, stoneCol.Count).ToList();
+            stoneIndices = stoneIndices.OrderBy(_ => Guid.NewGuid()).ToList();
+
+            while (!areaReached)
+            //for (int n = 0; n < 5; n++)
             {
                 // the recordArea is used to guarantee that when stoneTypeArea cannot expand to targetArea, we also stop safely.
                 double recordArea = stoneTypeArea.Sum();
-                foreach (var i in indexes)
+                foreach (var i in stoneIndices)
                 {
 
-                    // ! 1. select a triangle in the frontBorder set based on distance
-                    var nearestT = stoneCol[i].strIdBound.OrderBy(x => stoneCol[i].distMap[x]).First();
+                    // ! 1. select a non-picked triangle in the neighbour set based on distance
                     var curStoneType = stoneCol[i].typeId;
+                    var orderedNeigh = stoneCol[i].strIdNeigh.OrderBy(x => stoneCol[i].distMap[x]);
 
-                    // ! 2. find a neighbour of this triangle, expand, and update corresponding set
-                    bool expanded = false;
-                    // this foreach run 3 times max
+                    string nearestT = "";
+                    foreach (var orderedId in orderedNeigh)
+                    {
+                        if (!pickedTriCenStr.Contains(orderedId))
+                        {
+                            nearestT = orderedId;
+                            break;
+                        }
+                    }
+
+                    // if no available neighbour, this stone is complete (cannot expand any more)
+                    if (nearestT == "")
+                        continue;
+                    //var nearestT = stoneCol[i].strIdNeigh.OrderBy(x => stoneCol[i].distMap[x]).First();
+
+                    // ! 2. find a neighbour of this triangle, update the area of the stone type
+                    if (stoneTypeArea[curStoneType] < areaLst[curStoneType])
+                    {
+                        stoneCol[i].strIdInside.Add(nearestT); // add to the collection
+                        stoneCol[i].strIdNeigh.Remove(nearestT);
+
+                        pickedTriCenStr.Add(nearestT);
+                        stoneTypeArea[curStoneType] += balCore.triArea(cenMap[nearestT].Item2); // add up area
+                    }
+
+                    // ! 3. expand, and update corresponding neighbouring set
                     foreach (var it in nbMap[nearestT])
                     {
-                        if (allTriCenStr.Contains(it))
+                        if (!pickedTriCenStr.Contains(it))
                         {
-                            // remove it from the outer set
-                            allTriCenStr.Remove(it);
-
                             // add all neighbour that are in the outer set
                             stoneCol[i].strIdNeigh.Add(it);
-
-                            // but only expand once
-                            if (!expanded && stoneTypeArea[curStoneType] < areaLst[curStoneType])
-                            {
-                                stoneCol[i].strIdInside.Add(it); // add to the collection
-                                stoneCol[i].strIdBound.Add(it); // add to the bound
-
-                                stoneCol[i].AddToDistMap(it, stoneCol[i].cen.DistanceTo(cenMap[it].Item1));
-                                //stoneCol[i].distMap.Add(it, stoneCol[i].cen.DistanceTo(cenMap[it].Item1));
-                                stoneCol[i].strIdBound.Remove(nearestT); // remove the previous
-
-                                // ! 3. update area of each stone type
-                                stoneTypeArea[curStoneType] += balCore.triArea(cenMap[it].Item2); // add up area
-
-                                expanded = true;
-                            }
+                            stoneCol[i].AddToDistMap(it, stoneCol[i].cen.DistanceTo(cenMap[it].Item1));
                         }
                     }
 
@@ -1090,7 +1096,7 @@ namespace BeingAliveLanguage
                     }
                 }
                 // randomize the stone list for the next iteration
-                indexes = indexes.OrderBy(_ => Guid.NewGuid()).ToList();
+                stoneIndices = stoneIndices.OrderBy(_ => Guid.NewGuid()).ToList();
 
                 // stone cannot expand anymore
                 if (recordArea == stoneTypeArea.Sum())
@@ -1112,7 +1118,9 @@ namespace BeingAliveLanguage
             });
 
             //todo: make correct set boolean of restPoly
-            var restPoly = allTriCenStr.Select(id => cenMap[id].Item2).ToList();
+            // add back the rest neighbouring triangle of the stone to the main collection
+            var restPoly = allTriCenStr.Except(pickedTriCenStr).Select(id => cenMap[id].Item2).ToList();
+            //var restPoly = allTriCenStr.Select(id => cenMap[id].Item2).ToList();
 
             return restPoly;
         }
