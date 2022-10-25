@@ -791,7 +791,8 @@ namespace BeingAliveLanguage
     {
         public Point3d cen;
         public List<Polyline> T;
-        public Polyline bndCrv;
+        //public Polyline bndCrv;
+        public List<Polyline> bndCrvCol;
         public int typeId;
 
         public HashSet<string> strIdInside;
@@ -810,7 +811,8 @@ namespace BeingAliveLanguage
             typeId = id;
             cen = cenIn;
             T = new List<Polyline>();
-            bndCrv = new Polyline();
+            //bndCrv = new Polyline();
+            bndCrvCol = new List<Polyline>();
 
             strIdInside = new HashSet<string>();
             strIdNeigh = new HashSet<string>();
@@ -856,10 +858,15 @@ namespace BeingAliveLanguage
                     tmpCollection.Add(crv);
                 }
 
-                var booleanRes = Curve.CreateBooleanUnion(tmpCollection, 0.5).ToList();
-                Debug.Assert(booleanRes.Count == 1);
+                tmpCollection[0].TryGetPlane(out Plane pln);
+                var boolRgn = Curve.CreateBooleanRegions(tmpCollection, pln, true, 0.5);
+                var crvLst = boolRgn.RegionCurves(0);
 
-                booleanRes[0].TryGetPolyline(out this.bndCrv);
+                foreach (var cv in crvLst)
+                {
+                    cv.TryGetPolyline(out Polyline tmpC);
+                    bndCrvCol.Add(tmpC);
+                }
             }
         }
 
@@ -1042,6 +1049,9 @@ namespace BeingAliveLanguage
             var stoneR_convert = stoneR.Select(x => Math.Sqrt(Math.Pow(x / stoneR.Min(), 2) * unitStoneA)).ToList();
             var unitAreaConvert = szLst.Select(x => (x / szLst.Min() * unitStoneA)).ToList();
             var cntLst = ratioLst.Zip(unitAreaConvert, (r, a) => (int)Math.Round(r * totalArea / a)).ToList();
+            // scale count to stone num
+            var tmpCnt = cntLst.Sum();
+            cntLst = cntLst.Select(x => (int)Math.Round((double)stoneCen.Count / tmpCnt * x)).ToList();
             Debug.Assert(cntLst.Sum() == stoneCen.Count);
             //var cntLst = new List<int>();
             //for (int i = 0; i < ratioLst.Count; i++)
@@ -1164,7 +1174,7 @@ namespace BeingAliveLanguage
                 //stoneCollection.Add(x.T);
 
                 x.MakeBoolean();
-                stonePoly[x.typeId].Add(x.bndCrv);
+                stonePoly[x.typeId].AddRange(x.bndCrvCol);
             });
 
             //todo: make correct set boolean of restPoly

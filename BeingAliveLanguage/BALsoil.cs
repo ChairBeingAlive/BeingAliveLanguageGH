@@ -163,7 +163,7 @@ namespace BeingAliveLanguage
             pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Relative Stone Size", "szStone", "The relative stone size [1, 10], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.list, 0);
+            pManager.AddNumberParameter("Relative Stone Size", "szStone", "The relative stone size [1, 5], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.list, 0);
             pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item, 0);
             // TODO: if we should separate organic matter out
             pManager[6].Optional = true; // rock can be optionally provided
@@ -181,7 +181,7 @@ namespace BeingAliveLanguage
             pManager.AddLineParameter("Organic Matther", "OM", "Collection of organic matters.", GH_ParamAccess.list);
 
             pManager.AddPointParameter("StoneCentre", "stoneCen", "Centres of the stone.", GH_ParamAccess.list);
-            pManager.AddCurveParameter("StoneCol", "stoneCollection", "Collections of the stone poly.", GH_ParamAccess.tree);
+            //pManager.AddCurveParameter("StoneCol", "stoneCollection", "Collections of the stone poly.", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -246,7 +246,7 @@ namespace BeingAliveLanguage
 
             // ! step4: offset polylines
             var cPln = sBase.pln;
-            var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.95, 0.85);
+            var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.98, 0.92);
 
             var offsetSandT = urbanS.sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetClayT = urbanS.clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
@@ -259,6 +259,7 @@ namespace BeingAliveLanguage
             for (int i = 0; i < urbanS.stonePoly.Count; i++)
             {
                 var path = new GH_Path(i);
+                //offsetStonePoly.AppendRange(urbanS.stonePoly[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
                 offsetStonePoly.AppendRange(urbanS.stonePoly[i].Select(x => new GH_Curve(ClipperUtils.OffsetPolygon(cPln, x, rOffset).ToPolylineCurve())), path);
             }
 
