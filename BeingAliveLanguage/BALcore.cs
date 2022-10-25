@@ -798,11 +798,14 @@ namespace BeingAliveLanguage
         public HashSet<string> strIdNeigh;
         public Dictionary<string, double> distMap; // store the distances of other pts to the current stone centre
 
+        public Dictionary<string, (Point3d, Polyline)> ptMap;
+        public Dictionary<string, HashSet<string>> nbMap;
+
 
         public StoneCluster(
             int id, in Point3d cenIn,
-            in Dictionary<string, (Point3d, Polyline)> ptMap,
-            in Dictionary<string, HashSet<string>> nbMap = null)
+            ref Dictionary<string, (Point3d, Polyline)> ptMap,
+            ref Dictionary<string, HashSet<string>> nbMap)
         {
             typeId = id;
             cen = cenIn;
@@ -812,6 +815,9 @@ namespace BeingAliveLanguage
             strIdInside = new HashSet<string>();
             strIdNeigh = new HashSet<string>();
             distMap = new Dictionary<string, double>();
+
+            this.ptMap = ptMap;
+            this.nbMap = nbMap;
 
             var key = Utils.PtString(cenIn);
 
@@ -839,7 +845,7 @@ namespace BeingAliveLanguage
             }
         }
 
-        public void MakeBoolean(in Dictionary<string, (Point3d, Polyline)> ptMap)
+        public void MakeBoolean()
         {
             if (strIdInside.Count != 0)
             {
@@ -855,6 +861,17 @@ namespace BeingAliveLanguage
 
                 booleanRes[0].TryGetPolyline(out this.bndCrv);
             }
+        }
+
+        public double GetAveRadius()
+        {
+            double sum = 0;
+            foreach (var it in strIdNeigh)
+            {
+                sum += cen.DistanceTo(ptMap[it].Item1);
+            }
+
+            return sum / strIdNeigh.Count;
         }
     }
 
@@ -903,12 +920,11 @@ namespace BeingAliveLanguage
             var preStoneT = lv3T;
             var postStoneT = preStoneT;
 
-            // todo: for multiple stone type, figure out how to do this part
             if (rStone.Sum() > 0)
             {
-                var totalRatio = rStone.Sum();
-                var relStoneRatio = rStone.Select(x => x / totalRatio).ToList();
-                postStoneT = PickAndCluster(preStoneT, relStoneRatio, szStone);
+                //var totalRatio = rStone.Sum();
+                //var relStoneRatio = rStone.Select(x => x / totalRatio).ToList();
+                postStoneT = PickAndCluster(preStoneT, rStone, szStone);
             }
             #endregion
 
@@ -952,6 +968,9 @@ namespace BeingAliveLanguage
 
         /// <summary>
         /// Main func: pick and cluster lv3 triangles into stones, according to the input sz and ratio list
+        /// 1. randomly generate evenly distributed stone centres
+        /// 2. Expand triangle from these centres until stone area reached the target
+        /// 3. Collect the rest triangle for clay, biochar, etc.
         /// </summary>
         public List<Polyline> PickAndCluster(in List<Polyline> polyIn, List<double> ratioLst, List<double> szLst)
         {
@@ -982,12 +1001,13 @@ namespace BeingAliveLanguage
             List<double> stoneR = new List<double>();
             foreach (var sz in szLst)
             {
-                stoneR.Add(0.5 * Utils.remap(sz, 1, 10, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width)));
+                // sz range in [1, 5] mapped to the corresponding range 
+                stoneR.Add(Utils.remap(sz, 1, 5, sBase.unitL, Math.Min(sBase.bnd.Height, sBase.bnd.Width) / 3));
             }
 
             #region Poisson Disc sampling for stone centres
             // ! generate poisson disc distribution point, scale the pt2d down a bit to avoid point generated near the border
-            var weightedR = stoneR.Zip(szLst, (x, y) => x * y).Sum() / szLst.Sum();
+            var weightedR = stoneR.Zip(ratioLst, (x, y) => x * y).Sum() / ratioLst.Sum();
             var pt2d = FastPoisson.GenerateSamples((float)(sBase.bnd.Width), (float)(sBase.bnd.Height), (float)weightedR).ToList();
             var fastCen = pt2d.Aggregate(new System.Numerics.Vector2(), (x, y) => x + y) / pt2d.Count;
             pt2d = pt2d.Select(x => fastCen + (x - fastCen) * (float)0.93).ToList();
@@ -1000,54 +1020,85 @@ namespace BeingAliveLanguage
             // we use a new struct "StoneCluster" to store info related to the final stones
             var stoneCol = new List<StoneCluster>(stoneCen.Count);
 
+
+            #region Stone Count
+            // ! Some explanation here: 
+            /// to decide the number of stones for each ratio, we actually need to solve a linear programming question of:
+            ///
+            /// Sum(N_i) = N
+            /// Sum(N_i * f_area(stone_i)) = A_i
+            /// N_i * f_area(stone_i) = A_i
+            ///
+            /// To get multiple solutions.
+            /// To get a usable solution, we need more assumptions, for instance, N_i ~ ratio_i, etc.
+            ///
+            /// However, for the two stone type case, we can direct solve the only solution without the linear programming issue:
+            /// N_1 * Area(stone_1) = A_1
+            /// N_2 * Area(stone_2) = A_2
+            /// N_1 + N_2 = N
+            /// Area(stone_1) : Area(stone_2) = sz_1 : sz_2
+
+            var unitStoneA = totalArea / pt2d.Count;
+            var stoneR_convert = stoneR.Select(x => Math.Sqrt(Math.Pow(x / stoneR.Min(), 2) * unitStoneA)).ToList();
+            var unitAreaConvert = szLst.Select(x => (x / szLst.Min() * unitStoneA)).ToList();
+            var cntLst = ratioLst.Zip(unitAreaConvert, (r, a) => (int)Math.Round(r * totalArea / a)).ToList();
+            Debug.Assert(cntLst.Sum() == stoneCen.Count);
+            //var cntLst = new List<int>();
+            //for (int i = 0; i < ratioLst.Count; i++)
+            //{
+            //    cntLst.Add((int)Math.Round(ratioLst[i] * totalArea / unitAreaConvert[i]));
+            //}
+            #endregion
+
             #region Initialize Stone Collection
             int idxCnt = 0;
             var tmpStoneCen = stoneCen;
-            foreach (var x in ratioLst)
+
+            for (int i = 0; i < ratioLst.Count; i++)
             {
-                var cnt = (int)Math.Round(x * stoneCen.Count());
-                var curLst = tmpStoneCen.OrderBy(_ => Utils.balRnd.Next()).Take(cnt).ToList();
+                //var cnt = (int)Math.Round(totalArea * ratioLst[i] / (Math.Sqrt(3) / 4 * stoneR[i] * stoneR[i]));
+                var curLst = tmpStoneCen.OrderBy(_ => Utils.balRnd.Next()).Take(cntLst[i]).ToList();
 
                 // record centre triangle
                 foreach (var pt in curLst)
                 {
                     var tmpP = pt;
                     tmpP.Transform(toLocal);
-                    //var kdRes = kdMap.GetNearestNeighbours(new[] { curLst[i].X, curLst[i].Y }, 1);
                     var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
 
-                    stoneCol.Add(new StoneCluster(idxCnt, kdRes[0].Value, cenMap, nbMap));
+                    stoneCol.Add(new StoneCluster(idxCnt, kdRes[0].Value, ref cenMap, ref nbMap));
                     kdMap.RemoveAt(kdRes[0].Point);
 
                     // if added to the stone, then also store the picked cenId for all stones
                     pickedTriCenStr.Add(Utils.PtString(kdRes[0].Value));
-                    //allTriCenStr.Remove(Utils.PtString(kdRes[0].Value));
                 }
 
                 tmpStoneCen = tmpStoneCen.Except(curLst).ToList();
 
                 idxCnt++; // next stone type
             }
-            Debug.Assert(stoneCen.Count == stoneCol.Count);
             #endregion 
 
-            // start to aggregate stone triangles and boolean into bigger ones. The target area for each cluster is stoneArea[i]
-
+            // ! start to aggregate stone triangles and boolean into bigger ones. The target area for each cluster is stoneArea[i]
             bool areaReached = false;
             List<double> stoneTypeArea = Enumerable.Repeat(0.0, ratioLst.Count).ToList(); // store the total area of each stone type
+
+            // add default centre tri area
+            foreach (var st in stoneCol)
+            {
+                stoneTypeArea[st.typeId] += balCore.triArea(cenMap[Utils.PtString(st.cen)].Item2);
+            }
 
             // idx list, used for randomize sequence when growing stone
             var stoneIndices = Enumerable.Range(0, stoneCol.Count).ToList();
             stoneIndices = stoneIndices.OrderBy(_ => Guid.NewGuid()).ToList();
 
             while (!areaReached)
-            //for (int n = 0; n < 5; n++)
             {
                 // the recordArea is used to guarantee that when stoneTypeArea cannot expand to targetArea, we also stop safely.
                 double recordArea = stoneTypeArea.Sum();
                 foreach (var i in stoneIndices)
                 {
-
                     // ! 1. select a non-picked triangle in the neighbour set based on distance
                     var curStoneType = stoneCol[i].typeId;
                     var orderedNeigh = stoneCol[i].strIdNeigh.OrderBy(x => stoneCol[i].distMap[x]);
@@ -1065,10 +1116,9 @@ namespace BeingAliveLanguage
                     // if no available neighbour, this stone is complete (cannot expand any more)
                     if (nearestT == "")
                         continue;
-                    //var nearestT = stoneCol[i].strIdNeigh.OrderBy(x => stoneCol[i].distMap[x]).First();
 
                     // ! 2. find a neighbour of this triangle, update the area of the stone type
-                    if (stoneTypeArea[curStoneType] < areaLst[curStoneType])
+                    if (stoneTypeArea[curStoneType] < areaLst[curStoneType] && stoneCol[i].GetAveRadius() < stoneR[curStoneType])
                     {
                         stoneCol[i].strIdInside.Add(nearestT); // add to the collection
                         stoneCol[i].strIdNeigh.Remove(nearestT);
@@ -1104,23 +1154,22 @@ namespace BeingAliveLanguage
             }
 
             // ! collect polyline for each stone and boolean
-            stonePoly = Enumerable.Repeat(new List<Polyline>(), ratioLst.Count).ToList();
+            stonePoly = Enumerable.Range(0, ratioLst.Count).Select(x => new List<Polyline>()).ToList();
 
-            stoneCollection = new List<List<Polyline>>();
+            // stoneCollection: for debugging, collection of small-triangle in each stone cluster
+            //stoneCollection = new List<List<Polyline>>();
             stoneCol.ForEach(x =>
             {
                 x.T = x.strIdInside.Select(id => cenMap[id].Item2).ToList(); // optional
-                stoneCollection.Add(x.T);
-                //stonePolyCen.Add(x.cen);
+                //stoneCollection.Add(x.T);
 
-                x.MakeBoolean(cenMap);
+                x.MakeBoolean();
                 stonePoly[x.typeId].Add(x.bndCrv);
             });
 
             //todo: make correct set boolean of restPoly
             // add back the rest neighbouring triangle of the stone to the main collection
             var restPoly = allTriCenStr.Except(pickedTriCenStr).Select(id => cenMap[id].Item2).ToList();
-            //var restPoly = allTriCenStr.Select(id => cenMap[id].Item2).ToList();
 
             return restPoly;
         }

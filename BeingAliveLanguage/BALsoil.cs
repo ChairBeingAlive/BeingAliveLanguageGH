@@ -219,9 +219,13 @@ namespace BeingAliveLanguage
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Ratio of all contents need to sum up to 1. Current value is {rSand + rClay + rBiochar + rOM + rStone.Sum()}");
                 return;
             }
-            if (szStone.Any(x => x < 1 || x > 10))
+            if (szStone.Any(x => x < 1 || x > 5))
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Relative stone size out of range [1 - 10].");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Relative stone size out of range [1 - 5].");
+            }
+            if (rStone.Count != szStone.Count)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "# of Stone ratios and sizes need to be matched.");
             }
 
             // ! step1: scaling the ratio of sand, clay, biochar, stone if organic matter is presented
@@ -242,7 +246,7 @@ namespace BeingAliveLanguage
 
             // ! step4: offset polylines
             var cPln = sBase.pln;
-            var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.95, 0.75);
+            var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.95, 0.85);
 
             var offsetSandT = urbanS.sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetClayT = urbanS.clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
@@ -281,13 +285,13 @@ namespace BeingAliveLanguage
             // ! helper assignment
             DA.SetDataList(idx++, urbanS.stoneCen);
 
-            GH_Structure<GH_Curve> stoneColTree = new GH_Structure<GH_Curve>();
-            for (int i = 0; i < urbanS.stoneCollection.Count; i++)
-            {
-                var path = new GH_Path(i);
-                stoneColTree.AppendRange(urbanS.stoneCollection[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
-            }
-            DA.SetDataTree(idx++, stoneColTree);
+            //GH_Structure<GH_Curve> stoneColTree = new GH_Structure<GH_Curve>();
+            //for (int i = 0; i < urbanS.stoneCollection.Count; i++)
+            //{
+            //    var path = new GH_Path(i);
+            //    stoneColTree.AppendRange(urbanS.stoneCollection[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
+            //}
+            //DA.SetDataTree(idx++, stoneColTree);
 
 
 
