@@ -163,6 +163,16 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap balSoilUrban {
+            get {
+                object obj = ResourceManager.GetObject("balSoilUrban", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap balSoilWaterVis {
             get {
                 object obj = ResourceManager.GetObject("balSoilWaterVis", resourceCulture);
