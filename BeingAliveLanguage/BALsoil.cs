@@ -180,7 +180,7 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons.", GH_ParamAccess.list);
             pManager.AddLineParameter("Organic Matther", "OM", "Collection of organic matters.", GH_ParamAccess.list);
 
-            pManager.AddPointParameter("StoneCentre", "stoneCen", "Centres of the stone.", GH_ParamAccess.list);
+            //pManager.AddPointParameter("StoneCentre", "stoneCen", "Centres of the stone.", GH_ParamAccess.list);
             //pManager.AddCurveParameter("StoneCol", "stoneCollection", "Collections of the stone poly.", GH_ParamAccess.tree);
         }
 
@@ -246,16 +246,16 @@ namespace BeingAliveLanguage
 
             // ! step4: offset polylines
             var cPln = sBase.pln;
-            var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.98, 0.92);
+            var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.97, 0.91);
 
             var offsetSandT = urbanS.sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetClayT = urbanS.clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
             var offsetBiocharT = urbanS.biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
 
             // ! For stone polylines, we need to create a tree structure for storing them
-            //var offsetStoneT = stonePoly.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-            GH_Structure<GH_Curve> offsetStonePoly = new GH_Structure<GH_Curve>();
+            //var offsetStoneT = urbanS.stonePoly.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
 
+            GH_Structure<GH_Curve> offsetStonePoly = new GH_Structure<GH_Curve>();
             for (int i = 0; i < urbanS.stonePoly.Count; i++)
             {
                 var path = new GH_Path(i);
@@ -269,6 +269,72 @@ namespace BeingAliveLanguage
             var omLn = balCore.GenOrganicMatterUrban(sBase, allT, offsetAllT, rOM);
             var biocharFilling = balCore.GenOrganicMatterBiochar(sBase, offsetBiocharT);
 
+
+
+            List<Polyline> offsetStoneT = new List<Polyline>();
+            List<Polyline> originStoneT = new List<Polyline>();
+            for (int i = 0; i < urbanS.stonePoly.Count; i++)
+            {
+                originStoneT.AddRange(urbanS.stonePoly[i]);
+                var stoneCol = urbanS.stonePoly[i].Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+                offsetStoneT.AddRange(stoneCol);
+            }
+
+
+            var omStone = balCore.GenOrganicMatterUrban(sBase, originStoneT, offsetStoneT, rOM);
+            var omClay = balCore.GenOrganicMatterUrban(sBase, urbanS.clayT, offsetClayT, rOM);
+            var omSand = balCore.GenOrganicMatterUrban(sBase, urbanS.sandT, offsetSandT, rOM);
+
+            List<Line> allOM = new List<Line>();
+            double tmpOmDist = sBase.unitL / 7.0;
+
+            allOM.AddRange(omStone);
+            allOM.AddRange(omClay);
+            allOM.AddRange(omSand);
+
+            //for (int i = 0; i < offsetSandT.Count; i++)
+            //{
+            //    for (int j = 0; j < offsetSandT[i].Count - 1; j++)
+            //    {
+            //        var segOutter = new Line(urbanS.sandT[i][j], urbanS.sandT[i][j + 1]);
+            //        var segInner = new Line(offsetSandT[i][j], offsetSandT[i][j + 1]);
+
+
+            //        // remap and round
+            //        double divNtmp = segOutter.Length / tmpOmDist;
+            //        int divN = (int)Math.Round(Utils.remap(divNtmp, 0.0, 1.0, 3, 15));
+
+            //        if (divN == 0)
+            //            continue;
+
+            //        var omCol = balCore.createOmOnLine(segOutter, segInner, divN);
+            //        allOM.AddRange(omCol);
+            //    }
+            //}
+            //for (int i = 0; i < offsetStoneT.Count; i++)
+            //{
+            //    for (int j = 0; j < offsetStoneT[i].Count - 1; j++)
+            //    {
+            //        var segOutter = new Line(originStoneT[i][j], originStoneT[i][j + 1]);
+            //        var segInner = new Line(offsetStoneT[i][j], offsetStoneT[i][j + 1]);
+
+
+            //        // remap and round
+            //        double divNtmp = segOutter.Length / tmpOmDist;
+            //        int divN = (int)Math.Round(Utils.remap(divNtmp, 0.0, 1.0, 3, 15));
+
+            //        if (divN == 0)
+            //            continue;
+
+            //        var omCol = balCore.createOmOnLine(segOutter, segInner, divN);
+            //        allOM.AddRange(omCol);
+            //    }
+            //}
+
+
+
+
+
             omLn.AddRange(biocharFilling);
 
             // ! assignment
@@ -280,11 +346,12 @@ namespace BeingAliveLanguage
             DA.SetDataTree(idx++, offsetStonePoly);
 
             DA.SetDataList(idx++, offsetAllT);
-            DA.SetDataList(idx++, omLn);
+            //DA.SetDataList(idx++, omLn);
+            DA.SetDataList(idx++, allOM);
 
 
             // ! helper assignment
-            DA.SetDataList(idx++, urbanS.stoneCen);
+            //DA.SetDataList(idx++, urbanS.stoneCen);
 
             //GH_Structure<GH_Curve> stoneColTree = new GH_Structure<GH_Curve>();
             //for (int i = 0; i < urbanS.stoneCollection.Count; i++)

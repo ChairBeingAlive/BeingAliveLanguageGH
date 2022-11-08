@@ -41,7 +41,7 @@ namespace BeingAliveLanguage
             var aveR = polyIn.Select(x => x.DistanceTo(cen)).ToList().Sum() / polyIn.Count;
             var dis = -(1 - ratio) * aveR;
             //var dis = -1;
-            var res = Clipper.InflatePaths(polyPath, dis, JoinType.Miter, EndType.Polygon, Math.Abs(dis) * 10);
+            var res = Clipper.InflatePaths(polyPath, dis, JoinType.Miter, EndType.Polygon, Math.Abs(dis) * 5);
             var resOut = res[0].ToList();
 
             // ! 4. convert back, add last point

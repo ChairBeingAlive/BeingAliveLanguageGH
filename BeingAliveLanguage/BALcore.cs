@@ -667,6 +667,7 @@ namespace BeingAliveLanguage
             return res;
         };
 
+
         /// <summary>
         /// generate organic matter for soil inner
         /// </summary>
@@ -749,16 +750,23 @@ namespace BeingAliveLanguage
         public static List<Line> GenOrganicMatterUrban(in SoilBase sBase, in List<Polyline> polyIn, in List<Polyline> polyInOffset, double rOM)
         {
             var res = new List<Line>();
+            if (rOM == 0)
+                return res;
 
-            double relOM = Utils.remap(rOM, 0, 0.2, 15, 50);
-            if (rOM != 0)
+            // pt# match, then do the generation
+            double relOM = Utils.remap(rOM, 0, 0.2, 5, 30);
+            for (int i = 0; i < polyIn.Count; i++)
             {
-                for (int i = 0; i < polyIn.Count; i++)
-                {
-                    int divN = (int)Math.Round(polyIn[i].Length / sBase.unitL * relOM);
-                    var omLn = createOM(polyIn[i], polyInOffset[i], divN);
-                    res.AddRange(omLn);
-                }
+
+                int divN = (int)Math.Round(polyIn[i].Length / sBase.unitL * relOM);
+
+                // TODO: fix this issue or add warning
+                // polygon pt# doesn't match, ignore 
+                if (polyIn[i].Count != polyInOffset[i].Count)
+                    continue;
+
+                var omLn = createOM(polyIn[i], polyInOffset[i], divN);
+                res.AddRange(omLn);
             }
 
             return res;
@@ -1087,7 +1095,7 @@ namespace BeingAliveLanguage
 
                 idxCnt++; // next stone type
             }
-            #endregion 
+            #endregion
 
             // ! start to aggregate stone triangles and boolean into bigger ones. The target area for each cluster is stoneArea[i]
             bool areaReached = false;
@@ -1171,7 +1179,7 @@ namespace BeingAliveLanguage
             stoneCol.ForEach(x =>
             {
                 x.T = x.strIdInside.Select(id => cenMap[id].Item2).ToList(); // optional
-                //stoneCollection.Add(x.T);
+                                                                             //stoneCollection.Add(x.T);
 
                 x.MakeBoolean();
                 stonePoly[x.typeId].AddRange(x.bndCrvCol);
