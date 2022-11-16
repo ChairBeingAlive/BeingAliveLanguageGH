@@ -16,6 +16,8 @@ using Rhino.Collections;
 using System.Diagnostics;
 using System.CodeDom;
 using Eto.Forms;
+using System.Windows.Forms.VisualStyles;
+using System.Reflection.Emit;
 
 namespace BeingAliveLanguage
 {
@@ -907,6 +909,7 @@ namespace BeingAliveLanguage
             clayT = new List<Polyline>();
             biocharT = new List<Polyline>();
             stonePoly = new List<List<Polyline>>();
+
         }
 
         /// <summary>
@@ -914,7 +917,7 @@ namespace BeingAliveLanguage
         /// </summary>
         public void Build()
         {
-            #region sand    
+            #region Sand    
             //List<Polyline> sandT = new List<Polyline>();
             sandT.Clear();
             var postSandT = sBase.soilT;
@@ -930,27 +933,14 @@ namespace BeingAliveLanguage
             var lv3T = balCore.subDivTriLst(balCore.subDivTriLst(postSandT));
             #endregion
 
-            #region Stone
-            // at this stage, there are a collection of small-level triangles to be grouped into stones.
-            var preStoneT = lv3T;
-            var postStoneT = preStoneT;
-
-            if (rStone.Sum() > 0)
-            {
-                //var totalRatio = rStone.Sum();
-                //var relStoneRatio = rStone.Select(x => x / totalRatio).ToList();
-                postStoneT = PickAndCluster(preStoneT, rStone, szStone);
-            }
-            #endregion
-
             #region clay, biochar 
             var totalAclay = totalArea * rClay;
-            var postClayT = postStoneT;
+            var postClayT = lv3T;
             if (totalAclay > 0)
             {
                 var numClay = (int)Math.Round(lv3T.Count * rClay);
-                clayT = postStoneT.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
-                postClayT = postStoneT.Except(clayT).ToList();
+                clayT = lv3T.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
+                postClayT = lv3T.Except(clayT).ToList();
             }
 
             var totalABiochar = totalArea * rBiochar;
@@ -962,22 +952,39 @@ namespace BeingAliveLanguage
                 postBiocharT = postClayT.Except(biocharT).ToList();
             }
 
-            // if there're small triangles left, give it to the bigger 
-            if (postBiocharT.Count > 0)
+            #endregion
+
+            // peek through
+            tmpT = postBiocharT;
+
+
+            #region Stone
+            // at this stage, there are a collection of small-level triangles to be grouped into stones.
+            var preStoneT = postBiocharT;
+            var postStoneT = preStoneT;
+
+            if (rStone.Sum() > 0)
             {
-                if (clayT == null)
-                    biocharT = biocharT.Concat(postBiocharT).ToList();
-
-                else if (biocharT == null)
-                    clayT = clayT.Concat(postBiocharT).ToList();
-
-                else if (clayT.Count > biocharT.Count)
-                    clayT = clayT.Concat(postBiocharT).ToList();
-
-                else
-                    biocharT = biocharT.Concat(postBiocharT).ToList();
+                postStoneT = PickAndCluster(preStoneT, rStone, szStone);
             }
             #endregion
+
+            // if there're small triangles left, give it to the bigger 
+            //var leftOverT = postStoneT;
+            //if (leftOverT.Count > 0)
+            //{
+            //    if (clayT == null)
+            //        biocharT = biocharT.Concat(leftOverT).ToList();
+
+            //    else if (biocharT == null)
+            //        clayT = clayT.Concat(leftOverT).ToList();
+
+            //    else if (clayT.Count > biocharT.Count)
+            //        clayT = clayT.Concat(leftOverT).ToList();
+
+            //    else
+            //        biocharT = biocharT.Concat(leftOverT).ToList();
+            //}
         }
 
 
@@ -1204,6 +1211,8 @@ namespace BeingAliveLanguage
         readonly List<double> szStone;
         public List<Polyline> sandT, clayT, biocharT;
         public List<List<Polyline>> stonePoly;
+
+        public List<Polyline> tmpT;
 
         public List<Point3d> stoneCen;
         public List<List<Polyline>> stoneCollection;
@@ -1913,7 +1922,8 @@ namespace BeingAliveLanguage
             //Random random = new Random(); // TODO evaluate whether this Random can generate uniformly random numbers
 
             // cell size to guarantee that each cell within the accelerator grid can have at most one sample
-            float cellSize = radius / (float)Math.Sqrt(radius);
+            float cellSize = radius / (float)Math.Sqrt(2);
+            //float cellSize = radius / (float)Math.Sqrt(radius);
 
             // dimensions of our accelerator grid
             int acceleratorWidth = (int)Math.Ceiling(width / cellSize);

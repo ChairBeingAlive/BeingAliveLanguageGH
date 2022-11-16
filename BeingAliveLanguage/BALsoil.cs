@@ -292,49 +292,6 @@ namespace BeingAliveLanguage
             allOM.AddRange(omClay);
             allOM.AddRange(omSand);
 
-            //for (int i = 0; i < offsetSandT.Count; i++)
-            //{
-            //    for (int j = 0; j < offsetSandT[i].Count - 1; j++)
-            //    {
-            //        var segOutter = new Line(urbanS.sandT[i][j], urbanS.sandT[i][j + 1]);
-            //        var segInner = new Line(offsetSandT[i][j], offsetSandT[i][j + 1]);
-
-
-            //        // remap and round
-            //        double divNtmp = segOutter.Length / tmpOmDist;
-            //        int divN = (int)Math.Round(Utils.remap(divNtmp, 0.0, 1.0, 3, 15));
-
-            //        if (divN == 0)
-            //            continue;
-
-            //        var omCol = balCore.createOmOnLine(segOutter, segInner, divN);
-            //        allOM.AddRange(omCol);
-            //    }
-            //}
-            //for (int i = 0; i < offsetStoneT.Count; i++)
-            //{
-            //    for (int j = 0; j < offsetStoneT[i].Count - 1; j++)
-            //    {
-            //        var segOutter = new Line(originStoneT[i][j], originStoneT[i][j + 1]);
-            //        var segInner = new Line(offsetStoneT[i][j], offsetStoneT[i][j + 1]);
-
-
-            //        // remap and round
-            //        double divNtmp = segOutter.Length / tmpOmDist;
-            //        int divN = (int)Math.Round(Utils.remap(divNtmp, 0.0, 1.0, 3, 15));
-
-            //        if (divN == 0)
-            //            continue;
-
-            //        var omCol = balCore.createOmOnLine(segOutter, segInner, divN);
-            //        allOM.AddRange(omCol);
-            //    }
-            //}
-
-
-
-
-
             omLn.AddRange(biocharFilling);
 
             // ! assignment
@@ -345,9 +302,10 @@ namespace BeingAliveLanguage
 
             DA.SetDataTree(idx++, offsetStonePoly);
 
-            DA.SetDataList(idx++, offsetAllT);
+            //DA.SetDataTree(idx++, urbanS.tmpT);
             //DA.SetDataList(idx++, omLn);
-            DA.SetDataList(idx++, allOM);
+            //DA.SetDataList(idx++, allOM);
+            DA.SetDataList(idx++, urbanS.tmpT);
 
 
             // ! helper assignment
