@@ -177,7 +177,7 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Biochar Tri", "biocharT", "Biochar triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Stone Poly", "stonePoly", "Stone polygons.", GH_ParamAccess.tree);
-            pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons.", GH_ParamAccess.list);
+            //pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons.", GH_ParamAccess.list);
             pManager.AddLineParameter("Organic Matther", "OM", "Collection of organic matters.", GH_ParamAccess.list);
 
             pManager.AddPointParameter("StoneCentre", "stoneCen", "Centres of the stone.", GH_ParamAccess.list);
@@ -213,6 +213,12 @@ namespace BeingAliveLanguage
 
             if (rClay == 0 && rStone.Sum() == 0)
             { return; }
+
+            if (rSand > 0 && rStone.Sum() > 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No urban stone contains sand and stone simultaneously.");
+                return;
+            }
 
             if (rSand + rClay + rBiochar + rOM + rStone.Sum() != 1)
             {
@@ -302,7 +308,7 @@ namespace BeingAliveLanguage
 
             DA.SetDataTree(idx++, offsetStonePoly);
 
-            //DA.SetDataTree(idx++, urbanS.tmpT);
+            //DA.SetDataTree(idx++, );
             //DA.SetDataList(idx++, omLn);
             DA.SetDataList(idx++, allOM);
             DA.SetDataList(idx++, urbanS.tmpT);

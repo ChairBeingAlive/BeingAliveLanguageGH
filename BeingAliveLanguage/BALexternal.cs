@@ -103,7 +103,7 @@ namespace BeingAliveLanguage
 
             // scale pt from center to avoid points on the edge
             var fastCen = pt2d.Aggregate(new System.Numerics.Vector2(), (x, y) => x + y) / pt2d.Count;
-            pt2d = pt2d.Select(x => fastCen + (x - fastCen) * (float)0.93).ToList();
+            pt2d = pt2d.Select(x => fastCen + (x - fastCen) * (float)0.97).ToList();
 
             var curPln = sBase.pln;
             // Notice: stoneCen is not aligned with polyTri cen.

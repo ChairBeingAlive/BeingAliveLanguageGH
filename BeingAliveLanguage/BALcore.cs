@@ -910,6 +910,9 @@ namespace BeingAliveLanguage
             biocharT = new List<Polyline>();
             stonePoly = new List<List<Polyline>>();
 
+            toLocal = Transform.ChangeBasis(Plane.WorldXY, sBase.pln);
+            toWorld = Transform.ChangeBasis(sBase.pln, Plane.WorldXY);
+
         }
 
         /// <summary>
@@ -922,29 +925,64 @@ namespace BeingAliveLanguage
             sandT.Clear();
             var postSandT = sBase.soilT;
             var totalASand = totalArea * rSand;
+
             if (totalASand > 0)
             {
                 var numSand = (int)(Math.Round(postSandT.Count * rSand));
 
-                var ptCen = samplingUtils.uniformSampling(ref this.sBase, numSand);
+                var ptCen = samplingUtils.uniformSampling(ref this.sBase, (int)(numSand * 1.2));
                 tmpPt = ptCen;
 
+                balCore.CreateCentreMap(postSandT, out cenMap);
 
+                // build a kd-map for polygon centre. We need to transform into 2d, otherwise, collision box will overlap
+                var kdMap = new KdTree<double, Polyline>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
+                foreach (var pl in postSandT)
+                {
+                    var cen = (pl[0] + pl[1] + pl[2]) / 3;
+                    var originalCen = cen;
+                    cen.Transform(toLocal);
+                    kdMap.Add(new[] { cen.X, cen.Y }, pl);
+                }
+
+                HashSet<Polyline> sandTPrepare = new HashSet<Polyline>();
+                foreach (var pt in ptCen)
+                {
+                    var tmpP = pt;
+                    tmpP.Transform(toLocal);
+                    var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
+
+                    sandTPrepare.Add(kdRes[0].Value);
+                }
+
+                sandT = sandTPrepare.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
                 //sandT = postSandT.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
-                //postSandT = sBase.soilT.Except(sandT).ToList();
+                postSandT = sBase.soilT.Except(sandT).ToList();
             }
 
             var lv3T = balCore.subDivTriLst(balCore.subDivTriLst(postSandT));
             #endregion
 
+            #region Stone
+            // at this stage, there are a collection of small-level triangles to be grouped into stones.
+            var preStoneT = lv3T;
+            var postStoneT = preStoneT;
+
+            if (rStone.Sum() > 0)
+            {
+                postStoneT = PickAndCluster(preStoneT, rStone, szStone);
+            }
+            #endregion
+
+
             #region clay, biochar 
             var totalAclay = totalArea * rClay;
-            var postClayT = lv3T;
+            var postClayT = postStoneT;
             if (totalAclay > 0)
             {
                 var numClay = (int)Math.Round(lv3T.Count * rClay);
-                clayT = lv3T.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
-                postClayT = lv3T.Except(clayT).ToList();
+                clayT = postStoneT.OrderBy(x => Guid.NewGuid()).Take(numClay).ToList();
+                postClayT = postStoneT.Except(clayT).ToList();
             }
 
             var totalABiochar = totalArea * rBiochar;
@@ -958,37 +996,22 @@ namespace BeingAliveLanguage
 
             #endregion
 
-            // peek through
-            tmpT = postBiocharT;
-
-
-            #region Stone
-            // at this stage, there are a collection of small-level triangles to be grouped into stones.
-            var preStoneT = postBiocharT;
-            var postStoneT = preStoneT;
-
-            if (rStone.Sum() > 0)
-            {
-                postStoneT = PickAndCluster(preStoneT, rStone, szStone);
-            }
-            #endregion
-
             // if there're small triangles left, give it to the bigger 
-            //var leftOverT = postStoneT;
-            //if (leftOverT.Count > 0)
-            //{
-            //    if (clayT == null)
-            //        biocharT = biocharT.Concat(leftOverT).ToList();
+            var leftOverT = postBiocharT;
+            if (leftOverT.Count > 0)
+            {
+                if (clayT == null)
+                    biocharT = biocharT.Concat(leftOverT).ToList();
 
-            //    else if (biocharT == null)
-            //        clayT = clayT.Concat(leftOverT).ToList();
+                else if (biocharT == null)
+                    clayT = clayT.Concat(leftOverT).ToList();
 
-            //    else if (clayT.Count > biocharT.Count)
-            //        clayT = clayT.Concat(leftOverT).ToList();
+                else if (clayT.Count > biocharT.Count)
+                    clayT = clayT.Concat(leftOverT).ToList();
 
-            //    else
-            //        biocharT = biocharT.Concat(leftOverT).ToList();
-            //}
+                else
+                    biocharT = biocharT.Concat(leftOverT).ToList();
+            }
         }
 
 
@@ -1001,8 +1024,8 @@ namespace BeingAliveLanguage
         public List<Polyline> PickAndCluster(in List<Polyline> polyIn, List<double> ratioLst, List<double> szLst)
         {
             var curPln = sBase.pln;
-            Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, curPln);
-            Transform toWorld = Transform.ChangeBasis(curPln, Plane.WorldXY);
+            //Transform toLocal = Transform.ChangeBasis(Plane.WorldXY, curPln);
+            //Transform toWorld = Transform.ChangeBasis(curPln, Plane.WorldXY);
 
             // nbMap: mapping of each triangle to the neighbouring triangles
             balCore.CreateNeighbourMap(polyIn, out nbMap);
@@ -1224,6 +1247,9 @@ namespace BeingAliveLanguage
 
         public Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap;
         public Dictionary<string, HashSet<string>> nbMap;
+
+        Transform toLocal;
+        Transform toWorld;
     }
 
     class SoilMap
