@@ -180,7 +180,7 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons.", GH_ParamAccess.list);
             pManager.AddLineParameter("Organic Matther", "OM", "Collection of organic matters.", GH_ParamAccess.list);
 
-            //pManager.AddPointParameter("StoneCentre", "stoneCen", "Centres of the stone.", GH_ParamAccess.list);
+            pManager.AddPointParameter("StoneCentre", "stoneCen", "Centres of the stone.", GH_ParamAccess.list);
             //pManager.AddCurveParameter("StoneCol", "stoneCollection", "Collections of the stone poly.", GH_ParamAccess.tree);
         }
 
@@ -304,12 +304,12 @@ namespace BeingAliveLanguage
 
             //DA.SetDataTree(idx++, urbanS.tmpT);
             //DA.SetDataList(idx++, omLn);
-            //DA.SetDataList(idx++, allOM);
+            DA.SetDataList(idx++, allOM);
             DA.SetDataList(idx++, urbanS.tmpT);
 
 
             // ! helper assignment
-            //DA.SetDataList(idx++, urbanS.stoneCen);
+            DA.SetDataList(idx++, urbanS.tmpPt);
 
             //GH_Structure<GH_Curve> stoneColTree = new GH_Structure<GH_Curve>();
             //for (int i = 0; i < urbanS.stoneCollection.Count; i++)
