@@ -14,7 +14,7 @@ namespace BeingAliveLanguage
         public BALETP()
           : base("Climate_Evapotranspiration", "balClimate_ETP",
               "Calculate the climate evapotranspiration related data for a given location.",
-              "BAL", "03::climate")
+              "BAL", "04::climate")
         {
         }
         protected override Bitmap Icon => Properties.Resources.balEvapotranspiration;

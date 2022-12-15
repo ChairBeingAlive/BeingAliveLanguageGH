@@ -18,6 +18,8 @@ using System.CodeDom;
 using Eto.Forms;
 using System.Windows.Forms.VisualStyles;
 using System.Reflection.Emit;
+using Eto.Drawing;
+using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
@@ -82,9 +84,10 @@ namespace BeingAliveLanguage
 
     static class Utils
     {
-
+        // get the random core
         public static Random balRnd = new Random(Guid.NewGuid().GetHashCode());
 
+        // remap a number from one range to another
         public static double remap(double val, double originMin, double originMax, double targetMin, double targetMax)
         {
             // of original range is 0 length, return 0
@@ -92,6 +95,17 @@ namespace BeingAliveLanguage
             { return 0; }
 
             return targetMin + val / (originMax - originMin) * (targetMax - targetMin);
+        }
+
+        // create a range of values with step size
+        public static IEnumerable<double> Range(double min, double max, double step)
+        {
+            double i;
+            for (i = min; i <= max; i += step)
+                yield return i;
+
+            if (i != max + step) // added only because you want max to be returned as last item
+                yield return max;
         }
 
         // convert the "Curve" type taken in by GH to a Rhino.Geometry.Polyline
@@ -1910,6 +1924,81 @@ namespace BeingAliveLanguage
         List<Line> rAbs = new List<Line>();
         List<List<string>> frontId = new List<List<string>>();
         List<List<Vector3d>> frontDir = new List<List<Vector3d>>();
+    }
+
+    class Tree
+    {
+        public Tree() { }
+        public Tree(Plane pln, double height, bool unitary = false)
+        {
+            mPln = pln;
+            mHeight = height;
+            mUnitary = unitary;
+
+            maxStdR = height * 0.5;
+            minStdR = height * treeSepParam * 0.5;
+            stepR = (maxStdR - minStdR) / (numLayer - 1);
+
+        }
+
+        public void Draw(int phase)
+        {
+            // ! set up parameters
+
+
+            // ! draw tree trunks
+            var treeTrunk = new Line(mPln.Origin, mPln.Origin + mHeight * mPln.YAxis);
+            //treeTrunk.ToNurbsCurve().Reparameterize();
+
+            var treeBot = treeTrunk.PointAt(0);
+            var treeTop = treeTrunk.PointAt(1);
+
+
+            var seq = Utils.Range(0.2, 1, 0.8 / numLayer).ToList();
+            double remap_t = 0;
+            foreach (var (t, i) in seq.Select((t, i) => (t, i)))
+            {
+                if (mUnitary)
+                    remap_t = t * 0.6;
+                else
+                    remap_t = t * Math.Pow(0.97, i);
+
+                mTrunkCol.Append(treeTrunk.ToNurbsCurve().Trim(0.0, remap_t));
+            }
+
+            // ! draw circums
+
+
+            // ! draw collections of branches
+
+
+            // ! draw trunk, branch, canopy
+
+
+            // ! Actual DRAWING process
+
+
+        }
+
+        // tree core param
+        Plane mPln;
+        double mHeight;
+        bool mUnitary = false;
+
+        readonly int numLayer = 19;
+        readonly int angleStep = 4;
+
+        // mature and dying range idx
+        readonly int matureIdx = 6;
+        readonly int dyingIdx = 11;
+
+        // other parameter
+        double treeSepParam = 0.2;
+        readonly double maxStdR, minStdR, stepR;
+
+        // curve collection
+        public List<Curve> mTrunkCol;
+
     }
 
     static class Menu

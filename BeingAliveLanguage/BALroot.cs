@@ -35,7 +35,7 @@ namespace BeingAliveLanguage
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddPlaneParameter("Plane", "P", "Base plan where the soil map exists." +
+            pManager.AddPlaneParameter("Plane", "P", "Base plane where the soil map exists." +
                 "For soil that is not aligned with the world coordinates, please use the soil boundary.",
                 GH_ParamAccess.item, Rhino.Geometry.Plane.WorldXY);
             pManager.AddGenericParameter("Soil Geometry", "soilGeo", "Soil geometry that representing the soil. " +

@@ -339,7 +339,7 @@ namespace BeingAliveLanguage
         public BALsoilInfo() :
             base("Soil Information", "balSoilInfoText",
                 "Export the soil information in text format.",
-                "BAL", "04::utils")
+                "BAL", "09::utils")
         { }
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
