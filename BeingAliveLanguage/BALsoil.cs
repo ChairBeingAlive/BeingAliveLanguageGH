@@ -311,11 +311,11 @@ namespace BeingAliveLanguage
             //DA.SetDataTree(idx++, );
             //DA.SetDataList(idx++, omLn);
             DA.SetDataList(idx++, allOM);
-            DA.SetDataList(idx++, urbanS.tmpT);
+            //DA.SetDataList(idx++, urbanS.tmpT);
 
 
             // ! helper assignment
-            DA.SetDataList(idx++, urbanS.tmpPt);
+            DA.SetDataList(idx++, urbanS.stoneCen);
 
             //GH_Structure<GH_Curve> stoneColTree = new GH_Structure<GH_Curve>();
             //for (int i = 0; i < urbanS.stoneCollection.Count; i++)
@@ -324,8 +324,6 @@ namespace BeingAliveLanguage
             //    stoneColTree.AppendRange(urbanS.stoneCollection[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
             //}
             //DA.SetDataTree(idx++, stoneColTree);
-
-
 
         }
 
