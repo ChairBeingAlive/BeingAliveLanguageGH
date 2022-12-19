@@ -23,17 +23,22 @@ namespace BeingAliveLanguage
         {
             pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.list, Plane.WorldXY);
             pManager.AddNumberParameter("Height", "H", "Height of the tree.", GH_ParamAccess.list);
-            pManager.AddIntegerParameter("Phase", "p", "Phase of the tree.", GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree.", GH_ParamAccess.list);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("Branch", "B", "Tree branch curves.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Circumference", "C", "Circumference Ellipses that controls the boundary of the tree.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Canopy", "C", "Tree trunk curves.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            var plnLst = new List<Plane>();
+            var plnLst = new List<Rhino.Geometry.Plane>();
             if (!DA.GetDataList("Plane", plnLst))
             { return; }
 
@@ -45,17 +50,37 @@ namespace BeingAliveLanguage
             if (!DA.GetDataList("Phase", phLst))
             { return; }
 
+            var circ = new List<Curve>();
+            var canopy = new List<Curve>();
+            var trunk = new List<Curve>();
+            var sideB = new List<Curve>();
+            var topB = new List<Curve>();
 
-            var res = new List<Curve>();
+            var debug = new List<Curve>();
             foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
             {
                 var t = new Tree(pln, hLst[i]);
                 t.Draw(phLst[i]);
 
                 // output the curves 
-                res.AddRange(t.mTrunkCol);
+                trunk.Add(t.mCurTrunk);
+                canopy.Add(t.mCurCanopy);
+                circ.AddRange(t.mCircCol);
+                sideB.AddRange(t.mSideBranch);
+                topB.AddRange(t.mSubBranch);
+
+
+                debug.AddRange(t.mDebug);
             }
 
+            DA.SetDataList("Circumference", circ);
+            DA.SetDataList("Canopy", canopy);
+            DA.SetDataList("Trunk", trunk);
+            DA.SetDataList("SideBranch", sideB);
+            DA.SetDataList("TopBranch", topB);
+
+
+            DA.SetDataList("Debug", debug);
         }
 
         protected override System.Drawing.Bitmap Icon => null;
