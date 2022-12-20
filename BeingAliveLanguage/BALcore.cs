@@ -1946,7 +1946,7 @@ namespace BeingAliveLanguage
 
         }
 
-        public void Draw(int phase)
+        public bool Draw(int phase)
         {
             // ! draw tree trunks
             var treeTrunk = new Line(mPln.Origin, mPln.Origin + mHeight * mPln.YAxis);
@@ -2002,7 +2002,7 @@ namespace BeingAliveLanguage
             {
                 var events = Intersection.CurveCurve(treeTrunk.ToNurbsCurve(), c, 0.1, 0.1);
 
-                if (events != null)
+                if (events.Count != 0)
                 {
                     if (mPln.Origin.DistanceTo(events[1].PointA) > 1e-2)
                     {
@@ -2034,8 +2034,9 @@ namespace BeingAliveLanguage
             var curIdx = (phase - 1) * 2;
             var trimIdx = (trimN - 1) * 2;
 
-            if (trimN > trunkCol.Count)
-                return;
+            // phase out of range
+            if (trimIdx >= trunkCol.Count)
+                return false;
 
             mCurTrunk = trunkCol[trimIdx];
             mCurTrunk.Domain = new Interval(0.0, 1.0);
@@ -2044,7 +2045,7 @@ namespace BeingAliveLanguage
             var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
             mCurCanopy = mCircCol[canopyIdx];
             mCurCanopy.Domain = new Interval(0.0, 1.0);
-            mCurCanopy = mCurCanopy.Trim(0.28, 0.72);
+            mCurCanopy = mCurCanopy.Trim(0.26, 0.74);
 
             // side branches
             var sideA = new List<Curve>();
@@ -2072,9 +2073,9 @@ namespace BeingAliveLanguage
             //if (phase > 6)
             //    mSideBranch = mSideBranch.GetRange(2);
 
-            // top branches
+            // top branches: if munitary, we can stop here.
             if (mUnitary)
-                return;
+                return true;
 
             // - if not unitary tree, then do top branching
             if (phase >= mMatureIdx && phase < mDyingIdx)
@@ -2140,30 +2141,72 @@ namespace BeingAliveLanguage
                     //var tmpRes = new Tree(mPln, mHeight);
                     //tmpRes.Draw(mDyingIdx - 1);
 
-                    var newBornBranch = crvSelection(mSideBranch, 0, 20, 3);
-                    newBornBranch.ForEach(x => x = x.Trim(0.0, 0.6));
+                    mNewBornBranch = crvSelection(mSideBranch, 0, 20, 3);
+                    mNewBornBranch.ForEach(x => x = x.Trim(0.0, 0.6));
                     mCurTrunk = mCurTrunk.Trim(0.0, 0.9);
                     mSideBranch.Clear();
 
-                    var babyTreeCol = new List<Curve>();
-
-
+                    //var babyTreeCol = new List<Curve>();
                 }
                 else if (phase > mDyingIdx)
                 {
+                    // base branch
+                    mNewBornBranch = crvSelection(mSideBranch, 0, 16, 5);
 
+                    var top2 = new List<Curve>();
+                    for (int i = 2; i < 4; i++)
+                    {
+                        var c = mNewBornBranch[i];
+                        c.Domain = new Interval(0, 1);
+                        c.Trim(0.0, 0.35);
+                        top2.Add(c);
+                    }
+
+                    var bot2 = new List<Curve>();
+                    for (int i = 0; i < 2; i++)
+                    {
+                        var c = mNewBornBranch[i];
+                        c.Domain = new Interval(0, 1);
+                        c.Trim(0.0, 0.2);
+                        var pt2 = c.PointAtEnd + mPln.YAxis * c.GetLength();
+                        var newC = new PolylineCurve(new List<Point3d> { c.PointAtStart, c.PointAtEnd, pt2 });
+                        bot2.Add(newC);
+                    }
+
+                    mNewBornBranch = top2.Concat(bot2).ToList();
+                    mCurTrunk = mCurTrunk.Trim(0.0, 0.58);
+                    mSideBranch.Clear();
+
+                    // create babyTree
+                    var babyCol = new List<Curve>();
+                    foreach (var b in mNewBornBranch)
+                    {
+                        var cPln = mPln.Clone();
+                        cPln.Translate(new Vector3d(b.PointAtEnd - mPln.Origin));
+                        var cTree = new Tree(cPln, mHeight / 3.0);
+                        cTree.Draw(phase - mDyingIdx + 1);
+
+                        babyCol.Add(cTree.mCurCanopy);
+                        babyCol.Add(cTree.mCurTrunk);
+                        babyCol.AddRange(cTree.mSideBranch);
+                    }
+
+                    // attach the babyTree and split the trunk
+                    mNewBornBranch.AddRange(babyCol);
+                    var leftTrunk = mCurTrunk.Duplicate() as Curve;
+                    leftTrunk.Translate(-mPln.XAxis * mHeight / 150);
+                    var rightTrunk = mCurTrunk.Duplicate() as Curve;
+                    rightTrunk.Translate(mPln.XAxis * mHeight / 150);
+                    mCurTrunk = new PolylineCurve(new List<Point3d> {
+                        leftTrunk.PointAtStart, leftTrunk.PointAtEnd,
+                        rightTrunk.PointAtEnd, rightTrunk.PointAtStart });
                 }
-
             }
 
 
             //mDebug = sideBranch;
 
-            // top branches
-
-            // ! Actual DRAWING process
-            //mDebug = new List<Curve> { mCurCanopy };
-
+            return true;
         }
 
         private List<Curve> crvSelection(in List<Curve> lst, int startId, int endId, int step)
@@ -2181,7 +2224,7 @@ namespace BeingAliveLanguage
         private Curve trimCrv(in Curve C0, in Curve C1)
         {
             var events = Intersection.CurveCurve(C0, C1, 0.01, 0.01);
-            if (events != null)
+            if (events.Count != 0)
                 return C0.Trim(0.0, events[0].ParameterA);
             else
                 return C0;
@@ -2213,6 +2256,7 @@ namespace BeingAliveLanguage
         public List<Curve> mCircCol = new List<Curve>();
         public List<Curve> mSideBranch = new List<Curve>();
         public List<Curve> mSubBranch = new List<Curve>();
+        public List<Curve> mNewBornBranch = new List<Curve>();
 
         public List<Curve> mDebug = new List<Curve>();
 
