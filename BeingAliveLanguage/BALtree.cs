@@ -10,6 +10,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Rhino.UI.Controls;
+using System.ComponentModel.Composition;
 
 namespace BeingAliveLanguage
 {
@@ -65,9 +67,50 @@ namespace BeingAliveLanguage
             var babyB = new List<Curve>();
 
             var debug = new List<Curve>();
+
+            //! 1. determine horizontal scaling factor of the trees
+            var ratio = new List<Tuple<double, double>>();
+            var tmpDLst = new List<double>();
+            if (plnLst.Count == 0)
+                return;
+            else if (plnLst.Count == 1)
+            {
+                ratio.Add(Tuple.Create(1.0, 1.0));
+            }
+            else if (plnLst.Count > 1)
+            {
+                if (hLst.Count == 1)
+                    hLst = Enumerable.Repeat(hLst[0], plnLst.Count).ToList();
+                else if (hLst.Count != plnLst.Count)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Height # does not match Plane #, please check.");
+                }
+                if (phLst.Count == 1)
+                    phLst = Enumerable.Repeat(phLst[0], plnLst.Count).ToList();
+                else if (phLst.Count != plnLst.Count)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase # does not match Plane #, please check.");
+                }
+
+                // after list length check:
+                for (int i = 0; i < plnLst.Count - 1; i++)
+                {
+                    var dis = Math.Abs(plnLst[i].OriginX - plnLst[i + 1].OriginX);
+                    tmpDLst.Add(dis);
+                }
+
+                ratio.Add(Tuple.Create(1.0, Math.Min(1, tmpDLst[0] / hLst[0])));
+                for (int i = 0; i < tmpDLst.Count - 1; i++)
+                {
+                    ratio.Add(Tuple.Create(Math.Min(1, tmpDLst[i] / hLst[i + 1]), Math.Min(1, tmpDLst[i + 1] / hLst[i + 1])));
+                }
+                ratio.Add(Tuple.Create(Math.Min(1, tmpDLst.Last() / hLst.Last()), 1.0));
+            }
+
+            //! 2. draw the trees.
             foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
             {
-                var t = new Tree(pln, hLst[i], modeUnitary == "unitary");
+                var t = new Tree(pln, hLst[i], modeUnitary == "unitary", ratio[i]);
                 var res = t.Draw(phLst[i]);
 
                 if (!res)

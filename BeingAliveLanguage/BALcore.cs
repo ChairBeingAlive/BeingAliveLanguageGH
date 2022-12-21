@@ -1942,7 +1942,7 @@ namespace BeingAliveLanguage
     class Tree
     {
         public Tree() { }
-        public Tree(Rhino.Geometry.Plane pln, double height, bool unitary = false)
+        public Tree(Rhino.Geometry.Plane pln, double height, bool unitary = false, Tuple<double, double> scale = null)
         {
             mPln = pln;
             mHeight = height;
@@ -1952,6 +1952,8 @@ namespace BeingAliveLanguage
             minStdR = height * treeSepParam * 0.5;
             stepR = (maxStdR - minStdR) / (numLayer - 1);
 
+            if (scale != null)
+                this.mScale = scale;
         }
 
         public bool Draw(int phase)
@@ -1988,15 +1990,20 @@ namespace BeingAliveLanguage
             foreach (var (t, i) in trunkCol.Select((t, i) => (t, i)))
             {
                 // arc as half canopy 
-                var halfCanopy = new Arc(treeBot, vecCol[i], t.PointAtEnd).ToNurbsCurve();
+                var lBnd = new Arc(treeBot, vecCol[i], t.PointAtEnd).ToNurbsCurve();
 
                 var tmpV = new Vector3d(-vecCol[i].X, vecCol[i].Y, vecCol[i].Z);
-                var otherHalf = new Arc(treeBot, tmpV, t.PointAtEnd).ToNurbsCurve();
+                var rBnd = new Arc(treeBot, tmpV, t.PointAtEnd).ToNurbsCurve();
 
-                var fullCanopy = Curve.JoinCurves(new List<Curve> { halfCanopy, otherHalf }, 0.02)[0];
-                // todo: scale half side based on the density parameter
+                //  SCALE half side based on the density parameter
+                var lScal = Transform.Scale(mPln, mScale.Item1, 1, 1);
+                var rScal = Transform.Scale(mPln, mScale.Item2, 1, 1);
 
-                mCircCol.Add(fullCanopy);
+                lBnd.Transform(lScal);
+                rBnd.Transform(rScal);
+
+                var fullBnd = Curve.JoinCurves(new List<Curve> { lBnd, rBnd }, 0.02)[0];
+                mCircCol.Add(fullBnd);
             }
 
             // ! draw collections of branches
@@ -2024,19 +2031,28 @@ namespace BeingAliveLanguage
             }
 
             #region phase < mMatureIdx
-            // branches
-            var branchCol = new List<Curve>();
-            var branchVec = new Vector3d(mPln.YAxis);
-            branchVec.Rotate(Utils.ToRadian(mOpenAngle), mPln.ZAxis);
+            // ! branches
+            var lBranchCol = new List<Curve>();
+            var rBranchCol = new List<Curve>();
+            var lBranchVec = new Vector3d(mPln.YAxis);
+            var rBranchVec = new Vector3d(mPln.YAxis);
+
+            lBranchVec.Rotate(Utils.ToRadian(mOpenAngle), mPln.ZAxis);
+            rBranchVec.Rotate(Utils.ToRadian(-mOpenAngle), mPln.ZAxis);
+
+            if (mUnitary)
+                mAngleStep *= 0.35;
 
             foreach (var (p, i) in branchingPt.Select((p, i) => (p, i)))
             {
-                var tmpVec = new Vector3d(branchVec);
-                tmpVec.Rotate(Utils.ToRadian(-angleStep * i), mPln.ZAxis);
-                branchCol.Add(new Line(p, p + 1000 * tmpVec).ToNurbsCurve());
+                lBranchVec.Rotate(Utils.ToRadian(-mAngleStep * i), mPln.ZAxis);
+                rBranchVec.Rotate(Utils.ToRadian(mAngleStep * i), mPln.ZAxis);
+
+                lBranchCol.Add(new Line(p, p + 1000 * lBranchVec).ToNurbsCurve());
+                rBranchCol.Add(new Line(p, p + 1000 * rBranchVec).ToNurbsCurve());
             }
 
-            // ! draw trunk, branch, canopy
+            // idx determination
             var trimN = mUnitary ? phase : Math.Min(phase, mMatureIdx - 1);
             var curIdx = (phase - 1) * 2;
             var trimIdx = (trimN - 1) * 2;
@@ -2045,39 +2061,27 @@ namespace BeingAliveLanguage
             if (trimIdx >= trunkCol.Count)
                 return false;
 
-            mCurTrunk = trunkCol[trimIdx];
-            mCurTrunk.Domain = new Interval(0.0, 1.0);
-            var curBranchRaw = branchCol.GetRange(0, trimIdx);
-
             var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
             mCurCanopy = mCircCol[canopyIdx];
             mCurCanopy.Domain = new Interval(0.0, 1.0);
             mCurCanopy = mCurCanopy.Trim(0.2, 0.8);
 
-            // side branches
-            var sideA = new List<Curve>();
+            // side branches: generate the left and right separately based on scaled canopy
+            var subL = lBranchCol.GetRange(0, trimIdx);
+            subL.ForEach(x => x.Domain = new Interval(0.0, 1.0));
+            subL = subL.Select(x => TrimCrv(x, mCurCanopy)).ToList();
 
-            // - one side
-            foreach (var c in curBranchRaw)
-            {
-                c.Domain = new Interval(0, 1);
-                var crv = TrimCrv(c, mCurCanopy);
-                sideA.Add(crv);
-            }
+            var subR = rBranchCol.GetRange(0, trimIdx);
+            subR.ForEach(x => x.Domain = new Interval(0.0, 1.0));
+            subR = subR.Select(x => TrimCrv(x, mCurCanopy)).ToList();
 
-            // - collect side branches from both sides
-            var xform = Transform.Mirror(mPln.Origin, mPln.XAxis); // transform for mirroring
-            for (int i = 0; i < sideA.Count; i++)
-            {
-                if (sideA[i] == null)
-                    continue;
+            mSideBranch.AddRange(subL);
+            mSideBranch.AddRange(subR);
 
-                mSideBranch.Add(sideA[i]);
+            // trunk
+            mCurTrunk = trunkCol[trimIdx];
+            mCurTrunk.Domain = new Interval(0.0, 1.0);
 
-                var mirA = sideA[i].DuplicateCurve();
-                mirA.Transform(xform);
-                mSideBranch.Add(mirA);
-            }
             #endregion
 
             // branch removal at bottom part
@@ -2098,7 +2102,16 @@ namespace BeingAliveLanguage
                 mSubBranch.Clear();
 
                 var topB = BiBranching(cPln, phase - mMatureIdx + 1);
-                mSubBranch.AddRange(topB.Select(x => x.Item1));
+
+                var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
+                var lSca = Transform.Scale(cPln, mScale.Item1, 1, 1);
+                lB.ForEach(x => x.Item1.Transform(lSca));
+                mSubBranch.AddRange(lB.Select(x => x.Item1));
+
+                var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
+                var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
+                rB.ForEach(x => x.Item1.Transform(rSca));
+                mSubBranch.AddRange(rB.Select(x => x.Item1));
             }
             #endregion
             #region phase >= dyIngidx
@@ -2113,8 +2126,18 @@ namespace BeingAliveLanguage
                     // keep top branching (Dec.2022)
                     cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
                     mSubBranch.Clear();
+
                     var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
-                    mSubBranch.AddRange(topB.Select(x => x.Item1));
+
+                    var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
+                    var lSca = Transform.Scale(cPln, mScale.Item1, 1, 1);
+                    lB.ForEach(x => x.Item1.Transform(lSca));
+                    mSubBranch.AddRange(lB.Select(x => x.Item1));
+
+                    var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
+                    var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
+                    rB.ForEach(x => x.Item1.Transform(rSca));
+                    mSubBranch.AddRange(rB.Select(x => x.Item1));
 
                 }
                 else if (phase == mDyingIdx + 1)
@@ -2122,12 +2145,13 @@ namespace BeingAliveLanguage
                     // for phase 11, keep only the right side of the top branch
                     cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
                     mSubBranch.Clear();
-                    var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
-                    var rightB = topB.Where(x =>
-                    x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
-                    var rightBCrv = rightB.Select(x => x.Item1).ToList();
 
-                    mSubBranch.AddRange(rightBCrv);
+                    var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
+
+                    var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
+                    var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
+                    rB.ForEach(x => x.Item1.Transform(rSca));
+                    mSubBranch.AddRange(rB.Select(x => x.Item1));
                 }
                 else
                 {
@@ -2170,7 +2194,7 @@ namespace BeingAliveLanguage
 
                     // top two branches use polylinecurve
                     var top2 = new List<Curve>();
-                    for (int i = 2; i < 4; i++)
+                    for (int i = 0; i < 4; i += 2)
                     {
                         var c = mNewBornBranch[i];
                         c.Trim(0.0, 0.35);
@@ -2179,7 +2203,7 @@ namespace BeingAliveLanguage
 
                     // bottom two branches use curve
                     var bot2 = new List<Curve>();
-                    for (int i = 0; i < 2; i++)
+                    for (int i = 1; i < 4; i += 2)
                     {
                         var c = mNewBornBranch[i].Trim(0.0, 0.2);
                         var pt2 = c.PointAtEnd + mPln.YAxis * c.GetLength() / 2;
@@ -2263,7 +2287,7 @@ namespace BeingAliveLanguage
 
                 var scalingParam = Math.Pow(0.85, (mMatureIdx - mMatureIdx + 1));
                 var vecLen = mCurTrunk.GetLength() * 0.1 * scalingParam;
-                var angleX = (mOpenAngle - (mMatureIdx + step) * angleStep) * scalingParam;
+                var angleX = (mOpenAngle - (mMatureIdx + step) * mAngleStep * 3) * scalingParam;
 
                 // for each phase, do bi-branching: 1 node -> 2 branches
                 foreach (var (pt, j) in subPt.Select((pt, j) => (pt, j)))
@@ -2301,16 +2325,16 @@ namespace BeingAliveLanguage
         Plane mPln;
         double mHeight;
         bool mUnitary = false;
+        Tuple<double, double> mScale = new Tuple<double, double>(1, 1);
 
 
-        readonly int numLayer = 20;
-
+        double mAngleStep = 1.2;
+        readonly int numLayer = 18;
         readonly double mOpenAngle = 57;
-        readonly double angleStep = 3.5;
 
         // mature and dying range idx
         readonly int mMatureIdx = 6;
-        readonly int mDyingIdx = 11;
+        readonly int mDyingIdx = 10;
 
         // other parameter
         double treeSepParam = 0.2;
