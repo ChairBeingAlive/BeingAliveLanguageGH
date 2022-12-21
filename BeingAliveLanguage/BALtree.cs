@@ -40,7 +40,7 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.", GH_ParamAccess.tree);
-            //pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -84,7 +84,6 @@ namespace BeingAliveLanguage
                 topB.AddRange(t.mSubBranch);
                 babyB.AddRange(t.mNewBornBranch);
 
-
                 debug.AddRange(t.mDebug);
             }
 
@@ -94,6 +93,7 @@ namespace BeingAliveLanguage
             DA.SetDataList("SideBranch", sideB);
             DA.SetDataList("TopBranch", topB);
             DA.SetDataList("BabyBranch", babyB);
+            DA.SetDataList("Debug", debug);
         }
 
 
