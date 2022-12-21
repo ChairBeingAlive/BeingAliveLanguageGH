@@ -2002,7 +2002,7 @@ namespace BeingAliveLanguage
             {
                 var events = Intersection.CurveCurve(treeTrunk.ToNurbsCurve(), c, 0.1, 0.1);
 
-                if (events.Count != 0)
+                if (events.Count > 1)
                 {
                     if (mPln.Origin.DistanceTo(events[1].PointA) > 1e-2)
                     {
@@ -2045,7 +2045,7 @@ namespace BeingAliveLanguage
             var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
             mCurCanopy = mCircCol[canopyIdx];
             mCurCanopy.Domain = new Interval(0.0, 1.0);
-            mCurCanopy = mCurCanopy.Trim(0.26, 0.74);
+            mCurCanopy = mCurCanopy.Trim(0.24, 0.76);
 
             // side branches
             var sideA = new List<Curve>();
@@ -2077,54 +2077,18 @@ namespace BeingAliveLanguage
             if (mUnitary)
                 return true;
 
+            #region phase >= matureIdx && phase < mDyingIdx
             // - if not unitary tree, then do top branching
             if (phase >= mMatureIdx && phase < mDyingIdx)
             {
-                var bStart = mCurTrunk.PointAtEnd; // rootPt of top bi-branching
-
-                var subPt = new List<Point3d> { bStart };
-                var subLn = new List<Curve> { mCurTrunk };
-
-                // branch top
-                for (int i = mMatureIdx; i < phase + 1; i++)
-                {
-                    var ptCol = new List<Point3d>();
-                    var lnCol = new List<Curve>();
-
-                    var scalingParam = Math.Pow(0.9, (mMatureIdx - mMatureIdx + 1));
-                    var vecLen = mCurTrunk.GetLength() * 0.085 * scalingParam;
-                    var angleX = (mOpenAngle - (phase + 1) * angleStep) * scalingParam;
-
-                    // for each phase, do bi-branching: 1 node -> 2 branches
-                    foreach (var (pt, j) in subPt.Select((pt, j) => (pt, j)))
-                    {
-                        var curVec = new Vector3d(subLn[j].PointAtEnd - subLn[j].PointAtStart);
-                        curVec.Unitize();
-
-                        var vecA = new Vector3d(curVec);
-                        var vecB = new Vector3d(curVec);
-                        vecA.Rotate(Utils.ToRadian(angleX), mPln.ZAxis);
-                        vecB.Rotate(-Utils.ToRadian(angleX), mPln.ZAxis);
-
-                        var endA = subPt[j] + vecA * vecLen;
-                        var endB = subPt[j] + vecB * vecLen;
-
-                        ptCol.Add(endA);
-                        ptCol.Add(endB);
-
-                        lnCol.Add(new Line(pt, endA).ToNurbsCurve());
-                        lnCol.Add(new Line(pt, endB).ToNurbsCurve());
-                    }
-
-                    subPt = ptCol;
-                    subLn = lnCol;
-
-                    mSubBranch.AddRange(subLn);
-                    mCurCanopy = null;
-                }
-
+                var cPln = mPln.Clone();
+                cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
+                mSubBranch.Clear();
+                mSubBranch.AddRange(biBranching(cPln, phase - mMatureIdx + 1));
             }
-            else if (phase > mDyingIdx)
+            #endregion
+            #region phase >= dyIngidx
+            else if (phase >= mDyingIdx)
             {
                 // clean up
                 var newBorn = new List<Curve>();
@@ -2134,19 +2098,49 @@ namespace BeingAliveLanguage
                     newBorn.Add(crv);
                     newBorn.ElementAt(newBorn.Count - 1).Domain = new Interval(0.0, 1.0);
                 }
-                mCurCanopy = null;
 
                 if (phase == mDyingIdx)
                 {
-                    //var tmpRes = new Tree(mPln, mHeight);
-                    //tmpRes.Draw(mDyingIdx - 1);
+                    // keep top branching (Dec.2022)
+                    var cPln = mPln.Clone();
+                    //cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
+                    //mSubBranch.Clear();
+                    //mSubBranch.AddRange(biBranching(cPln, phase - mMatureIdx));
 
-                    mNewBornBranch = crvSelection(mSideBranch, 0, 20, 3);
+                    // new born branches
+                    mNewBornBranch = crvSelection(mSideBranch, 0, 18, 3);
                     mNewBornBranch.ForEach(x => x = x.Trim(0.0, 0.6));
-                    mCurTrunk = mCurTrunk.Trim(0.0, 0.9);
+                    for (int i = 0; i < mNewBornBranch.Count; i++)
+                    {
+                        mNewBornBranch[i] = mNewBornBranch[i].Trim(0.0, 0.3);
+                    }
                     mSideBranch.Clear();
 
-                    //var babyTreeCol = new List<Curve>();
+                    var babyTreeCol = new List<Curve>();
+                    foreach (var b in mNewBornBranch)
+                    {
+                        b.Domain = new Interval(0, 1);
+                        List<Point3d> ptMidEnd = new List<Point3d> { b.PointAtEnd };
+                        //List<Point3d> ptMidEnd = new List<Point3d> { b.PointAtEnd, b.PointAt(0.5) };
+
+                        foreach (var p in ptMidEnd)
+                        {
+                            cPln = mPln.Clone();
+                            cPln.Translate(new Vector3d(p - mPln.Origin));
+
+                            var cTree = new Tree(cPln, mHeight / 3.0);
+                            cTree.Draw(1);
+
+                            babyTreeCol.Add(cTree.mCurCanopy);
+                            babyTreeCol.Add(cTree.mCurTrunk);
+
+                        }
+
+                    }
+                    mNewBornBranch.AddRange(babyTreeCol);
+
+                    mCurCanopy = null;
+
                 }
                 else if (phase > mDyingIdx)
                 {
@@ -2193,6 +2187,8 @@ namespace BeingAliveLanguage
 
                     // attach the babyTree and split the trunk
                     mNewBornBranch.AddRange(babyCol);
+
+                    // process Trunk issue.
                     var leftTrunk = mCurTrunk.Duplicate() as Curve;
                     leftTrunk.Translate(-mPln.XAxis * mHeight / 150);
                     var rightTrunk = mCurTrunk.Duplicate() as Curve;
@@ -2202,7 +2198,7 @@ namespace BeingAliveLanguage
                         rightTrunk.PointAtEnd, rightTrunk.PointAtStart });
                 }
             }
-
+            #endregion
 
             //mDebug = sideBranch;
 
@@ -2230,6 +2226,51 @@ namespace BeingAliveLanguage
                 return C0;
         }
 
+        private List<Curve> biBranching(in Plane pln, int step)
+        {
+            var subPt = new List<Point3d> { pln.Origin };
+            var subLn = new List<Curve> { new Line(pln.Origin, pln.Origin + pln.YAxis).ToNurbsCurve() };
+            var resCol = new List<Curve>();
+
+            for (int i = 0; i < step; i++)
+            {
+                var ptCol = new List<Point3d>();
+                var lnCol = new List<Curve>();
+
+                var scalingParam = Math.Pow(0.8, (mMatureIdx - mMatureIdx + 1));
+                var vecLen = mCurTrunk.GetLength() * 0.08 * scalingParam;
+                var angleX = (mOpenAngle - (mMatureIdx + step) * angleStep) * scalingParam;
+
+                // for each phase, do bi-branching: 1 node -> 2 branches
+                foreach (var (pt, j) in subPt.Select((pt, j) => (pt, j)))
+                {
+                    var curVec = new Vector3d(subLn[j].PointAtEnd - subLn[j].PointAtStart);
+                    curVec.Unitize();
+
+                    var vecA = new Vector3d(curVec);
+                    var vecB = new Vector3d(curVec);
+                    vecA.Rotate(Utils.ToRadian(angleX), mPln.ZAxis);
+                    vecB.Rotate(-Utils.ToRadian(angleX), mPln.ZAxis);
+
+                    var endA = subPt[j] + vecA * vecLen;
+                    var endB = subPt[j] + vecB * vecLen;
+
+                    ptCol.Add(endA);
+                    ptCol.Add(endB);
+
+                    lnCol.Add(new Line(pt, endA).ToNurbsCurve());
+                    lnCol.Add(new Line(pt, endB).ToNurbsCurve());
+                }
+
+                subPt = ptCol;
+                subLn = lnCol;
+
+                resCol.AddRange(subLn);
+            }
+
+            return resCol;
+        }
+
 
         // tree core param
         Plane mPln;
@@ -2239,7 +2280,7 @@ namespace BeingAliveLanguage
 
         readonly int numLayer = 19;
 
-        readonly double mOpenAngle = 50;
+        readonly double mOpenAngle = 57;
         readonly double angleStep = 3.5;
 
         // mature and dying range idx

@@ -21,6 +21,10 @@ namespace BeingAliveLanguage
               "BAL", "03::plant")
         { }
 
+        string modeUnitary = "non-unitary";
+        protected override System.Drawing.Bitmap Icon => null;
+        public override Guid ComponentGuid => new Guid("930148B1-014A-43AA-845C-FB0C711D6AA0");
+
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.list, Plane.WorldXY);
@@ -35,7 +39,8 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Canopy", "C", "Tree trunk curves.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
-            pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.", GH_ParamAccess.tree);
+            //pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -57,6 +62,7 @@ namespace BeingAliveLanguage
             var trunk = new List<Curve>();
             var sideB = new List<Curve>();
             var topB = new List<Curve>();
+            var babyB = new List<Curve>();
 
             var debug = new List<Curve>();
             foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
@@ -76,6 +82,7 @@ namespace BeingAliveLanguage
                 circ.AddRange(t.mCircCol);
                 sideB.AddRange(t.mSideBranch);
                 topB.AddRange(t.mSubBranch);
+                babyB.AddRange(t.mNewBornBranch);
 
 
                 debug.AddRange(t.mDebug);
@@ -86,9 +93,7 @@ namespace BeingAliveLanguage
             DA.SetDataList("Trunk", trunk);
             DA.SetDataList("SideBranch", sideB);
             DA.SetDataList("TopBranch", topB);
-
-
-            DA.SetDataList("Debug", debug);
+            DA.SetDataList("BabyBranch", babyB);
         }
 
 
@@ -118,8 +123,5 @@ namespace BeingAliveLanguage
             return base.Read(reader);
         }
 
-        string modeUnitary = "unitary";
-        protected override System.Drawing.Bitmap Icon => null;
-        public override Guid ComponentGuid => new Guid("930148B1-014A-43AA-845C-FB0C711D6AA0");
     }
 }
