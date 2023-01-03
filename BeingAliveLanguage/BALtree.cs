@@ -24,7 +24,7 @@ namespace BeingAliveLanguage
         { }
 
         string modeUnitary = "non-unitary";
-        protected override System.Drawing.Bitmap Icon => null;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree;
         public override Guid ComponentGuid => new Guid("930148B1-014A-43AA-845C-FB0C711D6AA0");
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
