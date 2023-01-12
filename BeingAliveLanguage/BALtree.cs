@@ -95,7 +95,7 @@ namespace BeingAliveLanguage
                 // after list length check:
                 for (int i = 0; i < plnLst.Count - 1; i++)
                 {
-                    var dis = Math.Abs(plnLst[i].OriginX - plnLst[i + 1].OriginX);
+                    var dis = Math.Abs(plnLst[i].Origin.DistanceTo(plnLst[i + 1].Origin));
                     tmpDLst.Add(dis);
                 }
 
