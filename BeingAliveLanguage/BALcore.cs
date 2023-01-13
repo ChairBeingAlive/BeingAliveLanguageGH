@@ -1956,9 +1956,11 @@ namespace BeingAliveLanguage
                 this.mScale = scale;
         }
 
-        public bool Draw(int phase)
+        public (bool, string) Draw(int phase)
         {
             // ! draw tree trunks
+            if (mHeight <= 0)
+                return (false, "The height of the tree needs to be > 0.");
             var treeTrunk = new Line(mPln.Origin, mPln.Origin + mHeight * mPln.YAxis).ToNurbsCurve();
             treeTrunk.Domain = new Interval(0.0, 1.0);
 
@@ -2013,11 +2015,11 @@ namespace BeingAliveLanguage
 
             foreach (var c in mCircCol)
             {
-                var events = Intersection.CurveCurve(treeTrunk.ToNurbsCurve(), c, 0.1, 0.1);
+                var events = Intersection.CurveCurve(treeTrunk.ToNurbsCurve(), c, 0.01, 0.01);
 
                 if (events.Count > 1)
                 {
-                    if (mPln.Origin.DistanceTo(events[1].PointA) > 1e-2)
+                    if (mPln.Origin.DistanceTo(events[1].PointA) > 1e-3)
                     {
                         branchingPt.Add(events[1].PointA);
                         tCol.Add(events[1].ParameterA);
@@ -2059,12 +2061,12 @@ namespace BeingAliveLanguage
 
             // phase out of range
             if (trimIdx >= trunkCol.Count)
-                return false;
+                return (false, "Phase out of range");
 
             var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
             mCurCanopy = mCircCol[canopyIdx];
             mCurCanopy.Domain = new Interval(0.0, 1.0);
-            mCurCanopy = mCurCanopy.Trim(0.2, 0.8);
+            mCurCanopy = mCurCanopy.Trim(0.1, 0.9);
 
             // side branches: generate the left and right separately based on scaled canopy
             var subL = lBranchCol.GetRange(0, trimIdx);
@@ -2092,7 +2094,7 @@ namespace BeingAliveLanguage
 
             // top branches: if munitary, we can stop here.
             if (mUnitary)
-                return true;
+                return (true, "");
 
             // - if not unitary tree, then do top branching
             if (phase >= mMatureIdx && phase < mDyingIdx)
@@ -2227,12 +2229,15 @@ namespace BeingAliveLanguage
                         babyCol.Add(cTree.mCurCanopy);
                         babyCol.Add(cTree.mCurTrunk);
                         babyCol.AddRange(cTree.mSideBranch);
+
+                        // for debugging
+                        mDebug.AddRange(cTree.mCircCol);
                     }
 
                     // attach the babyTree and split the trunk
                     mNewBornBranch.AddRange(babyCol);
 
-                    // process Trunk issue.
+                    // process Trunk spliting.
                     var leftTrunk = mCurTrunk.Duplicate() as Curve;
                     leftTrunk.Translate(-mPln.XAxis * mHeight / 150);
                     var rightTrunk = mCurTrunk.Duplicate() as Curve;
@@ -2248,7 +2253,7 @@ namespace BeingAliveLanguage
 
             //mDebug = sideBranch;
 
-            return true;
+            return (true, "");
         }
 
         private List<Curve> CrvSelection(in List<Curve> lst, int startId, int endId, int step)

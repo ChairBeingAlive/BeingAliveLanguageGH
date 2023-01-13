@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Rhino.UI.Controls;
 using System.ComponentModel.Composition;
+using System.Linq.Expressions;
 
 namespace BeingAliveLanguage
 {
@@ -92,6 +93,18 @@ namespace BeingAliveLanguage
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase # does not match Plane #, please check.");
                 }
 
+                // ! sort root location 
+                plnLst.Sort((pln0, pln1) =>
+                {
+                    Vector3d res = pln0.Origin - pln1.Origin;
+                    if (Math.Abs(res[0]) > 1e-5)
+                        return pln0.OriginX.CompareTo(pln1.OriginX);
+                    else if (Math.Abs(res[1]) > 1e-5)
+                        return pln0.OriginY.CompareTo(pln1.OriginY);
+                    else // align on z axis or overlap, use the same criteria
+                        return pln0.OriginZ.CompareTo(pln1.OriginZ);
+                });
+
                 // after list length check:
                 for (int i = 0; i < plnLst.Count - 1; i++)
                 {
@@ -113,9 +126,9 @@ namespace BeingAliveLanguage
                 var t = new Tree(pln, hLst[i], modeUnitary == "unitary", ratio[i]);
                 var res = t.Draw(phLst[i]);
 
-                if (!res)
+                if (!res.Item1)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase out of range.");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, res.Item2);
                     return;
                 }
 
