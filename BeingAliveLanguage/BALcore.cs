@@ -2066,7 +2066,8 @@ namespace BeingAliveLanguage
             var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
             mCurCanopy = mCircCol[canopyIdx];
             mCurCanopy.Domain = new Interval(0.0, 1.0);
-            mCurCanopy = mCurCanopy.Trim(0.1, 0.9);
+            mCurCanopy = mCurCanopy.Trim(0.15, 0.85);
+            //todo: secure trimming of branches and re-trim the canopy afterwards
 
             // side branches: generate the left and right separately based on scaled canopy
             var subL = lBranchCol.GetRange(0, trimIdx);
