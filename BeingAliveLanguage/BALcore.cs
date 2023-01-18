@@ -23,6 +23,7 @@ using System.Windows.Forms;
 using Rhino.Geometry.Intersect;
 using MathNet.Numerics.LinearAlgebra;
 using Rhino.Geometry.Collections;
+using System.Web;
 //using Grasshopper.Kernel.Geometry;
 //using Grasshopper.Kernel.Geometry;
 
@@ -1942,7 +1943,7 @@ namespace BeingAliveLanguage
     class Tree
     {
         public Tree() { }
-        public Tree(Rhino.Geometry.Plane pln, double height, bool unitary = false, Tuple<double, double> scale = null)
+        public Tree(Plane pln, double height, bool unitary = false)
         {
             mPln = pln;
             mHeight = height;
@@ -1951,16 +1952,17 @@ namespace BeingAliveLanguage
             maxStdR = height * 0.5;
             minStdR = height * treeSepParam * 0.5;
             stepR = (maxStdR - minStdR) / (numLayer - 1);
-
-            if (scale != null)
-                this.mScale = scale;
         }
 
+        // draw the trees
         public (bool, string) Draw(int phase)
         {
             // ! draw tree trunks
             if (mHeight <= 0)
                 return (false, "The height of the tree needs to be > 0.");
+            if (phase > 12 || phase <= 0)
+                return (false, "Phase out of range ([1, 12] for non-unitary tree).");
+
             var treeTrunk = new Line(mPln.Origin, mPln.Origin + mHeight * mPln.YAxis).ToNurbsCurve();
             treeTrunk.Domain = new Interval(0.0, 1.0);
 
@@ -1997,12 +1999,8 @@ namespace BeingAliveLanguage
                 var tmpV = new Vector3d(-vecCol[i].X, vecCol[i].Y, vecCol[i].Z);
                 var rBnd = new Arc(treeBot, tmpV, t.PointAtEnd).ToNurbsCurve();
 
-                //  SCALE half side based on the density parameter
-                var lScal = Transform.Scale(mPln, mScale.Item1, 1, 1);
-                var rScal = Transform.Scale(mPln, mScale.Item2, 1, 1);
-
-                lBnd.Transform(lScal);
-                rBnd.Transform(rScal);
+                mCircCol_l.Add(lBnd);
+                mCircCol_r.Add(rBnd);
 
                 var fullBnd = Curve.JoinCurves(new List<Curve> { lBnd, rBnd }, 0.02)[0];
                 mCircCol.Add(fullBnd);
@@ -2033,6 +2031,18 @@ namespace BeingAliveLanguage
             }
 
             #region phase < mMatureIdx
+            // ! idx determination
+            var curIdx = (phase - 1) * 2;
+            var trimN = mUnitary ? phase : Math.Min(phase, mMatureIdx - 1);
+            var trimIdx = (trimN - 1) * 2;
+
+
+            // ! canopy
+            var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
+            mCurCanopy = mCircCol[canopyIdx];
+            mCurCanopy.Domain = new Interval(0.0, 1.0);
+            mCurCanopy = mCurCanopy.Trim(0.1, 0.9);
+
             // ! branches
             var lBranchCol = new List<Curve>();
             var rBranchCol = new List<Curve>();
@@ -2054,19 +2064,9 @@ namespace BeingAliveLanguage
                 rBranchCol.Add(new Line(p, p + 1000 * rBranchVec).ToNurbsCurve());
             }
 
-            // idx determination
-            var trimN = mUnitary ? phase : Math.Min(phase, mMatureIdx - 1);
-            var curIdx = (phase - 1) * 2;
-            var trimIdx = (trimN - 1) * 2;
-
             // phase out of range
             if (trimIdx >= trunkCol.Count)
-                return (false, "Phase out of range");
-
-            var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
-            mCurCanopy = mCircCol[canopyIdx];
-            mCurCanopy.Domain = new Interval(0.0, 1.0);
-            mCurCanopy = mCurCanopy.Trim(0.1, 0.9);
+                return (false, "Phase out of range ([1, 9] for unitary tree).");
 
             // side branches: generate the left and right separately based on scaled canopy
             var subL = lBranchCol.GetRange(0, trimIdx);
@@ -2077,8 +2077,10 @@ namespace BeingAliveLanguage
             subR.ForEach(x => x.Domain = new Interval(0.0, 1.0));
             subR = subR.Select(x => TrimCrv(x, mCurCanopy)).ToList();
 
-            mSideBranch.AddRange(subL);
-            mSideBranch.AddRange(subR);
+            mSideBranch_l.AddRange(subL);
+            mSideBranch_r.AddRange(subR);
+
+            mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
 
             // trunk
             mCurTrunk = trunkCol[trimIdx];
@@ -2089,6 +2091,11 @@ namespace BeingAliveLanguage
             var param = 0.1 + phase * 0.03;
             mCurCanopy = mCurCanopy.Trim(param, 1 - param);
 
+            // ! split to left/right part for global scaling
+            var canRes = mCurCanopy.Split(0.5);
+            mCurCanopy_l = canRes[0];
+            mCurCanopy_r = canRes[1];
+
             #endregion
 
             // branch removal at bottom part
@@ -2097,7 +2104,7 @@ namespace BeingAliveLanguage
 
             #region phase >= matureIdx && phase < mDyingIdx
 
-            // top branches: if munitary, we can stop here.
+            // top branches: if unitary, we can stop here.
             if (mUnitary)
                 return (true, "");
 
@@ -2106,19 +2113,27 @@ namespace BeingAliveLanguage
             {
                 var cPln = mPln.Clone();
                 cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
+                mSubBranch_l.Clear();
+                mSubBranch_r.Clear();
                 mSubBranch.Clear();
 
                 var topB = BiBranching(cPln, phase - mMatureIdx + 1);
 
-                var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
-                var lSca = Transform.Scale(cPln, mScale.Item1, 1, 1);
-                lB.ForEach(x => x.Item1.Transform(lSca));
-                mSubBranch.AddRange(lB.Select(x => x.Item1));
+                // do the scale transformation
+                //var lSca = Transform.Scale(cPln, mScale.Item1, 1, 1);
+                //lB.ForEach(x => x.Item1.Transform(lSca));
 
+                //var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
+                //rB.ForEach(x => x.Item1.Transform(rSca));
+                var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
                 var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
-                var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
-                rB.ForEach(x => x.Item1.Transform(rSca));
-                mSubBranch.AddRange(rB.Select(x => x.Item1));
+
+                mSubBranch_l.AddRange(lB.Select(x => x.Item1));
+                mSubBranch_r.AddRange(rB.Select(x => x.Item1));
+
+                mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+                //mSubBranch.AddRange(lB.Select(x => x.Item1));
+                //mSubBranch.AddRange(rB.Select(x => x.Item1));
             }
             #endregion
             #region phase >= dyIngidx
@@ -2137,15 +2152,12 @@ namespace BeingAliveLanguage
                     var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
 
                     var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
-                    var lSca = Transform.Scale(cPln, mScale.Item1, 1, 1);
-                    lB.ForEach(x => x.Item1.Transform(lSca));
-                    mSubBranch.AddRange(lB.Select(x => x.Item1));
-
                     var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
-                    var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
-                    rB.ForEach(x => x.Item1.Transform(rSca));
-                    mSubBranch.AddRange(rB.Select(x => x.Item1));
 
+                    mSubBranch_l.AddRange(lB.Select(x => x.Item1));
+                    mSubBranch_r.AddRange(rB.Select(x => x.Item1));
+
+                    mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
                 }
                 else if (phase == mDyingIdx + 1)
                 {
@@ -2155,9 +2167,8 @@ namespace BeingAliveLanguage
 
                     var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
 
-                    var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
                     var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
-                    rB.ForEach(x => x.Item1.Transform(rSca));
+                    mSubBranch_r.AddRange(rB.Select(x => x.Item1));
                     mSubBranch.AddRange(rB.Select(x => x.Item1));
                 }
                 else
@@ -2191,7 +2202,6 @@ namespace BeingAliveLanguage
                         }
                     }
                     mNewBornBranch.AddRange(babyTreeCol);
-                    mCurCanopy = null;
                 }
                 else if (phase > mDyingIdx)
                 {
@@ -2220,6 +2230,8 @@ namespace BeingAliveLanguage
 
                     // collect new born branches, remove canopy and side branches
                     mNewBornBranch = top2.Concat(bot2).ToList();
+                    mCurCanopy_l = null;
+                    mCurCanopy_r = null;
                     mCurCanopy = null;
 
                     // create babyTree
@@ -2252,6 +2264,11 @@ namespace BeingAliveLanguage
                         rightTrunk.PointAtEnd, rightTrunk.PointAtStart });
                 }
 
+                mCurCanopy_l = null;
+                mCurCanopy_r = null;
+                mCurCanopy = null;
+                mSideBranch_l.Clear();
+                mSideBranch_r.Clear();
                 mSideBranch.Clear();
             }
             #endregion
@@ -2259,6 +2276,60 @@ namespace BeingAliveLanguage
             //mDebug = sideBranch;
 
             return (true, "");
+        }
+
+        // scale the trees so that they don't overlap
+        public double CalWidth()
+        {
+            var bbx = mSideBranch.Select(x => x.GetBoundingBox(false)).ToList();
+            var finalBbx = mCurTrunk.GetBoundingBox(false);
+            bbx.ForEach(x => finalBbx.Union(x));
+
+            // using diag to check which plane the trees are
+            Vector3d diag = finalBbx.Max - finalBbx.Min;
+            double wid = Vector3d.Multiply(diag, mPln.XAxis);
+
+            return wid;
+        }
+
+        public void Scale(in Tuple<double, double> scal)
+        {
+            var lScal = Transform.Scale(mPln, scal.Item1, 1, 1);
+            var rScal = Transform.Scale(mPln, scal.Item2, 1, 1);
+
+            // circumBound
+            mCircCol.Clear();
+            for (int i = 0; i < mCircCol_l.Count; i++)
+            {
+                mCircCol_l[i].Transform(lScal);
+                mCircCol_r[i].Transform(rScal);
+                var fullBnd = Curve.JoinCurves(new List<Curve> { mCircCol_l[i], mCircCol_r[i] }, 0.01)[0];
+                mCircCol.Add(fullBnd);
+            }
+
+            // side branches
+            for (int i = 0; i < mSideBranch_l.Count; i++)
+            {
+                mSideBranch_l[i].Transform(lScal);
+                mSideBranch_r[i].Transform(rScal);
+            }
+            mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
+
+            // subbranches
+            for (int i = 0; i < mSubBranch_l.Count; i++)
+            {
+                mSubBranch_l[i].Transform(lScal);
+                mSubBranch_r[i].Transform(rScal);
+            }
+            mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+
+            if (mCurCanopy != null)
+            {
+                mCurCanopy_l.Transform(lScal);
+                mCurCanopy_r.Transform(rScal);
+                mCurCanopy = Curve.JoinCurves(new List<Curve> { mCurCanopy_l, mCurCanopy_r }, 0.02)[0];
+            }
+
         }
 
         private List<Curve> CrvSelection(in List<Curve> lst, int startId, int endId, int step)
@@ -2335,8 +2406,6 @@ namespace BeingAliveLanguage
         Plane mPln;
         double mHeight;
         bool mUnitary = false;
-        Tuple<double, double> mScale = new Tuple<double, double>(1, 1);
-
 
         double mAngleStep = 1.2;
         readonly int numLayer = 18;
@@ -2351,11 +2420,24 @@ namespace BeingAliveLanguage
         readonly double maxStdR, minStdR, stepR;
 
         // curve collection
+        public Curve mCurCanopy_l;
+        public Curve mCurCanopy_r;
         public Curve mCurCanopy;
+
         public Curve mCurTrunk;
+
+        public List<Curve> mCircCol_l = new List<Curve>();
+        public List<Curve> mCircCol_r = new List<Curve>();
         public List<Curve> mCircCol = new List<Curve>();
+
+        public List<Curve> mSideBranch_l = new List<Curve>();
+        public List<Curve> mSideBranch_r = new List<Curve>();
         public List<Curve> mSideBranch = new List<Curve>();
+
+        public List<Curve> mSubBranch_l = new List<Curve>();
+        public List<Curve> mSubBranch_r = new List<Curve>();
         public List<Curve> mSubBranch = new List<Curve>();
+
         public List<Curve> mNewBornBranch = new List<Curve>();
 
         public List<Curve> mDebug = new List<Curve>();

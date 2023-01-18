@@ -13,6 +13,7 @@ using System.Windows.Forms;
 using Rhino.UI.Controls;
 using System.ComponentModel.Composition;
 using System.Linq.Expressions;
+using MathNet.Numerics;
 
 namespace BeingAliveLanguage
 {
@@ -70,14 +71,11 @@ namespace BeingAliveLanguage
             var debug = new List<Curve>();
 
             //! 1. determine horizontal scaling factor of the trees
-            var ratio = new List<Tuple<double, double>>();
-            var tmpDLst = new List<double>();
+            var tscal = new List<Tuple<double, double>>();
+            var distLst = new List<double>();
+            var treeCol = new List<Tree>();
             if (plnLst.Count == 0)
                 return;
-            else if (plnLst.Count == 1)
-            {
-                ratio.Add(Tuple.Create(1.0, 1.0));
-            }
             else if (plnLst.Count > 1)
             {
                 if (hLst.Count == 1)
@@ -86,6 +84,7 @@ namespace BeingAliveLanguage
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Height # does not match Plane #, please check.");
                 }
+
                 if (phLst.Count == 1)
                     phLst = Enumerable.Repeat(phLst[0], plnLst.Count).ToList();
                 else if (phLst.Count != plnLst.Count)
@@ -109,28 +108,59 @@ namespace BeingAliveLanguage
                 for (int i = 0; i < plnLst.Count - 1; i++)
                 {
                     var dis = Math.Abs(plnLst[i].Origin.DistanceTo(plnLst[i + 1].Origin));
-                    tmpDLst.Add(dis);
+                    distLst.Add(dis);
                 }
 
-                ratio.Add(Tuple.Create(1.0, Math.Min(1, tmpDLst[0] / hLst[0])));
-                for (int i = 0; i < tmpDLst.Count - 1; i++)
+                //! 2. draw the trees, collect tree width
+                var widCol = new List<double>();
+                foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
                 {
-                    ratio.Add(Tuple.Create(Math.Min(1, tmpDLst[i] / hLst[i + 1]), Math.Min(1, tmpDLst[i + 1] / hLst[i + 1])));
-                }
-                ratio.Add(Tuple.Create(Math.Min(1, tmpDLst.Last() / hLst.Last()), 1.0));
-            }
+                    var t = new Tree(pln, hLst[i], modeUnitary == "unitary");
+                    var res = t.Draw(phLst[i]);
 
-            //! 2. draw the trees.
-            foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
+                    if (!res.Item1)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, res.Item2);
+                        return;
+                    }
+
+                    treeCol.Add(t);
+                    widCol.Add(t.CalWidth());
+                }
+
+                //! 3. calculate scaling factor between trees
+                var inbetweenScale = new List<double>();
+                for (int i = 0; i < widCol.Count - 1; i++)
+                {
+                    inbetweenScale.Add(Math.Min(1, distLst[i] / ((widCol[i] + widCol[i + 1]) * 0.5)));
+                }
+
+                //! 4. generate scaling Tuple for each tree
+                tscal.Add(Tuple.Create(1.0, inbetweenScale[0]));
+                for (int i = 0; i < inbetweenScale.Count - 1; i++)
+                {
+                    tscal.Add(Tuple.Create(inbetweenScale[i], inbetweenScale[i + 1]));
+                }
+                tscal.Add(Tuple.Create(inbetweenScale.Last(), 1.0));
+            }
+            else if (plnLst.Count == 1) // special case: only one tree
             {
-                var t = new Tree(pln, hLst[i], modeUnitary == "unitary", ratio[i]);
-                var res = t.Draw(phLst[i]);
+                tscal.Add(Tuple.Create(1.0, 1.0));
+                treeCol.Add(new Tree(plnLst[0], hLst[0], modeUnitary == "unitary"));
+                var res = treeCol.Last().Draw(phLst[0]);
 
                 if (!res.Item1)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Error, res.Item2);
                     return;
                 }
+            }
+
+
+            //! 5. scale each tree and output
+            foreach (var (t, i) in treeCol.Select((t, i) => (t, i)))
+            {
+                t.Scale(tscal[i]);
 
                 // output the curves 
                 trunk.Add(t.mCurTrunk);
