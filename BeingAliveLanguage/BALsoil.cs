@@ -32,6 +32,7 @@ namespace BeingAliveLanguage
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Soil Base", "soilBase", "The base object used for soil diagram generation.", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Soil Base Grid", "soilTrid", "The base grids used for soil diagram generation.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -56,9 +57,7 @@ namespace BeingAliveLanguage
             }
 
             DA.SetData(0, new SoilBase(rec, curPln, triArray, uL));
-            //var sBase = SoilBase();
-            //DA.SetDataTree(0, triArray);
-            //DA.SetData(1, uL);
+            DA.SetDataList(1, triArray);
         }
 
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilBase;
