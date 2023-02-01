@@ -334,7 +334,7 @@ namespace BeingAliveLanguage
     public class BALsoilInfo : GH_Component
     {
         public BALsoilInfo() :
-            base("Soil Information", "balSoilInfoText",
+            base("Soil_Information", "balSoilInfoText",
                 "Export the soil information in text format.",
                 "BAL", "09::utils")
         { }
