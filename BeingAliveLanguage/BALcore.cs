@@ -605,7 +605,10 @@ namespace BeingAliveLanguage
             var triWP = triPoly.Select(x => OffsetTri(x.Duplicate(), wpRatio)).ToList();
             var triFC = triPoly.Select(x => OffsetTri(x.Duplicate(), fcRatio)).ToList();
 
-            var curWaterLn = triPoly.Select(x => OffsetTri(x.Duplicate(), rWater)).ToList();
+            // current water stage start from the core -- need a remap
+            var rWaterRemap = Utils.remap(rWater, 0.0, 1.0, coreRatio, 1.0);
+
+            var curWaterLn = triPoly.Select(x => OffsetTri(x.Duplicate(), rWaterRemap)).ToList();
 
             // creating hatches for the water content
             List<List<Polyline>> hatchCore = new List<List<Polyline>>();
@@ -620,14 +623,21 @@ namespace BeingAliveLanguage
                     tmpL.Add(new Polyline(triCore[i].Zip(triWP[i], (x, y) => x * ratio + y * (1 - ratio))));
                 }
                 hatchCore.Add(tmpL);
+            }
 
-                var tmpL2 = new List<Polyline>();
-                for (int j = 1; j < denAvailWater + 1; j++)
+            // if current water stage <= wilting point, don't generate PAW hatch -- there's no PAW.
+            if (rWater > wpRatio)
+            {
+                for (int i = 0; i < triCore.Count; i++)
                 {
-                    double ratio = (double)j / (denAvailWater + 1);
-                    tmpL2.Add(new Polyline(triWP[i].Zip(curWaterLn[i], (x, y) => x * ratio + y * (1 - ratio))));
+                    var tmpL2 = new List<Polyline>();
+                    for (int j = 1; j < denAvailWater + 1; j++)
+                    {
+                        double ratio = (double)j / (denAvailWater + 1);
+                        tmpL2.Add(new Polyline(triWP[i].Zip(curWaterLn[i], (x, y) => x * ratio + y * (1 - ratio))));
+                    }
+                    hatchPAW.Add(tmpL2);
                 }
-                hatchPAW.Add(tmpL2);
             }
 
             return (triCore, triWP, triFC, curWaterLn, hatchCore, hatchPAW);
