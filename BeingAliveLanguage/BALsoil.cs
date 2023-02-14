@@ -11,6 +11,8 @@ using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
 using System.Windows.Forms;
 
+using GH_IO.Serialization;
+
 namespace BeingAliveLanguage
 {
 
@@ -79,8 +81,6 @@ namespace BeingAliveLanguage
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Soil Base", "soilBase", "soil base triangle map.", GH_ParamAccess.item);
-            //pManager.AddCurveParameter("Soil Base", "T", "soil base triangle map.", GH_ParamAccess.list);
-            //pManager[0].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
             pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item, 1.0);
             pManager.AddNumberParameter("Silt Ratio", "rSilt", "The ratio of silt in the soil.", GH_ParamAccess.item, 0.0);
             pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0.0);
@@ -531,7 +531,7 @@ namespace BeingAliveLanguage
     public class BALsoilOrganicMatterTop : GH_Component
     {
         public BALsoilOrganicMatterTop()
-          : base("Soil Surface Organic Matter", "balSoilOG_top",
+          : base("Soil Surface Organic Matter (independent version)", "balSoilOG_topInd",
             "Generate soil surface organic matter based on given intensity.",
             "BAL", "01::soil")
         {
@@ -541,15 +541,11 @@ namespace BeingAliveLanguage
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddRectangleParameter("Boundary", "Bound", "Boundary rectangle.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("OM Unit Size", "S", "Sizing: 0 - S, 1 - M, 2 - L.", GH_ParamAccess.item, 0);
+            pManager.AddGenericParameter("Soil Base", "soilBase", "The base object used for soil diagram generation.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("numLayer", "numL", "Layer number of surface organic matter", GH_ParamAccess.item, 1);
-            pManager.AddNumberParameter("Unit Length", "uL", "The triangle's side length", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Organic Matter Density", "dOrganics", "Density of organic matter [ 0 - 1 ].", GH_ParamAccess.item, 0.5);
-
             pManager[1].Optional = true;
+            pManager.AddNumberParameter("Organic Matter Density", "dOrganics", "Density of organic matter [ 0 - 1 ].", GH_ParamAccess.item, 0.5);
             pManager[2].Optional = true;
-            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -560,46 +556,45 @@ namespace BeingAliveLanguage
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // get data
-            Rectangle3d bnd = new Rectangle3d();
-            double uL = 1;
-            int sz = 0;
+            var sBase = new SoilBase();
+            if (!DA.GetData(0, ref sBase))
+            { return; }
+
             double dOM = 0.5;
             int numLayer = 1;
 
-            if (!DA.GetData(0, ref bnd))
-            { return; }
-
-            DA.GetData(1, ref sz);
-            if (sz != 0 && sz != 1 && sz != 2)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Sizing param should be one of: 0, 1, 2.");
-                return;
-            }
-            DA.GetData(2, ref numLayer);
+            DA.GetData(1, ref numLayer);
             if (numLayer <= 0)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Layer number needs to be positive.");
                 return;
             }
 
-            if (!DA.GetData(3, ref uL))
-            { return; }
-            if (uL <= 0)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, String.Format("The unit length needs to be positive."));
-                return;
-            }
-            DA.GetData(4, ref dOM);
+            DA.GetData(2, ref dOM);
             if (dOM <= 0)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Density needs to be positive.");
                 return;
             }
 
-
+            int sz = 0;
+            switch (omSize)
+            {
+                case "S":
+                    sz = 0;
+                    break;
+                case "M":
+                    sz = 1;
+                    break;
+                case "L":
+                    sz = 2;
+                    break;
+                default:
+                    break;
+            }
 
             // compute
-            var omLn = balCore.GenOrganicMatterTop(bnd, uL, sz, dOM, numLayer);
+            var omLn = balCore.GenOrganicMatterTop(sBase, sz, dOM, numLayer);
 
             GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
             // output data
@@ -612,6 +607,42 @@ namespace BeingAliveLanguage
             DA.SetDataTree(0, outLn);
         }
 
+        protected override void BeforeSolveInstance()
+        {
+            Message = "size: " + omSize.ToUpper();
+        }
+
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "OM Size:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+            Menu_AppendItem(menu, " S", (sender, e) => Menu.SelectMode(this, sender, e, ref omSize, "S"), true, CheckMode("S"));
+            Menu_AppendItem(menu, " M", (sender, e) => Menu.SelectMode(this, sender, e, ref omSize, "M"), true, CheckMode("M"));
+            Menu_AppendItem(menu, " L", (sender, e) => Menu.SelectMode(this, sender, e, ref omSize, "L"), true, CheckMode("L"));
+        }
+
+        private bool CheckMode(string _modeCheck) => omSize == _modeCheck;
+
+        public override bool Write(GH_IWriter writer)
+        {
+            if (omSize != "")
+                writer.SetString("omSize", omSize);
+            return base.Write(writer);
+        }
+        public override bool Read(GH_IReader reader)
+        {
+            if (reader.ItemExists("omSize"))
+                omSize = reader.GetString("omSize");
+
+            Message = "size: " + reader.GetString("omSize").ToUpper();
+
+            return base.Read(reader);
+        }
+
+        private string omSize = "S"; // om sizing: 0-small, 1-middle, 2-big
+
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsTop;
         public override Guid ComponentGuid => new Guid("6BE29C7A-7BE9-4DBD-9202-61FC5201E79F");
     }
@@ -619,7 +650,7 @@ namespace BeingAliveLanguage
     public class BALsoilOrganicMatterTopAlter : GH_Component
     {
         public BALsoilOrganicMatterTopAlter()
-          : base("Soil Surface Organic Matter (dependent version)", "balSoilOG_topDepend",
+          : base("Soil Surface Organic Matter (dependent version)", "balSoilOG_topDep",
             "Generate soil surface organic matter based on properties from the inner organic matter.",
             "BAL", "01::soil")
         {
@@ -633,11 +664,8 @@ namespace BeingAliveLanguage
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("OM Property", "omProp", "Organic matter property from soil inner organic matter component.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("OM Unit Size", "S", "Sizing: 0 - S, 1 - M, 2 - L.", GH_ParamAccess.item, 0);
             pManager.AddIntegerParameter("numLayer", "numL", "Layer number of surface organic matter", GH_ParamAccess.item, 1);
-
             pManager[1].Optional = true;
-            pManager[2].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -655,18 +683,27 @@ namespace BeingAliveLanguage
             if (!DA.GetData(0, ref omProp))
             { return; }
 
-            DA.GetData(1, ref sz);
-            if (sz != 0 && sz != 1 && sz != 2)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Sizing param should be one of: 0, 1, 2.");
-                return;
-            }
 
-            DA.GetData(2, ref numLayer);
+            DA.GetData(1, ref numLayer);
             if (numLayer <= 0)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Layer number needs to be positive.");
                 return;
+            }
+
+            switch (omSize)
+            {
+                case "S":
+                    sz = 0;
+                    break;
+                case "M":
+                    sz = 1;
+                    break;
+                case "L":
+                    sz = 2;
+                    break;
+                default:
+                    break;
             }
 
 
@@ -683,6 +720,42 @@ namespace BeingAliveLanguage
 
             DA.SetDataTree(0, outLn);
         }
+
+        protected override void BeforeSolveInstance()
+        {
+            Message = "size: " + omSize.ToUpper();
+        }
+
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "OM Size:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+            Menu_AppendItem(menu, " S", (sender, e) => Menu.SelectMode(this, sender, e, ref omSize, "S"), true, CheckMode("S"));
+            Menu_AppendItem(menu, " M", (sender, e) => Menu.SelectMode(this, sender, e, ref omSize, "M"), true, CheckMode("M"));
+            Menu_AppendItem(menu, " L", (sender, e) => Menu.SelectMode(this, sender, e, ref omSize, "L"), true, CheckMode("L"));
+        }
+
+        private bool CheckMode(string _modeCheck) => omSize == _modeCheck;
+
+        public override bool Write(GH_IWriter writer)
+        {
+            if (omSize != "")
+                writer.SetString("omSize", omSize);
+            return base.Write(writer);
+        }
+        public override bool Read(GH_IReader reader)
+        {
+            if (reader.ItemExists("omSize"))
+                omSize = reader.GetString("omSize");
+
+            Message = "size: " + reader.GetString("omSize").ToUpper();
+
+            return base.Read(reader);
+        }
+
+        private string omSize = "S"; // om sizing: 0-small, 1-middle, 2-big
 
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsTopDep;
         public override Guid ComponentGuid => new Guid("fde1d789-19ea-41aa-8330-0176f4289d1e");

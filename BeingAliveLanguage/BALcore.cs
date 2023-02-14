@@ -74,7 +74,7 @@ namespace BeingAliveLanguage
     public struct OrganicMatterProperty
     {
         public Rectangle3d bnd;
-        public double distDen;
+        public double distDen; // control the gradiently changed density. Only for inner OM.
         public double omDen;
         public double uL;
 
@@ -769,7 +769,8 @@ namespace BeingAliveLanguage
             var coreTri = flattenTri.Select(x => OffsetTri(x.ToPolyline().Duplicate(), 0.4));
 
             // generate division number and om lines
-            int divN = (int)Math.Round(flattenTri[1].ToPolyline().Length / omP.distDen * omP.omDen / 10) * 3;
+            //int divN = (int)Math.Round(flattenTri[1].ToPolyline().Length / omP.distDen * omP.omDen / 10) * 3;
+            int divN = (int)Utils.remap(omP.omDen, 0.0, 1.0, 1, 30) * 3;
             var res = coreTri.Zip(flattenTri, (i, o) => createOM(i, o.ToPolyline(), divN)).ToList();
 
             return res;
@@ -778,9 +779,10 @@ namespace BeingAliveLanguage
         /// <summary>
         /// Main Func: Generate the top layer organic matter
         /// </summary>
-        public static List<List<Line>> GenOrganicMatterTop(in Rectangle3d bnd, double uL, int type, double dOM, int layer)
+        public static List<List<Line>> GenOrganicMatterTop(in SoilBase sBase, int type, double dOM, int layer)
         {
-            var omP = new OrganicMatterProperty(bnd, dOM / 10, dOM, uL);
+            var dmRemap = Utils.remap(dOM, 0.0, 1.0, 0.001, 0.2);
+            var omP = new OrganicMatterProperty(sBase.bnd, dmRemap, dOM, sBase.unitL);
             return GenOrganicMatterTop(omP, type, layer);
         }
 
