@@ -8,24 +8,9 @@ using MathNet.Numerics.Distributions;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using Clipper2Lib;
-using System.Security.Policy;
-using System.Data;
-using System.Runtime.Remoting.Messaging;
 using MathNet.Numerics;
-using Rhino.Collections;
 using System.Diagnostics;
-using System.CodeDom;
-using Eto.Forms;
-using System.Windows.Forms.VisualStyles;
-using System.Reflection.Emit;
-using Eto.Drawing;
-using System.Windows.Forms;
 using Rhino.Geometry.Intersect;
-using MathNet.Numerics.LinearAlgebra;
-using Rhino.Geometry.Collections;
-using System.Web;
-//using Grasshopper.Kernel.Geometry;
-//using Grasshopper.Kernel.Geometry;
 
 namespace BeingAliveLanguage
 {
