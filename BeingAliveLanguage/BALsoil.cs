@@ -16,6 +16,55 @@ using GH_IO.Serialization;
 namespace BeingAliveLanguage
 {
 
+    public class BALsoilAnalysis : GH_Component
+    {
+        public BALsoilAnalysis()
+            : base("Soil Analysis", "balSoilAna",
+                 "Analysis the soil composition and determine the soil information.",
+                 "BAL", "01::soil")
+        {
+        }
+
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilAnalysis;
+        public override Guid ComponentGuid => new Guid("F12AEDCA-4FE1-4734-8E71-249C9D90CBA1");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item, 1.0);
+            pManager.AddNumberParameter("Silt Ratio", "rSilt", "The ratio of silt in the soil.", GH_ParamAccess.item, 0.0);
+            pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0.0);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            double rSand = 0;
+            double rSilt = 0;
+            double rClay = 0;
+            if (!DA.GetData("Sand Ratio", ref rSand))
+            { return; }
+            if (!DA.GetData("Silt Ratio", ref rSilt))
+            { return; }
+            if (!DA.GetData("Clay Ratio", ref rClay))
+            { return; }
+
+            if (rSand + rClay + rSilt != 1)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio of all content need to sum up to 1.");
+                return;
+            }
+
+            var soilProperty = balCore.SoilType(rSand, rSilt, rClay);
+
+            DA.SetData("Soil Info", soilProperty);
+        }
+    }
+
     public class BALsoilBase : GH_Component
     {
         public BALsoilBase()
@@ -67,16 +116,77 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
     }
 
-    public class BALgeneralSoil : GH_Component
+    public class BALsoilDiagramGeneral : GH_Component
     {
-        public BALgeneralSoil()
-          : base("General Soil Content", "balGeneralSoil",
-                "Generate a soil map based on the ratio of 3 soil contents, and avoid rock area rocks if rock curves are provided.",
+        public BALsoilDiagramGeneral()
+          : base("General Soil Content", "balsoilGeneral",
+                "Draw a soil map based on the ratio of 3 soil contents, and avoid rock area rocks if rock curves are provided.",
                 "BAL", "01::soil")
         {
         }
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv;
+        public override Guid ComponentGuid => new Guid("8634cd28-f37e-4204-b60b-d36b16181d7b");
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Soil Base", "soilBase", "soil base triangle map.", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Rocks", "R", "Curves represendting the rocks in the soil.", GH_ParamAccess.list);
+            pManager[2].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
+            pManager[2].Optional = true; // rock can be optionally provided
+        }
+
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddCurveParameter("Sand Tri", "sandT", "Sand triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("All Tri", "allT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            // get data
+            //List<Curve> triL = new List<Curve>();
+            var sBase = new SoilBase();
+            var sInfo = new SoilProperty();
+            List<Curve> rock = new List<Curve>();
+            if (!DA.GetData("Soil Base", ref sBase))
+            { return; }
+            if (!DA.GetData("Soil Info", ref sInfo))
+            { return; }
+            DA.GetDataList("Rocks", rock);
+
+            //List<Polyline> triPoly = sBase.soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
+            double[] ratio = new double[3] { sInfo.rSand, sInfo.rSilt, sInfo.rClay };
+
+            // call the actural function
+            var (sandT, siltT, clayT, soilInfo) = balCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
+
+            DA.SetDataList(0, sandT);
+            DA.SetDataList(1, siltT);
+            DA.SetDataList(2, clayT);
+
+            var allT = sandT.Concat(siltT).Concat(clayT).ToList();
+            DA.SetDataList(3, allT);
+        }
+    }
+
+
+    public class BALsoilDiagramGeneral_OBSOLETE : GH_Component
+    {
+        public BALsoilDiagramGeneral_OBSOLETE()
+          : base("General Soil Content", "balsoilGeneral",
+                "Draw a soil map based on the ratio of 3 soil contents, and avoid rock area rocks if rock curves are provided.",
+                "BAL", "01::soil")
+        {
+        }
+
+        public override GH_Exposure Exposure => GH_Exposure.hidden;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv;
+        public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -138,16 +248,13 @@ namespace BeingAliveLanguage
             DA.SetDataList(4, allT);
         }
 
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv;
-
-        public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
     }
 
-    public class BALurbanSoil : GH_Component
+    public class BALsoilDiagramUrban : GH_Component
     {
-        public BALurbanSoil()
-          : base("Urban Soil Content", "balUrbanSoil",
-                "Generate a soil map based on the ratio of soil contents of different urban soil types.",
+        public BALsoilDiagramUrban()
+          : base("Urban Soil Content", "balsoilUrban",
+                "Draw a soil map based on the ratio of soil contents of different urban soil types.",
                 "BAL", "01::soil")
         {
         }

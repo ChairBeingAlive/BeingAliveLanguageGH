@@ -7,8 +7,6 @@ using System.Collections.Concurrent;
 using MathNet.Numerics.Distributions;
 using System.Threading.Tasks;
 using Grasshopper.Kernel;
-using Clipper2Lib;
-using MathNet.Numerics;
 using System.Diagnostics;
 using Rhino.Geometry.Intersect;
 
@@ -39,17 +37,29 @@ namespace BeingAliveLanguage
     /// </summary>
     public struct SoilProperty
     {
+        public double rSand;
+        public double rSilt;
+        public double rClay;
+
         public string soilType;
         public double fieldCapacity;
         public double wiltingPoint;
         public double saturation;
 
-        public SoilProperty(string st, double fc, double wp, double sa)
+
+        public void setInfo(string st, double fc, double wp, double sa)
         {
             soilType = st;
             fieldCapacity = fc;
             wiltingPoint = wp;
             saturation = sa;
+        }
+
+        public void SetRatio(double sand, double silt, double clay)
+        {
+            rSand = sand;
+            rSilt = silt;
+            rClay = clay;
         }
     }
 
@@ -70,9 +80,14 @@ namespace BeingAliveLanguage
             omDen = dOM;
             uL = unitL;
         }
-
     }
 
+
+
+
+    /// <summary>
+    /// Utility Class, containing all funcs that needed by the BAL system
+    /// </summary>
     static class Utils
     {
         // get the random core
@@ -285,7 +300,6 @@ namespace BeingAliveLanguage
             return triLst;
         }
 
-        /// <summary>
         /// MainFunc: make a triMap from given rectangle boundary.
         /// </summary>
         public static (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int resolution)
@@ -336,52 +350,56 @@ namespace BeingAliveLanguage
         };
 
         // compute the soil type and water ratio
-        private static readonly Func<double, double, double, SoilProperty> soilType = (rSand, rSilt, rClay) =>
+        public static readonly Func<double, double, double, SoilProperty> SoilType = (rSand, rSilt, rClay) =>
         {
+            var sPro = new SoilProperty();
+            sPro.SetRatio(rSand, rSilt, rClay);
+
             bool isSand = (rClay <= 0.1 && rSand > 0.5 * rClay + 0.85);
             // for loamy sand, use the upper inclined line of loamy sand and exclude the sand part
             bool isLoamySand = (rClay <= 0.15 && rSand > rClay + 0.7) && (!isSand);
 
             if (rClay > 0.4 && rSand <= 0.45 && rSilt <= 0.4)
-                return new SoilProperty("clay", 0.42, 0.30, 0.5);
+                sPro.setInfo("clay", 0.42, 0.30, 0.5);
 
             else if (rClay > 0.35 && rSand > 0.45)
-                return new SoilProperty("sandy clay", 0.36, 0.25, 0.44);
+                sPro.setInfo("sandy clay", 0.36, 0.25, 0.44);
 
             else if (rClay > 0.4 && rSilt > 0.4)
-                return new SoilProperty("silty clay", 0.41, 0.27, 0.52);
+                sPro.setInfo("silty clay", 0.41, 0.27, 0.52);
 
             else if (rClay > 0.27 && rClay <= 0.4 && rSand > 0.2 && rSand <= 0.45)
-                return new SoilProperty("clay loam", 0.36, 0.22, 0.48);
+                sPro.setInfo("clay loam", 0.36, 0.22, 0.48);
 
             else if (rClay > 0.27 && rClay <= 0.4 && rSand <= 0.2)
-                return new SoilProperty("silty clay loam", 0.38, 0.22, 0.51);
+                sPro.setInfo("silty clay loam", 0.38, 0.22, 0.51);
 
             else if (rClay > 0.2 && rClay <= 0.35 && rSand > 0.45 && rSilt < 0.27)
-                return new SoilProperty("sandy clay loam", 0.27, 0.17, 0.43);
+                sPro.setInfo("sandy clay loam", 0.27, 0.17, 0.43);
 
             else if (rClay > 0.07 && rClay <= 0.27 && rSand <= 0.53 && rSilt > 0.28 && rSilt <= 0.5)
-                return new SoilProperty("loam", 0.28, 0.14, 0.46);
+                sPro.setInfo("loam", 0.28, 0.14, 0.46);
 
             else if (rClay <= 0.27 && ((rSilt > 0.5 && rSilt <= 0.8) || (rSilt > 0.8 && rClay > 0.14)))
-                return new SoilProperty("silt loam", 0.31, 0.11, 0.48);
+                sPro.setInfo("silt loam", 0.31, 0.11, 0.48);
 
             else if (rClay <= 0.14 && rSilt > 0.8)
-                return new SoilProperty("silt", 0.3, 0.06, 0.48);
+                sPro.setInfo("silt", 0.3, 0.06, 0.48);
 
             // three special cases for conditioning
             else if (isSand)
-                return new SoilProperty("sand", 0.1, 0.05, 0.46);
+                sPro.setInfo("sand", 0.1, 0.05, 0.46);
 
             else if (isLoamySand)
-                return new SoilProperty("loamy sand", 0.18, 0.08, 0.45);
+                sPro.setInfo("loamy sand", 0.18, 0.08, 0.45);
 
             else if (((!isLoamySand) && rClay <= 0.2 && rSand > 0.53) || (rClay <= 0.07 && rSand > 0.53 && rSilt <= 0.5))
-                return new SoilProperty("sandy loam", 0.18, 0.08, 0.45);
+                sPro.setInfo("sandy loam", 0.18, 0.08, 0.45);
 
+            else // default check
+                sPro.setInfo("errorSoil", 0, 0, 0);
 
-            // default check if no above condition is used
-            return new SoilProperty("errorSoil", 0, 0, 0);
+            return sPro;
         };
 
         // subdiv a big triangle into 4 smaller ones
@@ -496,14 +514,12 @@ namespace BeingAliveLanguage
         }
 
 
-        /// <summary>
-        /// Main Func: divide triMap into subdivisions based on the general soil ratio
-        /// </summary>
+        // ! Main Func: divide triMap into subdivisions based on the general soil ratio
         public static (List<Polyline>, List<Polyline>, List<Polyline>, SoilProperty)
             DivGeneralSoilMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
         {
             // ratio array order: sand, silt, clay
-            var soilData = soilType(ratio[0], ratio[1], ratio[2]);
+            var soilData = SoilType(ratio[0], ratio[1], ratio[2]);
 
             // get area
             double totalArea = triL.Sum(x => triArea(x));
@@ -629,9 +645,7 @@ namespace BeingAliveLanguage
         }
 
 
-        /// <summary>
-        /// Get string-based soil info
-        /// </summary>
+        //! Get string-based soil info
         public static string SoilText(SoilProperty sProperty)
         {
             string pattern = @"::Soil Info::
@@ -693,9 +707,7 @@ namespace BeingAliveLanguage
         };
 
 
-        /// <summary>
-        /// generate organic matter for soil inner
-        /// </summary>
+        // generate organic matter for soil inner
         public static (List<List<Line>>, OrganicMatterProperty) GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM)
         {
             var coreRatio = 1 - sInfo.saturation;
@@ -734,9 +746,7 @@ namespace BeingAliveLanguage
 
         }
 
-        /// <summary>
-        /// Main Func: (overload) Generate the top layer organic matter, using params from inner OM
-        /// </summary>
+        //! Main Func: (overload) Generate the top layer organic matter, using params from inner OM
         public static List<List<Line>> GenOrganicMatterTop(in OrganicMatterProperty omP, int type, int layer)
         {
             var height = omP.uL * 0.5 * Math.Sqrt(3) * 0.25 * Math.Pow(2, type);
@@ -761,9 +771,7 @@ namespace BeingAliveLanguage
             return res;
         }
 
-        /// <summary>
-        /// Main Func: Generate the top layer organic matter
-        /// </summary>
+        //! Main Func: Generate the top layer organic matter
         public static List<List<Line>> GenOrganicMatterTop(in SoilBase sBase, int type, double dOM, int layer)
         {
             var dmRemap = Utils.remap(dOM, 0.0, 1.0, 0.001, 0.2);
@@ -771,9 +779,7 @@ namespace BeingAliveLanguage
             return GenOrganicMatterTop(omP, type, layer);
         }
 
-        /// <summary>
-        /// Main Func: Generate the urban soil organic matter
-        /// </summary>
+        //! Main Func: Generate the urban soil organic matter
         public static List<Line> GenOrganicMatterUrban(in SoilBase sBase, in List<Polyline> polyIn, in List<Polyline> polyInOffset, double rOM)
         {
             var res = new List<Line>();
