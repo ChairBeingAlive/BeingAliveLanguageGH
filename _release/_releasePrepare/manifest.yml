@@ -1,0 +1,15 @@
+---
+name: BeingAliveLanguage
+version: 0.2.7
+authors:
+- Dr. Zhao Ma @ BeingAlive
+description: This is the plugin for automatically using the set of language developed by the Chair of Being Alive at ETH Zurich.
+url: ma@arch.ethz.ch
+
+icon_url: https://i.imgur.com/WABE4LN.png
+
+keywords: 
+ - drawing 
+ - climate 
+ - soil 
+ - language
