@@ -44,7 +44,9 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.", GH_ParamAccess.tree);
-            pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
+            //pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
+
+            pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -209,5 +211,36 @@ namespace BeingAliveLanguage
             return base.Read(reader);
         }
 
+    }
+
+    public class BALtreeRoot : GH_Component
+    {
+        public BALtreeRoot()
+        : base("TreeRoot", "balTreeRoot",
+              "Generate the BAL tree-root drawing using the BAL tree and soil information.",
+              "BAL", "03::plant")
+        { }
+
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree; //todo: update img
+        public override Guid ComponentGuid => new Guid("27C279E0-08C9-4110-AE40-81A59C9D9EB8");
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Soil Base", "soilBase", "The base object used for soil diagram generation.", GH_ParamAccess.item);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddLineParameter("All Roots", "rootAll", "The planar root drawing, collection of all level roots.", GH_ParamAccess.list);
+
+            pManager.AddLineParameter("RootLevel-1", "rootLv1", "Primary roots.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootLevel-2", "rootLv2", "Secondary roots.", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
