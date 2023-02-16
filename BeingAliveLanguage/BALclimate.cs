@@ -22,10 +22,13 @@ namespace BeingAliveLanguage
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddNumberParameter("Temperature", "T", "Temperature of given location in 12 months.", GH_ParamAccess.list);
             pManager.AddNumberParameter("Participation", "P", "Participation of given location in 12 months.", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Temperature", "T", "Temperature of given location in 12 months.", GH_ParamAccess.list);
             pManager.AddNumberParameter("Latitude", "Lat", "Latitude of the given location.", GH_ParamAccess.item);
-            pManager.AddNumberParameter("MaxReserve", "maxRes", "Maximum reserved water of previous years.", GH_ParamAccess.item);
+            //pManager.AddNumberParameter("MaxReserve", "maxRes", "Maximum reserved water of previous years.", GH_ParamAccess.item);
+            pManager.AddGenericParameter("SoilInfo", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("SoilDepth", "soilDep", "The depth [m] of the target soil.", GH_ParamAccess.item, 0.5);
+            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -41,22 +44,27 @@ namespace BeingAliveLanguage
             // ! obtain data
             var temp = new List<double>();
             var precipitation = new List<double>();
-            if (!DA.GetDataList(0, temp))
+            if (!DA.GetDataList(0, precipitation))
             { return; }
-            if (!DA.GetDataList(1, precipitation))
+            if (!DA.GetDataList(1, temp))
             { return; }
 
             double lat = 0;
-            double maxReserve = 0;
             if (!DA.GetData(2, ref lat))
-            { return; }
-            if (!DA.GetData(3, ref maxReserve))
             { return; }
             if (lat > 44 || lat < 0) // no correction factor available
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Latitude > 44-deg, data unavailable.");
                 return;
             }
+
+            SoilProperty soilInfo = new SoilProperty();
+            if (!DA.GetData("SoilInfo", ref soilInfo))
+            { return; }
+
+            double soilDepth = 0.5;
+            if (!DA.GetData("SoilDepth", ref soilDepth))
+            { return; }
 
             // ! Heat Index related 
             var heatIdx = temp.Select(x => Math.Pow(x / 5, 1.514)).ToList();
@@ -72,6 +80,7 @@ namespace BeingAliveLanguage
             var etr = new List<double>();
             var surplus = new List<double>();
             var reserve = new List<double>();
+            var maxReserve = (soilInfo.fieldCapacity - soilInfo.wiltingPoint) * 1000 * soilDepth;
             for (int i = 0; i < 12; i++)
             {
                 var previousRes = (i == 0 ? maxReserve : reserve[i - 1]);
