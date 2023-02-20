@@ -15,6 +15,7 @@ using BeingAliveLanguage;
 using GH_IO.Serialization;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+using System.Net.Mail;
 
 namespace BeingAliveLanguage
 {
@@ -32,6 +33,10 @@ namespace BeingAliveLanguage
         }
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootMap;
+        public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
+
+        public string mapMode = "sectional";
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -144,13 +149,7 @@ namespace BeingAliveLanguage
 
             return base.Read(reader);
         }
-
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootMap;
-        public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
-
-        private string mapMode = "sectional";
     }
-
 
     /// <summary>
     /// Draw the root in sectional soil grid.
@@ -251,6 +250,9 @@ namespace BeingAliveLanguage
         }
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootPlanar;
+        public override Guid ComponentGuid => new Guid("8F8C6D2B-22F2-4511-A7C0-AA8CF2FDA42C");
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -356,9 +358,229 @@ namespace BeingAliveLanguage
             DA.SetDataList(5, rtRes[4]);
             DA.SetDataList(6, rtAbs);
         }
+    }
 
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootPlanar;
-        public override Guid ComponentGuid => new Guid("8F8C6D2B-22F2-4511-A7C0-AA8CF2FDA42C");
+    public class BALtreeRoot : GH_Component
+    {
+        public BALtreeRoot()
+        : base("TreeRoot", "balTreeRoot",
+              "Generate the BAL tree-root drawing using the BAL tree and soil information.",
+              "BAL", "03::plant")
+        { }
+
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree; //todo: update img
+        public override Guid ComponentGuid => new Guid("27C279E0-08C9-4110-AE40-81A59C9D9EB8");
+        private bool rootDense = false;
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("TreeInfo", "tInfo", "Information about the tree.", GH_ParamAccess.item);
+            pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddLineParameter("All Roots", "rootAll", "The planar root drawing, collection of all level roots.", GH_ParamAccess.list);
+
+            pManager.AddLineParameter("RootLevel-1", "rootLv1", "Primary roots.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootLevel-2", "rootLv2", "Secondary roots.", GH_ParamAccess.list);
+            pManager.AddLineParameter("Dead Roots", "rootDead", "Dead roots in later phases of a tree's life.", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            //! Get data
+            var tInfo = new TreeProperty();
+            var sMap = new SoilMap();
+
+            if (!DA.GetData<TreeProperty>("TreeInfo", ref tInfo))
+            { return; }
+
+            if (!DA.GetData<SoilMap>("SoilMap", ref sMap))
+            { return; }
+
+            if (sMap.mapMode != "sectional")
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A tree root need a sectional soil map to grow upon.");
+            }
+
+            if (sMap.pln != tInfo.pln)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Tree plane and SoilMap plane does not match. This may cause issues for the root drawing.");
+            }
+
+            // ! get anchor + determin root size based on tree size
+            var anchorPt = sMap.GetNearestPoint(tInfo.pln.Origin);
+            if (anchorPt.DistanceTo(tInfo.pln.Origin) > sMap.unitLen)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tree anchor point is too far from the soil. Please plant your tree near the soil grid.");
+            }
+
+            // if the unit length of the soil grid is small enough, we allow the drawing of detailed root.
+            if (sMap.unitLen < tInfo.height * 0.2)
+                rootDense = true;
+
+
+            // ! get parameter of the map and start drawing based on the phase
+            var uL = sMap.unitLen; // unit length, side length of the triangle
+            var vL = uL * Math.Sqrt(3) * 0.5; // vertical unit length, height of the triangle
+            var mainRoot = new List<Line>();
+            var hairRoot = new List<Line>();
+            var deadRoot = new List<Line>();
+
+            if (tInfo.phase < 1 || tInfo.phase > 12)
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tree phase is out of range [0, 12].");
+
+            var vVec = -sMap.pln.YAxis * vL;
+            var hVec = sMap.pln.XAxis * uL;
+            // due to the manually defined appearance of the root in different phases, this part of the diagram is mostly hard-coded
+
+            //! Main Root
+            // vertical tap root (central layer)
+            // --------------------
+            //          *
+            //          *
+            int verticalTapRootParam = 0;
+            if (tInfo.phase == 1)
+            {
+                verticalTapRootParam = 6;
+            }
+            else if (tInfo.phase > 1 && tInfo.phase <= 8)
+            {
+                verticalTapRootParam = 8;
+            }
+            else if (tInfo.phase > 8 && tInfo.phase <= 11)
+            {
+                verticalTapRootParam = 4;
+
+                if (tInfo.phase == 9)
+                {
+                    var tmpPt = anchorPt + vVec * verticalTapRootParam;
+                    deadRoot.Add(new Line(tmpPt, vVec * verticalTapRootParam));
+                }
+            }
+            mainRoot.Add(new Line(anchorPt, vVec * verticalTapRootParam));
+
+            if (tInfo.phase == 12)
+            {
+                deadRoot.Add(new Line(anchorPt, vVec * 4));
+            }
+
+            // vertical root (1nd layer)
+            // ---------------------
+            //        *  |  *
+            //        *  |  *
+            // ! TODO
+
+
+            // vertical root (2rd layer)
+            // ---------------------
+            //     *  |  |  |  *
+            //     *  |  |  |  *
+            // ! TODO
+
+
+            // vertical root (3rd layer)
+            // ---------------------
+            //  *  |  |  |  |  |  *
+            //  *  |  |  |  |  |  *
+            // ! TODO
+
+
+            // horizontal tap root (central)
+            // ********************
+            //          |
+            //          |
+            int horizontalTapRootParam = 0;
+            if (tInfo.phase > 1 && tInfo.phase <= 8)
+            {
+                horizontalTapRootParam = (tInfo.phase - 1) * 2 + 1;
+            }
+            else if (tInfo.phase > 8 && tInfo.phase <= 10)
+            {
+                horizontalTapRootParam = 15;
+            }
+            else if (tInfo.phase > 10)
+            {
+                horizontalTapRootParam = 10;
+
+                if (tInfo.phase == 11)
+                {
+                    var lPt = anchorPt + hVec * horizontalTapRootParam;
+                    deadRoot.Add(new Line(lPt, hVec * 5));
+                    var rPt = anchorPt - hVec * horizontalTapRootParam;
+                    deadRoot.Add(new Line(rPt, -hVec * 5));
+
+                }
+            }
+            mainRoot.Add(new Line(anchorPt, hVec * horizontalTapRootParam));
+            mainRoot.Add(new Line(anchorPt, -hVec * horizontalTapRootParam));
+
+            // horizontal tap root (2nd layer)
+            // -------------------
+            //         |
+            //       *****
+            //         |
+            int lParam = 0;
+            int rParam = 0;
+            var startPtH2 = anchorPt - sMap.pln.YAxis * vL * 4;
+            if (tInfo.phase > 3 && tInfo.phase <= 6)
+            {
+                lParam = (tInfo.phase - 4) * 2 + 1;
+                rParam = (tInfo.phase - 4) * 2 + 1;
+            }
+            else if (tInfo.phase > 6 && tInfo.phase <= 8)
+            {
+                lParam = 5;
+                rParam = 5;
+            }
+            else if (tInfo.phase > 8 && tInfo.phase <= 11)
+            {
+                lParam = 5;
+                _ = tInfo.phase == 9 ? rParam = 2 : rParam = 0;
+
+                if (tInfo.phase == 9)
+                {
+                    var tmpPt = startPtH2 + hVec * rParam;
+                    deadRoot.Add(new Line(tmpPt, hVec * (lParam - rParam)));
+                }
+                else if (tInfo.phase == 10)
+                {
+                    deadRoot.Add(new Line(startPtH2, hVec * 2));
+                }
+            }
+            mainRoot.Add(new Line(startPtH2, sMap.pln.XAxis * uL * rParam));
+            mainRoot.Add(new Line(startPtH2, -sMap.pln.XAxis * uL * lParam));
+
+
+            // horizontal tap root (3rd layer)
+            // -------------------
+            //         |
+            //       -----
+            //         |
+            //       *****
+
+            int tmpParam = 0;
+            if (tInfo.phase == 6)
+                tmpParam = 3;
+            else if (tInfo.phase == 7)
+                tmpParam = 4;
+
+
+            var startPtH3 = anchorPt - sMap.pln.YAxis * vL * 8;
+            mainRoot.Add(new Line(startPtH3, hVec * tmpParam));
+            mainRoot.Add(new Line(startPtH3, -hVec * tmpParam));
+
+            if (tInfo.phase == 8)
+            {
+                deadRoot.Add(new Line(startPtH3, hVec * 4));
+                deadRoot.Add(new Line(startPtH3, -hVec * 4));
+            }
+
+            DA.SetDataList("RootLevel-1", mainRoot);
+            DA.SetDataList("Dead Roots", deadRoot);
+        }
     }
 
 }

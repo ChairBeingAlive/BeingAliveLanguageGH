@@ -9,10 +9,10 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using System.Diagnostics;
 using Rhino.Geometry.Intersect;
+using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
-
     /// <summary>
     /// The base information of initialized soil, used for soil/root computing.
     /// </summary>
@@ -82,8 +82,22 @@ namespace BeingAliveLanguage
         }
     }
 
+    /// <summary>
+    /// the base struct holding tree property info, supposed to be used by different components (tree root, etc.)
+    /// </summary>
+    public struct TreeProperty
+    {
+        public Plane pln;
+        public double height;
+        public int phase;
 
-
+        public TreeProperty(in Plane plane, double h, int phase)
+        {
+            this.pln = plane;
+            this.height = h;
+            this.phase = phase;
+        }
+    }
 
     /// <summary>
     /// Utility Class, containing all funcs that needed by the BAL system
@@ -1292,7 +1306,6 @@ namespace BeingAliveLanguage
             this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
             this.ptMap = new ConcurrentDictionary<string, Point3d>();
             this.distNorm = new Normal(3.5, 0.5);
-
         }
 
         public SoilMap(in Plane pl, in string mapMode)
@@ -1339,12 +1352,6 @@ namespace BeingAliveLanguage
                 var strLoc = Utils.PtString(pt);
                 if (kdMap.Add(kdKey, strLoc))
                 {
-                    //var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
-                    //var strLoc = Utils.PtString(pt);
-
-                    //if (res.Length == 0)
-                    //{
-                    //kdMap.Add(kdKey, strLoc);
                     ptMap.TryAdd(strLoc, pt);
                     topoMap.TryAdd(strLoc, new List<Tuple<float, string>> {
                         new Tuple<float, string>(-1, ""),
@@ -1353,20 +1360,8 @@ namespace BeingAliveLanguage
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, ""),
                         new Tuple<float, string>(-1, ""),
-                        //new Tuple<float, string>(-1, ""),
-                        //new Tuple<float, string>(-1, "")
                     });
                 }
-                //    }
-                //}
-
-                //// to have a stable and thorough topoMapping of all pts, we need to separate this step from the above func.
-                //private void CreateSectionalTriTopoMap(in Polyline poly)
-                //{
-                //    for (int i = 0; i < 3; i++)
-                //    {
-                //        var pt = poly[i];
-                //        var strLoc = Utils.PtString(pt);
 
                 List<Point3d> surLst = new List<Point3d> { poly[(i + 1) % 3], poly[(i + 2) % 3] };
                 foreach (var pNext in surLst)
@@ -1470,7 +1465,14 @@ namespace BeingAliveLanguage
             }).Average();
         }
 
-        public List<string> GetNearestPoint(in Point3d pt, int N)
+        public Point3d GetNearestPoint(in Point3d pt)
+        {
+            var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, 1)[0];
+
+            return new Point3d(resNode.Point[0], resNode.Point[1], resNode.Point[2]);
+        }
+
+        public List<string> GetNearestPoints(in Point3d pt, int N)
         {
             var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, N);
 
@@ -1542,7 +1544,7 @@ namespace BeingAliveLanguage
         public void GrowRoot(double radius)
         {
             // init starting ptKey
-            var anchorOnMap = sMap.GetNearestPoint(anc, 1)[0];
+            var anchorOnMap = sMap.GetNearestPoints(anc, 1)[0];
             if (anchorOnMap != null)
                 frontKey.Add(anchorOnMap);
 
@@ -1779,7 +1781,7 @@ namespace BeingAliveLanguage
             var endPtOffGrid = envT ? GrowPointWithEnvEffect(startP, dir * L) : Point3d.Add(startP, dir * L);
 
             // record
-            var ptKey2 = sMap.GetNearestPoint(endPtOffGrid, 2);
+            var ptKey2 = sMap.GetNearestPoints(endPtOffGrid, 2);
             var endPkey = Utils.PtString(endPtOffGrid) == ptKey2[0] ? ptKey2[1] : ptKey2[0];
             var endP = sMap.ptMap[endPkey];
 
@@ -1960,6 +1962,9 @@ namespace BeingAliveLanguage
         // draw the trees
         public (bool, string) Draw(int phase)
         {
+            // record phase
+            mCurPhase = phase;
+
             // ! draw tree trunks
             if (mHeight <= 0)
                 return (false, "The height of the tree needs to be > 0.");
@@ -2406,8 +2411,9 @@ namespace BeingAliveLanguage
 
 
         // tree core param
-        Plane mPln;
-        double mHeight;
+        public Plane mPln;
+        public double mHeight;
+        public int mCurPhase;
         bool mUnitary = false;
 
         double mAngleStep = 1.2;
@@ -2445,6 +2451,23 @@ namespace BeingAliveLanguage
 
         public List<Curve> mDebug = new List<Curve>();
 
+    }
+
+    class TreeRoot
+    {
+        public TreeRoot() { }
+        public TreeRoot(Plane pln, double height, ref SoilMap sMap)
+        {
+            mPln = pln;
+            mAnchor = pln.Origin;
+            mSoilMap = sMap;
+        }
+
+
+        // internal variables
+        public Point3d mAnchor;
+        private Plane mPln;
+        private SoilMap mSoilMap;
     }
 
     static class Menu
