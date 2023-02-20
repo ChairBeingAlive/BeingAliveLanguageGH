@@ -70,8 +70,6 @@ namespace BeingAliveLanguage
             var topB = new List<Curve>();
             var babyB = new List<Curve>();
 
-            var debug = new List<Curve>();
-
             //! 1. determine horizontal scaling factor of the trees
             var tscal = new List<Tuple<double, double>>();
             var distLst = new List<double>();
@@ -172,7 +170,7 @@ namespace BeingAliveLanguage
                 topB.AddRange(t.mSubBranch);
                 babyB.AddRange(t.mNewBornBranch);
 
-                debug.AddRange(t.mDebug);
+                //debug.AddRange(t.mDebug);
             }
 
             DA.SetDataList("Circumference", circ);
@@ -181,7 +179,7 @@ namespace BeingAliveLanguage
             DA.SetDataList("SideBranch", sideB);
             DA.SetDataList("TopBranch", topB);
             DA.SetDataList("BabyBranch", babyB);
-            DA.SetDataList("Debug", debug);
+            //DA.SetDataList("Debug", debug);
         }
 
 
@@ -210,7 +208,6 @@ namespace BeingAliveLanguage
 
             return base.Read(reader);
         }
-
     }
 
     public class BALtreeRoot : GH_Component
