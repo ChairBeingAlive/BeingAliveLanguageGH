@@ -372,6 +372,7 @@ namespace BeingAliveLanguage
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree; //todo: update img
         public override Guid ComponentGuid => new Guid("27C279E0-08C9-4110-AE40-81A59C9D9EB8");
         private bool rootDense = false;
+        private int scalingFactor = 1;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -418,8 +419,22 @@ namespace BeingAliveLanguage
             }
 
             // if the unit length of the soil grid is small enough, we allow the drawing of detailed root.
-            if (sMap.unitLen < tInfo.height * 0.2)
+            if (sMap.unitLen < tInfo.height * 0.05)
+            {
                 rootDense = true;
+                scalingFactor = 2;
+            }
+            else
+            {
+                rootDense = false;
+                scalingFactor = 1;
+
+                // send warning of the soil grid is too big
+                if (sMap.unitLen > tInfo.height * 0.15)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Soil grid too big. You will get unbalanced relationship between the tree and its roots.");
+                }
+            }
 
 
             // ! get parameter of the map and start drawing based on the phase
@@ -432,8 +447,8 @@ namespace BeingAliveLanguage
             if (tInfo.phase < 1 || tInfo.phase > 12)
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tree phase is out of range [0, 12].");
 
-            var vVec = -sMap.pln.YAxis * vL;
-            var hVec = sMap.pln.XAxis * uL;
+            var vVec = -sMap.pln.YAxis * vL * scalingFactor;
+            var hVec = sMap.pln.XAxis * uL * scalingFactor;
             // due to the manually defined appearance of the root in different phases, this part of the diagram is mostly hard-coded
 
             //! Main Root
