@@ -471,21 +471,103 @@ namespace BeingAliveLanguage
             // ---------------------
             //        *  |  *
             //        *  |  *
-            // ! TODO
+            int verticalParam = 0;
+            var lAnchor = anchorPt - hVec * 4;
+            var rAnchor = anchorPt + hVec * 4;
+            if (tInfo.phase == 5)
+            {
+                verticalParam = 4;
+            }
+            else if (tInfo.phase > 5 && tInfo.phase <= 9)
+            {
+                verticalParam = 7;
+            }
+            else if (tInfo.phase == 10)
+            {
+                // phase 10, dead root shown
+                deadRoot.Add(new Line(lAnchor, vVec * 7));
+                deadRoot.Add(new Line(rAnchor, vVec * 7));
+            }
+            mainRoot.Add(new Line(lAnchor, vVec * verticalParam));
+            mainRoot.Add(new Line(rAnchor, vVec * verticalParam));
 
 
             // vertical root (2rd layer)
             // ---------------------
             //     *  |  |  |  *
             //     *  |  |  |  *
-            // ! TODO
+            lAnchor = anchorPt - hVec * 7;
+            rAnchor = anchorPt + hVec * 7;
+            verticalParam = 0;
+            if (tInfo.phase == 6)
+            {
+                verticalParam = 4;
+            }
+            else if (tInfo.phase > 6 && tInfo.phase <= 11)
+            {
+                verticalParam = 7;
+            }
+            else if (tInfo.phase == 12)
+            {
+                // phase 12, dead root shown
+                deadRoot.Add(new Line(lAnchor, vVec * 7));
+                deadRoot.Add(new Line(rAnchor, vVec * 7));
+            }
+            mainRoot.Add(new Line(lAnchor, vVec * verticalParam));
+            mainRoot.Add(new Line(rAnchor, vVec * verticalParam));
 
 
             // vertical root (3rd layer)
             // ---------------------
             //  *  |  |  |  |  |  *
             //  *  |  |  |  |  |  *
-            // ! TODO
+            lAnchor = anchorPt - hVec * 10;
+            rAnchor = anchorPt + hVec * 10;
+            verticalParam = 0;
+            if (tInfo.phase == 7)
+            {
+                verticalParam = 4;
+            }
+            else if (tInfo.phase > 7 && tInfo.phase <= 11)
+            {
+                verticalParam = 7;
+            }
+            else if (tInfo.phase == 12)
+            {
+                // phase 12, dead root shown
+                deadRoot.Add(new Line(lAnchor, vVec * 7));
+                deadRoot.Add(new Line(rAnchor, vVec * 7));
+            }
+            mainRoot.Add(new Line(lAnchor, vVec * verticalParam));
+            mainRoot.Add(new Line(rAnchor, vVec * verticalParam));
+
+            // vertical root (secondary 1st layer)
+            // ---------------------
+            //  |  |  |  |  |  |  |
+            //     -------------
+            //  |  |  | *|* |  |  |
+            lAnchor = anchorPt - hVec * 2 + vVec * 4;
+            rAnchor = anchorPt + hVec * 2 + vVec * 4;
+            verticalParam = 0;
+            if (tInfo.phase > 7 && tInfo.phase <= 11)
+            {
+                verticalParam = 3;
+
+                if (tInfo.phase <= 9)
+                {
+                    mainRoot.Add(new Line(lAnchor, vVec * verticalParam));
+                    mainRoot.Add(new Line(rAnchor, vVec * verticalParam));
+                }
+                else if (tInfo.phase == 10)
+                {
+                    mainRoot.Add(new Line(lAnchor, vVec * verticalParam));
+                    deadRoot.Add(new Line(rAnchor, vVec * verticalParam));
+                }
+                else if (tInfo.phase == 11)
+                {
+                    deadRoot.Add(new Line(lAnchor, vVec * verticalParam));
+                }
+            }
 
 
             // horizontal tap root (central)
@@ -525,33 +607,44 @@ namespace BeingAliveLanguage
             int lParam = 0;
             int rParam = 0;
             var startPtH2 = anchorPt - sMap.pln.YAxis * vL * 4;
-            if (tInfo.phase > 3 && tInfo.phase <= 6)
+            if (tInfo.phase > 3 && tInfo.phase <= 5)
             {
                 lParam = (tInfo.phase - 4) * 2 + 1;
                 rParam = (tInfo.phase - 4) * 2 + 1;
+                mainRoot.Add(new Line(startPtH2, -hVec * lParam));
+                mainRoot.Add(new Line(startPtH2, hVec * rParam));
             }
-            else if (tInfo.phase > 6 && tInfo.phase <= 8)
+            else if (tInfo.phase > 5)
             {
                 lParam = 5;
                 rParam = 5;
-            }
-            else if (tInfo.phase > 8 && tInfo.phase <= 11)
-            {
-                lParam = 5;
-                _ = tInfo.phase == 9 ? rParam = 2 : rParam = 0;
 
-                if (tInfo.phase == 9)
+                if (tInfo.phase <= 11)
                 {
-                    var tmpPt = startPtH2 + hVec * rParam;
-                    deadRoot.Add(new Line(tmpPt, hVec * (lParam - rParam)));
+                    mainRoot.Add(new Line(startPtH2, -hVec * lParam));
+
+                    if (tInfo.phase == 9)
+                    {
+                        rParam = 2;
+                        deadRoot.Add(new Line(startPtH2 + hVec * 2, hVec * 3));
+                    }
+                    else if (tInfo.phase == 10)
+                    {
+                        rParam = 0;
+                        deadRoot.Add(new Line(startPtH2, hVec * 2));
+                    }
+                    else if (tInfo.phase == 11)
+                    {
+                        rParam = 0;
+                    }
+                    mainRoot.Add(new Line(startPtH2, hVec * rParam));
                 }
-                else if (tInfo.phase == 10)
+                else
                 {
-                    deadRoot.Add(new Line(startPtH2, hVec * 2));
+                    deadRoot.Add(new Line(startPtH2, -hVec * lParam));
                 }
+
             }
-            mainRoot.Add(new Line(startPtH2, sMap.pln.XAxis * uL * rParam));
-            mainRoot.Add(new Line(startPtH2, -sMap.pln.XAxis * uL * lParam));
 
 
             // horizontal tap root (3rd layer)
