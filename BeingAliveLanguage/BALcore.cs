@@ -247,7 +247,7 @@ namespace BeingAliveLanguage
 
     }
 
-    class balCore
+    class BalCore
     {
         //  create a position vector from given 2D coordinates in a plane.
         private static readonly Func<Plane, double, double, Vector3d> createVec = (pln, x, y) =>
@@ -837,10 +837,7 @@ namespace BeingAliveLanguage
 
             return res;
         }
-
-
     }
-
 
     struct StoneCluster
     {
@@ -948,7 +945,7 @@ namespace BeingAliveLanguage
             this.rStone = rStone;
             this.szStone = szStone;
 
-            this.totalArea = sBase.soilT.Sum(x => balCore.triArea(x));
+            this.totalArea = sBase.soilT.Sum(x => BalCore.triArea(x));
 
             sandT = new List<Polyline>();
             clayT = new List<Polyline>();
@@ -978,7 +975,7 @@ namespace BeingAliveLanguage
                 var ptCen = samplingUtils.uniformSampling(ref this.sBase, (int)(numSand * 1.2));
                 tmpPt = ptCen;
 
-                balCore.CreateCentreMap(postSandT, out cenMap);
+                BalCore.CreateCentreMap(postSandT, out cenMap);
 
                 // build a kd-map for polygon centre. We need to transform into 2d, otherwise, collision box will overlap
                 var kdMap = new KdTree<double, Polyline>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
@@ -1005,7 +1002,7 @@ namespace BeingAliveLanguage
                 postSandT = sBase.soilT.Except(sandT).ToList();
             }
 
-            var lv3T = balCore.subDivTriLst(balCore.subDivTriLst(postSandT));
+            var lv3T = BalCore.subDivTriLst(BalCore.subDivTriLst(postSandT));
             #endregion
 
             #region Stone
@@ -1073,9 +1070,9 @@ namespace BeingAliveLanguage
             //Transform toWorld = Transform.ChangeBasis(curPln, Plane.WorldXY);
 
             // nbMap: mapping of each triangle to the neighbouring triangles
-            balCore.CreateNeighbourMap(polyIn, out nbMap);
+            BalCore.CreateNeighbourMap(polyIn, out nbMap);
             // cenMap: mapping of centre to the triangle centre Point3D and triangle polyline
-            balCore.CreateCentreMap(polyIn, out cenMap);
+            BalCore.CreateCentreMap(polyIn, out cenMap);
 
             List<double> areaLst = ratioLst.Select(x => x * totalArea).ToList(); // the target area for each stone type
             HashSet<string> allTriCenStr = new HashSet<string>(cenMap.Keys);
@@ -1183,7 +1180,7 @@ namespace BeingAliveLanguage
             // add default centre tri area
             foreach (var st in stoneCol)
             {
-                stoneTypeArea[st.typeId] += balCore.triArea(cenMap[Utils.PtString(st.cen)].Item2);
+                stoneTypeArea[st.typeId] += BalCore.triArea(cenMap[Utils.PtString(st.cen)].Item2);
             }
 
             // idx list, used for randomize sequence when growing stone
@@ -1221,7 +1218,7 @@ namespace BeingAliveLanguage
                         stoneCol[i].strIdNeigh.Remove(nearestT);
 
                         pickedTriCenStr.Add(nearestT);
-                        stoneTypeArea[curStoneType] += balCore.triArea(cenMap[nearestT].Item2); // add up area
+                        stoneTypeArea[curStoneType] += BalCore.triArea(cenMap[nearestT].Item2); // add up area
                     }
 
                     // ! 3. expand, and update corresponding neighbouring set
@@ -1486,11 +1483,14 @@ namespace BeingAliveLanguage
             return resL;
         }
 
-        private int SampleIdx()
+        private int SampleIdx(int i0 = 2, int i1 = 5)
         {
+            if (i0 > i1)
+                return -1;
+
             // make sure fall into [2, 5] due to the hex arrangement and index
             var sampleIdx = (int)Math.Round(distNorm.Sample());
-            while (sampleIdx < 2 || sampleIdx > 5)
+            while (sampleIdx < i0 || sampleIdx > i1)
                 sampleIdx = (int)Math.Round(distNorm.Sample());
 
             return sampleIdx;
@@ -1556,7 +1556,6 @@ namespace BeingAliveLanguage
                 disMap[pt.Key] = pt.Value.DistanceTo(anc);
             }
 
-
             // grow root until given radius is reached
             double curR = 0;
             double aveR = 0;
@@ -1621,7 +1620,7 @@ namespace BeingAliveLanguage
         ConcurrentDictionary<string, double> disMap = new ConcurrentDictionary<string, double>();
         Point3d anc = new Point3d();
         SoilMap sMap = new SoilMap();
-        string rType = "s";
+        string rType = "single";
 
     }
 

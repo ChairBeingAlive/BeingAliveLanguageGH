@@ -419,7 +419,7 @@ namespace BeingAliveLanguage
             }
 
             // if the unit length of the soil grid is small enough, we allow the drawing of detailed root.
-            if (sMap.unitLen < tInfo.height * 0.05)
+            if (sMap.unitLen < tInfo.height * 0.07)
             {
                 rootDense = true;
                 scalingFactor = 2;
@@ -459,7 +459,7 @@ namespace BeingAliveLanguage
             int verticalTapRootParam = 0;
             if (tInfo.phase == 1)
             {
-                verticalTapRootParam = 6;
+                verticalTapRootParam = 5;
             }
             else if (tInfo.phase > 1 && tInfo.phase <= 8)
             {
@@ -507,7 +507,7 @@ namespace BeingAliveLanguage
             mainRoot.Add(new Line(rAnchor, vVec * verticalParam));
 
 
-            // vertical root (2rd layer)
+            // ! vertical root (2rd layer)
             // ---------------------
             //     *  |  |  |  *
             //     *  |  |  |  *
@@ -532,7 +532,7 @@ namespace BeingAliveLanguage
             mainRoot.Add(new Line(rAnchor, vVec * verticalParam));
 
 
-            // vertical root (3rd layer)
+            //! vertical root (3rd layer)
             // ---------------------
             //  *  |  |  |  |  |  *
             //  *  |  |  |  |  |  *
@@ -556,7 +556,7 @@ namespace BeingAliveLanguage
             mainRoot.Add(new Line(lAnchor, vVec * verticalParam));
             mainRoot.Add(new Line(rAnchor, vVec * verticalParam));
 
-            // vertical root (secondary 1st layer)
+            //! vertical root (secondary 1st layer)
             // ---------------------
             //  |  |  |  |  |  |  |
             //     -------------
@@ -585,7 +585,7 @@ namespace BeingAliveLanguage
             }
 
 
-            // horizontal tap root (central)
+            //! horizontal tap root (central)
             // ********************
             //          |
             //          |
@@ -614,7 +614,7 @@ namespace BeingAliveLanguage
             mainRoot.Add(new Line(anchorPt, hVec * horizontalTapRootParam));
             mainRoot.Add(new Line(anchorPt, -hVec * horizontalTapRootParam));
 
-            // horizontal tap root (2nd layer)
+            //! horizontal tap root (2nd layer)
             // -------------------
             //         |
             //       *****
@@ -662,7 +662,7 @@ namespace BeingAliveLanguage
             }
 
 
-            // horizontal tap root (3rd layer)
+            //! horizontal tap root (3rd layer)
             // -------------------
             //         |
             //       -----
