@@ -1496,14 +1496,15 @@ namespace BeingAliveLanguage
             return sampleIdx;
         }
 
-        public (double, string) GetNextPointAndDistance(in string pt)
+        // sample the next point from idx range [i0, i1], using the current pt
+        public (double, string) GetNextPointAndDistance(in string pt, int i0 = 2, int i1 = 5)
         {
-            var idx = SampleIdx();
+            var idx = SampleIdx(i0, i1);
 
             var (dis, nextPt) = topoMap[pt][idx];
             while (nextPt == "")
             {
-                idx = SampleIdx();
+                idx = SampleIdx(i0, i1);
                 (dis, nextPt) = topoMap[pt][idx];
             }
 
