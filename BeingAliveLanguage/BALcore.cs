@@ -1422,7 +1422,6 @@ namespace BeingAliveLanguage
                     foreach (var p in pl)
                         ptBag.Add(p);
                 });
-                //var ptLst = polyBag.Aggregate(new List<Point3d>(), (x, y) => (x.ToList().Concat(y.ToList()).ToList()));
                 BuildMap(ptBag);
             }
 
