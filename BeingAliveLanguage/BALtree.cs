@@ -44,7 +44,9 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
             pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.", GH_ParamAccess.tree);
-            pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
+
+            pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
+            //pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -67,13 +69,13 @@ namespace BeingAliveLanguage
             var sideB = new List<Curve>();
             var topB = new List<Curve>();
             var babyB = new List<Curve>();
-
-            var debug = new List<Curve>();
+            var tInfoLst = new List<TreeProperty>();
 
             //! 1. determine horizontal scaling factor of the trees
             var tscal = new List<Tuple<double, double>>();
             var distLst = new List<double>();
             var treeCol = new List<Tree>();
+
             if (plnLst.Count == 0)
                 return;
             else if (plnLst.Count > 1)
@@ -169,8 +171,12 @@ namespace BeingAliveLanguage
                 sideB.AddRange(t.mSideBranch);
                 topB.AddRange(t.mSubBranch);
                 babyB.AddRange(t.mNewBornBranch);
+            }
 
-                debug.AddRange(t.mDebug);
+            //! 6. compose tree info for downstream compoment usage
+            foreach (var t in treeCol)
+            {
+                tInfoLst.Add(new TreeProperty(t.mPln, t.mHeight, t.mCurPhase));
             }
 
             DA.SetDataList("Circumference", circ);
@@ -179,7 +185,7 @@ namespace BeingAliveLanguage
             DA.SetDataList("SideBranch", sideB);
             DA.SetDataList("TopBranch", topB);
             DA.SetDataList("BabyBranch", babyB);
-            DA.SetDataList("Debug", debug);
+            DA.SetDataList("TreeInfo", tInfoLst);
         }
 
 
@@ -208,6 +214,6 @@ namespace BeingAliveLanguage
 
             return base.Read(reader);
         }
-
     }
+
 }
