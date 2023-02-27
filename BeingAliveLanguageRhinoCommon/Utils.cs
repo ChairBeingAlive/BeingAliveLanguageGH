@@ -1,5 +1,4 @@
-﻿using Eto.Forms;
-using Rhino.Geometry;
+﻿using Rhino.Geometry;
 using Rhino.Runtime;
 using System;
 using System.Collections.Generic;
@@ -7,7 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace BeingAliveLanguageRC
 {
-    internal static class Utils
+    public static class Utils
     {
         public static void SampleElim(in List<Point3d> inPt, int num, out List<Point3d> outPt)
         {

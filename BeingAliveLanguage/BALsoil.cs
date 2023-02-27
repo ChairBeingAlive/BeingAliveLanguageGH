@@ -160,20 +160,21 @@ namespace BeingAliveLanguage
             DA.GetDataList("Rocks", rock);
 
             //List<Polyline> triPoly = sBase.soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            double[] ratio = new double[3] { sInfo.rSand, sInfo.rSilt, sInfo.rClay };
+            //double[] ratio = new double[3] { sInfo.rSand, sInfo.rSilt, sInfo.rClay };
 
             // call the actural function
-            var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
+            //var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
+            var soil = new SoilGeneral(sBase, sInfo, rock);
+            soil.Build();
 
-            DA.SetDataList(0, sandT);
-            DA.SetDataList(1, siltT);
-            DA.SetDataList(2, clayT);
 
-            var allT = sandT.Concat(siltT).Concat(clayT).ToList();
-            DA.SetDataList(3, allT);
+            DA.SetDataList(0, soil.mSandT);
+            DA.SetDataList(1, soil.mSiltT);
+            DA.SetDataList(2, soil.mClayT);
+
+            DA.SetDataList(3, soil.Collect());
         }
     }
-
 
     public class BALsoilDiagramGeneral_OBSOLETE : GH_Component
     {
@@ -237,15 +238,15 @@ namespace BeingAliveLanguage
             double[] ratio = new double[3] { rSand, rSilt, rClay };
 
             // call the actural function
-            var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
+            //var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
 
-            DA.SetData(0, soilInfo);
-            DA.SetDataList(1, sandT);
-            DA.SetDataList(2, siltT);
-            DA.SetDataList(3, clayT);
+            //DA.SetData(0, soilInfo);
+            //DA.SetDataList(1, sandT);
+            //DA.SetDataList(2, siltT);
+            //DA.SetDataList(3, clayT);
 
-            var allT = sandT.Concat(siltT).Concat(clayT).ToList();
-            DA.SetDataList(4, allT);
+            //var allT = sandT.Concat(siltT).Concat(clayT).ToList();
+            //DA.SetDataList(4, allT);
         }
 
     }

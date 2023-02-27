@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "BeingAliveLanguage": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Rhino 7\\System\\Rhino.exe",
+      "workingDirectory": "C:\\Users\\xarthur\\source\\repo\\BeingAliveLanguageGH\\bin",
+      "sqlDebugging": false,
+      "nativeDebugging": true
+    }
+  }
+}

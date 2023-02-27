@@ -9,8 +9,8 @@ void BAL_possionDiskElimSample(ON_SimpleArray<float>* inPt, int n,
 
 	std::vector<cy::Vec3f> inputPoints(sz);
 	for (size_t i = 0; i < sz; i++) {
-		inputPoints.emplace_back(*inPt->At(i * 3), *inPt->At(i * 3 + 1),
-			*inPt->At(i * 3 + 2));
+		inputPoints.emplace_back(*(inPt->At(i * 3)), *(inPt->At(i * 3 + 1)),
+			*(inPt->At(i * 3 + 2)));
 	}
 
 	// elimination to the given number of pts

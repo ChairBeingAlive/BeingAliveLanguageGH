@@ -7,7 +7,7 @@ namespace BeingAliveLanguageRC
     internal static class Import
     {
         // absolute path
-        //public const string cppLib = @"C:/repo/igm-GH/x64/Release/igmCppPort.dll";
+        //public const string cppLib = @"C:/Users/xarthur/source/repo/BeingAliveLanguageGH/bin/BeingAliveLanguageCpp.dll";
 
         // relative path
         public const string cppLib = @"BeingAliveLanguageCpp.dll";

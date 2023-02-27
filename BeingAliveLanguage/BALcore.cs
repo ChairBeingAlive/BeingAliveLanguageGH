@@ -527,73 +527,6 @@ namespace BeingAliveLanguage
         }
 
 
-        // ! Main Func: divide triMap into subdivisions based on the general soil ratio
-        public static (List<Polyline>, List<Polyline>, List<Polyline>, SoilProperty)
-            DivGeneralSoilMap(in List<Polyline> triL, in double[] ratio, in List<Curve> rock)
-        {
-            // ratio array order: sand, silt, clay
-            var soilData = SoilType(ratio[0], ratio[1], ratio[2]);
-
-            // get area
-            double totalArea = triL.Sum(x => triArea(x));
-
-            var totalASand = totalArea * ratio[0];
-            var totalASilt = totalArea * ratio[1];
-            var totalAClay = totalArea * ratio[2];
-
-            // sand
-            var numSand = (int)(Math.Round(triL.Count * ratio[0]));
-            var sandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
-
-            //! testing poisson disc sampling
-            var triCen = triL.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
-            
-
-
-
-            // silt
-            var preSiltT = triL.Except(sandT).ToList();
-            var preSiltTDiv = subDivTriLst(preSiltT);
-
-            double avgPreSiltTArea = preSiltTDiv.Sum(x => triArea(x)) / preSiltTDiv.Count;
-
-            var numSilt = (int)Math.Round(totalASilt / avgPreSiltTArea);
-            var siltT = preSiltTDiv.OrderBy(x => Guid.NewGuid()).Take(numSilt).ToList();
-
-            // clay
-            var preClayT = preSiltTDiv.Except(siltT).ToList();
-            var clayT = subDivTriLst(preClayT);
-
-
-            // if rock exists, avoid it 
-            if (rock.Any() && rock[0] != null)
-            {
-                var rockLocal = rock;
-                Func<Polyline, bool> hitRock = tri =>
-                {
-                    for (int i = 0; i < 3; i++)
-                    {
-                        foreach (var r in rockLocal)
-                        {
-                            r.TryGetPlane(out Plane pln);
-                            var res = r.Contains(tri[i], pln, 0.01);
-                            if (res == PointContainment.Inside || res == PointContainment.Coincident)
-                                return true;
-                        }
-                    }
-
-                    return false;
-                };
-
-                // avoid rock area
-                clayT = clayT.Where(x => !hitRock(x)).ToList();
-                siltT = siltT.Where(x => !hitRock(x)).ToList();
-                sandT = sandT.Where(x => !hitRock(x)).ToList();
-            }
-
-            // return
-            return (sandT, siltT, clayT, soilData);
-        }
 
 
         // offset using scale mechanism
@@ -937,6 +870,94 @@ namespace BeingAliveLanguage
 
             return sum / strIdNeigh.Count;
         }
+    }
+
+    class SoilGeneral
+    {
+        public SoilGeneral(in SoilBase sBase, in SoilProperty sInfo, in List<Curve> stone)
+        {
+            this.mBase = sBase;
+            this.mInfo = sInfo;
+            this.mStone = stone;
+        }
+
+        public void Build()
+        {
+            var triL = mBase.soilT;
+
+            // get area
+            double totalArea = triL.Sum(x => BalCore.triArea(x));
+
+            var totalASand = totalArea * mInfo.rSand;
+            var totalASilt = totalArea * mInfo.rSilt;
+            var totalAClay = totalArea * mInfo.rClay;
+
+            // sand
+            var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
+            mSandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
+
+            //! testing poisson disc sampling
+            var triCen = triL.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
+            BalCore.CreateCentreMap(triL, out cenMap);
+            BeingAliveLanguageRC.Utils.SampleElim(triCen, numSand, out List<Point3d> outCen);
+            mSandT = outCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
+
+            // silt
+            var preSiltT = triL.Except(mSandT).ToList();
+            var preSiltTDiv = BalCore.subDivTriLst(preSiltT);
+
+            double avgPreSiltTArea = preSiltTDiv.Sum(x => BalCore.triArea(x)) / preSiltTDiv.Count;
+
+            var numSilt = (int)Math.Round(totalASilt / avgPreSiltTArea);
+            mSiltT = preSiltTDiv.OrderBy(x => Guid.NewGuid()).Take(numSilt).ToList();
+
+            // clay
+            var preClayT = preSiltTDiv.Except(mSiltT).ToList();
+            mClayT = BalCore.subDivTriLst(preClayT);
+
+
+            // if rock exists, avoid it 
+            if (mStone.Any() && mStone[0] != null)
+            {
+                var rockLocal = mStone;
+                Func<Polyline, bool> hitRock = tri =>
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        foreach (var r in rockLocal)
+                        {
+                            r.TryGetPlane(out Plane pln);
+                            var res = r.Contains(tri[i], pln, 0.01);
+                            if (res == PointContainment.Inside || res == PointContainment.Coincident)
+                                return true;
+                        }
+                    }
+
+                    return false;
+                };
+
+                // avoid rock area
+                mSandT = mSandT.Where(x => !hitRock(x)).ToList();
+                mSiltT = mSiltT.Where(x => !hitRock(x)).ToList();
+                mClayT = mClayT.Where(x => !hitRock(x)).ToList();
+            }
+        }
+
+        public List<Polyline> Collect()
+        {
+            return mSandT.Concat(mSiltT).Concat(mClayT).ToList();
+        }
+
+        // in param
+        SoilBase mBase;
+        SoilProperty mInfo;
+        List<Curve> mStone;
+
+        // out param
+        public List<Polyline> mClayT, mSiltT, mSandT;
+
+        // private
+        private Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap;
     }
 
     class SoilUrban
