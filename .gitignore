@@ -8,3 +8,5 @@ BALcore/obj
 bin
 BeingAliveLanguage/obj
 BeingAliveLanguageRhinoCommon/obj
+BeingAliveLanguageCpp/x64
+BeingAliveLanguageCpp/Debug

@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using System.Diagnostics;
 using Rhino.Geometry.Intersect;
-using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
@@ -545,6 +544,11 @@ namespace BeingAliveLanguage
             // sand
             var numSand = (int)(Math.Round(triL.Count * ratio[0]));
             var sandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
+
+            //! testing poisson disc sampling
+            var triCen = triL.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
+
+
 
             // silt
             var preSiltT = triL.Except(sandT).ToList();

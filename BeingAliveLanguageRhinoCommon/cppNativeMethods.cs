@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace BeingAliveLanguageCppPORT
+namespace BeingAliveLanguageRhinoCommon 
 {
 
     internal static class Import
@@ -19,6 +19,6 @@ namespace BeingAliveLanguageCppPORT
         /// Possion Disc Sampling using the reduction approach, no need for radius 
         /// </summary>
         [DllImport(Import.cppLib, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void BAL_possionDiskSample(IntPtr inPt, int n, IntPtr outPt);
+        internal static extern void BAL_possionDiskElimSample(IntPtr inPt, int n, IntPtr outPt);
     }
 }
