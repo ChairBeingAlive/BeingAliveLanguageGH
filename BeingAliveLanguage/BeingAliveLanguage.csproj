@@ -2,10 +2,12 @@
 
 	<PropertyGroup>
 		<TargetFramework>net48</TargetFramework>
-		<Version>$(VersionPrefix)</Version>
+		<Version>0.3.0</Version>
 		<Title>BeingAliveLanguage</Title>
 		<Description>Description of BALloader</Description>
 		<TargetExt>.gha</TargetExt>
+		<Company>ETH Zurich</Company>
+		<Authors>Dr. Zhao MA</Authors>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -51,6 +53,11 @@
 		<StartProgram>C:\Program Files\Rhino 7\System\Rhino.exe</StartProgram>
 		<StartArguments></StartArguments>
 		<StartAction>Program</StartAction>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+	  <PlatformTarget>x64</PlatformTarget>
+	  <OutputPath>bin\</OutputPath>
 	</PropertyGroup>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">

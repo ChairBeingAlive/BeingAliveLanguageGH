@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("BeingAliveLanguageCppPORT")]
+[assembly: AssemblyTitle("BeingAliveLanguageRC")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("ETH Zurich")]
-[assembly: AssemblyProduct("BeingAliveLanguageCppPORT")]
+[assembly: AssemblyProduct("BeingAliveLanguageRC")]
 [assembly: AssemblyCopyright("Copyright © ETH Zurich 2023")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace BeingAliveLanguageRhinoCommon 
+namespace BeingAliveLanguageRC
 {
 
     internal static class Import

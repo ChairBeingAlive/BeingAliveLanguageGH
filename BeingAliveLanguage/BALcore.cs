@@ -547,6 +547,7 @@ namespace BeingAliveLanguage
 
             //! testing poisson disc sampling
             var triCen = triL.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
+            
 
 
 

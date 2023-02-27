@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-namespace BeingAliveLanguageRhinoCommon
+namespace BeingAliveLanguageRC
 {
     internal static class Utils
     {
