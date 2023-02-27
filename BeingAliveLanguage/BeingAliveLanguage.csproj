@@ -18,6 +18,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\BeingAliveLanguageRhinoCommon\BeingAliveLanguageRC.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Reference Include="System.ComponentModel.Composition" />
 		<Reference Include="System.Windows.Forms" />
 	</ItemGroup>
