@@ -144,6 +144,8 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("All Tri", "allT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
+
+            pManager.AddNumberParameter("debug", "debugNum", "debugging", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -159,6 +161,7 @@ namespace BeingAliveLanguage
             { return; }
             DA.GetDataList("Rocks", rock);
 
+
             //List<Polyline> triPoly = sBase.soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
             //double[] ratio = new double[3] { sInfo.rSand, sInfo.rSilt, sInfo.rClay };
 
@@ -167,12 +170,15 @@ namespace BeingAliveLanguage
             var soil = new SoilGeneral(sBase, sInfo, rock);
             soil.Build();
 
-
             DA.SetDataList(0, soil.mSandT);
             DA.SetDataList(1, soil.mSiltT);
             DA.SetDataList(2, soil.mClayT);
 
             DA.SetDataList(3, soil.Collect());
+
+            // debug
+            //var res = BeingAliveLanguageRC.Utils.Addition(10, 23.5);
+            //DA.SetData(4, res);
         }
     }
 

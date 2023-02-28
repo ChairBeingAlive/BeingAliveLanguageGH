@@ -226,7 +226,6 @@ namespace BeingAliveLanguage
             root.GrowRoot(radius);
 
             DA.SetDataList(0, root.crv);
-
         }
 
         string formMode = "multi";  // s-single, m-multi

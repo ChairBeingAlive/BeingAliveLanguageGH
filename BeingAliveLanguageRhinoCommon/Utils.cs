@@ -26,5 +26,11 @@ namespace BeingAliveLanguageRC
             // assign to the output
             outPt = new List<Point3d>(outPcpp.ToArray());
         }
+
+        public static double Addition(double a, double b)
+        {
+            var c = cppBAL.BAL_Addition(a, b);
+            return c;
+        }
     }
 }

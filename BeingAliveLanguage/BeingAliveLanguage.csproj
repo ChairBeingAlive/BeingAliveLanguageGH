@@ -8,6 +8,7 @@
 		<TargetExt>.gha</TargetExt>
 		<Company>ETH Zurich</Company>
 		<Authors>Dr. Zhao MA</Authors>
+		<BaseOutputPath>bin\$(Configuration)\</BaseOutputPath>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -32,11 +33,6 @@
 			<AutoGen>True</AutoGen>
 			<DependentUpon>Resources.resx</DependentUpon>
 		</Compile>
-		<Compile Update="Properties\Settings.Designer.cs">
-		  <DesignTimeSharedInput>True</DesignTimeSharedInput>
-		  <AutoGen>True</AutoGen>
-		  <DependentUpon>Settings.settings</DependentUpon>
-		</Compile>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -44,13 +40,6 @@
 			<Generator>ResXFileCodeGenerator</Generator>
 			<LastGenOutput>Resources.Designer.cs</LastGenOutput>
 		</EmbeddedResource>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <None Update="Properties\Settings.settings">
-	    <Generator>SettingsSingleFileGenerator</Generator>
-	    <LastGenOutput>Settings.Designer.cs</LastGenOutput>
-	  </None>
 	</ItemGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -63,7 +52,7 @@
 	</PropertyGroup>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Exec Command="if not exist &quot;$(SolutionDir)bin&quot; mkdir &quot;$(SolutionDir)bin&quot;&#xD;&#xA;Copy /y &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\bin\$(ProjectName).gha&quot;&#xD;&#xA;Copy /y &quot;$(TargetDir)\*.dll&quot; &quot;$(SolutionDir)bin\*.dll&quot;" />
+		<Exec Command="if not exist &quot;$(SolutionDir)bin&quot; mkdir &quot;$(SolutionDir)bin&quot;&#xD;&#xA;Copy /y &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\bin\$(Configuration)\$(ProjectName).gha&quot;&#xD;&#xA;Copy /y &quot;$(TargetDir)\*.dll&quot; &quot;$(SolutionDir)bin\$(Configuration)\*.dll&quot;&#xD;&#xA;Erase &quot;$(TargetPath)&quot;" />
 	</Target>
 
 </Project>

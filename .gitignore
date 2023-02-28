@@ -11,3 +11,5 @@ BeingAliveLanguageRhinoCommon/obj
 BeingAliveLanguageCpp/x64
 BeingAliveLanguageCpp/Debug
 x64
+BeingAliveLanguageCppPort/Debug
+BeingAliveLanguageCppPort/Release
