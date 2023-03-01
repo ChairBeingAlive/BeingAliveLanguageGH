@@ -418,7 +418,7 @@ namespace BeingAliveLanguage
             }
 
             // if the unit length of the soil grid is small enough, we allow the drawing of detailed root.
-            if (sMap.unitLen < tInfo.height * 0.07)
+            if (sMap.unitLen < tInfo.height * 0.05)
             {
                 rootDense = true;
                 scalingFactor = 2;
