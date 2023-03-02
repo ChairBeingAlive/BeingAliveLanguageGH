@@ -66,7 +66,8 @@ namespace BeingAliveLanguage
 
     }
 
-
+    // ! For Poisson Sampling, use the WeightedSamplingElimination Approach in the CppPort project.
+    // ! The following approach is obsolete
     public static class samplingUtils
     {
         static public List<Point3d> uniformSampling(ref SoilBase sBase, int num)

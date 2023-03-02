@@ -1000,6 +1000,18 @@ namespace BeingAliveLanguage
 
             if (totalASand > 0)
             {
+                // sand
+                var triCen = postSandT.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
+                BalCore.CreateCentreMap(postSandT, out cenMap);
+
+                // sand
+                var numSand = (int)(Math.Round(postSandT.Count * rSand));
+                //mSandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
+                BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numSand, out List<Point3d> outSandCen);
+                mSandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
+
+
+
                 var numSand = (int)(Math.Round(postSandT.Count * rSand));
 
                 var ptCen = samplingUtils.uniformSampling(ref this.sBase, (int)(numSand * 1.2));
@@ -1045,7 +1057,6 @@ namespace BeingAliveLanguage
                 postStoneT = PickAndCluster(preStoneT, rStone, szStone);
             }
             #endregion
-
 
             #region clay, biochar 
             var totalAclay = totalArea * rClay;
