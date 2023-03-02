@@ -144,6 +144,8 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Silt Tri", "siltT", "Silt triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Clay Tri", "clayT", "Clay triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("All Tri", "allT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
+
+            pManager.AddNumberParameter("debug", "debugNum", "debugging", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -159,21 +161,26 @@ namespace BeingAliveLanguage
             { return; }
             DA.GetDataList("Rocks", rock);
 
+
             //List<Polyline> triPoly = sBase.soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            double[] ratio = new double[3] { sInfo.rSand, sInfo.rSilt, sInfo.rClay };
+            //double[] ratio = new double[3] { sInfo.rSand, sInfo.rSilt, sInfo.rClay };
 
             // call the actural function
-            var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
+            //var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
+            var soil = new SoilGeneral(sBase, sInfo, rock);
+            soil.Build();
 
-            DA.SetDataList(0, sandT);
-            DA.SetDataList(1, siltT);
-            DA.SetDataList(2, clayT);
+            DA.SetDataList(0, soil.mSandT);
+            DA.SetDataList(1, soil.mSiltT);
+            DA.SetDataList(2, soil.mClayT);
 
-            var allT = sandT.Concat(siltT).Concat(clayT).ToList();
-            DA.SetDataList(3, allT);
+            DA.SetDataList(3, soil.Collect());
+
+            // debug
+            //var res = BeingAliveLanguageRC.Utils.Addition(10, 23.5);
+            //DA.SetData(4, res);
         }
     }
-
 
     public class BALsoilDiagramGeneral_OBSOLETE : GH_Component
     {
@@ -237,15 +244,15 @@ namespace BeingAliveLanguage
             double[] ratio = new double[3] { rSand, rSilt, rClay };
 
             // call the actural function
-            var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
+            //var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
 
-            DA.SetData(0, soilInfo);
-            DA.SetDataList(1, sandT);
-            DA.SetDataList(2, siltT);
-            DA.SetDataList(3, clayT);
+            //DA.SetData(0, soilInfo);
+            //DA.SetDataList(1, sandT);
+            //DA.SetDataList(2, siltT);
+            //DA.SetDataList(3, clayT);
 
-            var allT = sandT.Concat(siltT).Concat(clayT).ToList();
-            DA.SetDataList(4, allT);
+            //var allT = sandT.Concat(siltT).Concat(clayT).ToList();
+            //DA.SetDataList(4, allT);
         }
 
     }
@@ -265,6 +272,7 @@ namespace BeingAliveLanguage
         {
             pManager.AddGenericParameter("Soil Base", "soilBase", "soil base triangle map.", GH_ParamAccess.item);
             pManager[0].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
+
             pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item, 1);
             pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item, 0);

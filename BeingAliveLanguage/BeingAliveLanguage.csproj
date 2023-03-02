@@ -2,10 +2,13 @@
 
 	<PropertyGroup>
 		<TargetFramework>net48</TargetFramework>
-		<Version>$(VersionPrefix)</Version>
+		<Version>0.3.0</Version>
 		<Title>BeingAliveLanguage</Title>
 		<Description>Description of BALloader</Description>
 		<TargetExt>.gha</TargetExt>
+		<Company>ETH Zurich</Company>
+		<Authors>Dr. Zhao MA</Authors>
+		<BaseOutputPath>bin\$(Configuration)\</BaseOutputPath>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -13,6 +16,10 @@
 		<PackageReference Include="Grasshopper" Version="7.10.21256.17001" />
 		<PackageReference Include="KdTree" Version="1.4.1" />
 		<PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\BeingAliveLanguageRhinoCommon\BeingAliveLanguageRC.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -26,11 +33,6 @@
 			<AutoGen>True</AutoGen>
 			<DependentUpon>Resources.resx</DependentUpon>
 		</Compile>
-		<Compile Update="Properties\Settings.Designer.cs">
-		  <DesignTimeSharedInput>True</DesignTimeSharedInput>
-		  <AutoGen>True</AutoGen>
-		  <DependentUpon>Settings.settings</DependentUpon>
-		</Compile>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -40,21 +42,17 @@
 		</EmbeddedResource>
 	</ItemGroup>
 
-	<ItemGroup>
-	  <None Update="Properties\Settings.settings">
-	    <Generator>SettingsSingleFileGenerator</Generator>
-	    <LastGenOutput>Settings.Designer.cs</LastGenOutput>
-	  </None>
-	</ItemGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+	  <PlatformTarget>x64</PlatformTarget>
+	  <OutputPath>bin\</OutputPath>
+	</PropertyGroup>
 
-	<PropertyGroup Condition="$(Configuration) == 'Debug' AND $([MSBuild]::IsOSPlatform(Windows))">
-		<StartProgram>C:\Program Files\Rhino 7\System\Rhino.exe</StartProgram>
-		<StartArguments></StartArguments>
-		<StartAction>Program</StartAction>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+	  <PlatformTarget>x64</PlatformTarget>
 	</PropertyGroup>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Exec Command="if not exist &quot;$(SolutionDir)bin&quot; mkdir &quot;$(SolutionDir)bin&quot;&#xD;&#xA;Copy /y &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\bin\$(ProjectName).gha&quot;&#xD;&#xA;Copy /y &quot;$(TargetDir)\*.dll&quot; &quot;$(SolutionDir)bin\*.dll&quot;" />
+		<Exec Command="if not exist &quot;$(SolutionDir)bin&quot; mkdir &quot;$(SolutionDir)bin&quot;&#xD;&#xA;Copy /y &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\bin\$(Configuration)\$(ProjectName).gha&quot;&#xD;&#xA;Copy /y &quot;$(TargetDir)\*.dll&quot; &quot;$(SolutionDir)bin\$(Configuration)\*.dll&quot;&#xD;&#xA;Erase &quot;$(TargetPath)&quot;" />
 	</Target>
 
 </Project>
