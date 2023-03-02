@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "cppFunc.h"
 
-void BAL_possionDiskElimSample(ON_SimpleArray<float>* inPt, int n,
+void BAL_possionDiskElimSample(ON_SimpleArray<float>* inPt, double area, int n,
 	ON_3dPointArray* outPt) {
 	// input conversion
 	int sz = inPt->Count() / 3;
@@ -13,10 +13,17 @@ void BAL_possionDiskElimSample(ON_SimpleArray<float>* inPt, int n,
 	}
 
 	// elimination to the given number of pts
-	cy::WeightedSampleElimination<cy::Vec3f, float, 2> wse;
+	cy::WeightedSampleElimination<cy::Vec3f, float, 3> wse;
 	std::vector<cy::Vec3f> outputPoints(n);
+
+	//! Important!
+	// d_max is used to define the sampling dist param based on sampling area
+	//http://www.cemyuksel.com/cyCodeBase/soln/poisson_disk_sampling.html
+	float d_max = 2 * wse.GetMaxPoissonDiskRadius(2, outputPoints.size(), area);
+
+	// 3D points, sampling in 2D plane
 	wse.Eliminate(inputPoints.data(), inputPoints.size(), outputPoints.data(),
-		outputPoints.size(), true);
+		outputPoints.size(), false, d_max, 2);
 
 	// output conversion
 	outPt->Empty();
