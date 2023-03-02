@@ -589,11 +589,10 @@ namespace BeingAliveLanguage
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            pManager.AddGenericParameter("Soil Base", "soilBase", "The base object used for soil diagram generation.", GH_ParamAccess.item);
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
-            pManager.AddRectangleParameter("Boundary", "Bound", "Boundary rectangle.", GH_ParamAccess.item);
             pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
             pManager.AddNumberParameter("Organic Matter Density", "dOrganics", "Density of organic matter [ 0 - 1 ].", GH_ParamAccess.item, 0.5);
-
             pManager[3].Optional = true; // OM
         }
 
@@ -606,18 +605,18 @@ namespace BeingAliveLanguage
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // get data
+            SoilBase sBase = new SoilBase();
             SoilProperty soilInfo = new SoilProperty();
-            List<Curve> triCrv = new List<Curve>();
-            Rectangle3d bnd = new Rectangle3d();
+            List<Curve> soilT = new List<Curve>();
             double dOM = 0.5;
 
-            if (!DA.GetData(0, ref soilInfo))
+            if (!DA.GetData("Soil Base", ref sBase))
             { return; }
-            if (!DA.GetData(1, ref bnd))
+            if (!DA.GetData("Soil Info", ref soilInfo))
             { return; }
-            if (!DA.GetDataList(2, triCrv))
+            if (!DA.GetDataList("Soil Tri", soilT))
             { return; }
-            DA.GetData(3, ref dOM);
+            DA.GetData("Organic Matter Density", ref dOM);
             if (dOM <= 0)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Density should be larger than 0.");
@@ -625,7 +624,8 @@ namespace BeingAliveLanguage
             }
 
             // compute
-            var (omLn, omProp) = BalCore.GenOrganicMatterInner(bnd, soilInfo, triCrv, dOM);
+            var crvT = soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
+            var (omLn, omProp) = BalCore.GenOrganicMatterInner(sBase.bnd, soilInfo, crvT, dOM);
 
             GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
             // output data
