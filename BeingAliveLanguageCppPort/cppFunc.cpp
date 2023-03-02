@@ -32,6 +32,7 @@ void BAL_possionDiskElimSample(ON_SimpleArray<float>* inPt, double area, int n,
 	}
 }
 
+
 double BAL_Addition(double a, double b)
 {
 	return a + b;

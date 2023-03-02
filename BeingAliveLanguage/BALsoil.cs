@@ -277,11 +277,10 @@ namespace BeingAliveLanguage
             pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Relative Stone Size", "szStone", "The relative stone size [1, 5], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.list, 0);
+            pManager.AddNumberParameter("Relative Stone Size", "szStone", "The relative stone size [1, 5], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.list, 3);
             pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item, 0);
             // TODO: if we should separate organic matter out
             pManager[6].Optional = true; // rock can be optionally provided
-
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
