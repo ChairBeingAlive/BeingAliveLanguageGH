@@ -387,7 +387,7 @@ namespace BeingAliveLanguage
             else if (rClay > 0.27 && rClay <= 0.4 && rSand <= 0.2)
                 sPro.setInfo("silty clay loam", 0.38, 0.22, 0.51);
 
-            else if (rClay > 0.2 && rClay <= 0.35 && rSand > 0.45 && rSilt < 0.27)
+            else if (rClay > 0.2 && rClay <= 0.35 && rSand > 0.45 && rSilt <= 0.28)
                 sPro.setInfo("sandy clay loam", 0.27, 0.17, 0.43);
 
             else if (rClay > 0.07 && rClay <= 0.27 && rSand <= 0.53 && rSilt > 0.28 && rSilt <= 0.5)
