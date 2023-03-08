@@ -892,24 +892,28 @@ namespace BeingAliveLanguage
             var totalASilt = totalArea * mInfo.rSilt;
             var totalAClay = totalArea * mInfo.rClay;
 
-            // sand
-            var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
-            mSandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
 
-            //! testing poisson disc sampling
+            // sand
             var triCen = triL.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
             BalCore.CreateCentreMap(triL, out cenMap);
-            BeingAliveLanguageRC.Utils.SampleElim(triCen, numSand, out List<Point3d> outCen);
-            mSandT = outCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
+
+            // sand
+            var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
+            //mSandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
+            BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numSand, out List<Point3d> outSandCen);
+            mSandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
             // silt
             var preSiltT = triL.Except(mSandT).ToList();
             var preSiltTDiv = BalCore.subDivTriLst(preSiltT);
+            var preSiltCen = preSiltTDiv.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
+            BalCore.CreateCentreMap(preSiltTDiv, out cenMap);
 
             double avgPreSiltTArea = preSiltTDiv.Sum(x => BalCore.triArea(x)) / preSiltTDiv.Count;
-
             var numSilt = (int)Math.Round(totalASilt / avgPreSiltTArea);
-            mSiltT = preSiltTDiv.OrderBy(x => Guid.NewGuid()).Take(numSilt).ToList();
+            //mSiltT = preSiltTDiv.OrderBy(x => Guid.NewGuid()).Take(numSilt).ToList();
+            BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numSilt, out List<Point3d> outSiltCen);
+            mSiltT = outSiltCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
             // clay
             var preClayT = preSiltTDiv.Except(mSiltT).ToList();
