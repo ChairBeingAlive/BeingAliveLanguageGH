@@ -9,7 +9,7 @@
 
 // ! Sampling
 RH_C_FUNCTION
-void BAL_possionDiskElimSample(ON_SimpleArray<float>* inPt, int n,
+void BAL_possionDiskElimSample(ON_SimpleArray<double>* inPt, int n,
 	ON_3dPointArray* outPt);
 
 RH_C_FUNCTION

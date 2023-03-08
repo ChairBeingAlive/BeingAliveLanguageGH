@@ -10,15 +10,15 @@ namespace BeingAliveLanguageRC
     {
         public static void SampleElim(in List<Point3d> inPt, int num, out List<Point3d> outPt)
         {
-            var Parray = new List<float>();
+            var Parray = new List<double>();
             foreach (var p in inPt)
             {
-                Parray.Add((float)p.X);
-                Parray.Add((float)p.Y);
-                Parray.Add((float)p.Z);
+                Parray.Add(p.X);
+                Parray.Add(p.Y);
+                Parray.Add(p.Z);
             }
 
-            var inPcpp = new Rhino.Runtime.InteropWrappers.SimpleArrayFloat(Parray);
+            var inPcpp = new Rhino.Runtime.InteropWrappers.SimpleArrayDouble(Parray);
             var outPcpp = new Rhino.Runtime.InteropWrappers.SimpleArrayPoint3d();
 
             cppBAL.BAL_possionDiskElimSample(inPcpp.ConstPointer(), num, outPcpp.NonConstPointer());
