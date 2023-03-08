@@ -98,7 +98,7 @@ namespace BeingAliveLanguage
             DA.SetDataList(0, etpCorrected);
             DA.SetDataList(1, etr);
             DA.SetDataList(2, surplus);
-            DA.SetDataList(3, reserve);
+            DA.SetDataList(3, deficit);
         }
     }
 }

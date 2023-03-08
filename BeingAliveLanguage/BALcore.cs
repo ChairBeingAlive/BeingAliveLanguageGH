@@ -387,7 +387,7 @@ namespace BeingAliveLanguage
             else if (rClay > 0.27 && rClay <= 0.4 && rSand <= 0.2)
                 sPro.setInfo("silty clay loam", 0.38, 0.22, 0.51);
 
-            else if (rClay > 0.2 && rClay <= 0.35 && rSand > 0.45 && rSilt < 0.27)
+            else if (rClay > 0.2 && rClay <= 0.35 && rSand > 0.45 && rSilt <= 0.28)
                 sPro.setInfo("sandy clay loam", 0.27, 0.17, 0.43);
 
             else if (rClay > 0.07 && rClay <= 0.27 && rSand <= 0.53 && rSilt > 0.28 && rSilt <= 0.5)
@@ -660,15 +660,14 @@ namespace BeingAliveLanguage
 
 
         // generate organic matter for soil inner
-        public static (List<List<Line>>, OrganicMatterProperty) GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Curve> tri, double dOM)
+        public static (List<List<Line>>, OrganicMatterProperty) GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Polyline> tri, double dOM)
         {
             var coreRatio = 1 - sInfo.saturation;
-            var triPoly = tri.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            var triCore = triPoly.Select(x => OffsetTri(x.Duplicate(), coreRatio)).ToList();
+            var triCore = tri.Select(x => OffsetTri(x.Duplicate(), coreRatio)).ToList();
 
             // compute density based on distance to the soil surface
             List<double> denLst = new List<double>();
-            foreach (var t in triPoly)
+            foreach (var t in tri)
             {
                 bnd.Plane.ClosestParameter(t.CenterPoint(), out double x, out double y);
                 denLst.Add(bnd.Height - y);
@@ -679,18 +678,18 @@ namespace BeingAliveLanguage
             var dMax = denLst.Max();
 
             var distDen = denLst.Select(x => CustomExpFit((x - dMin) / (dMax - dMin))).ToList();
-            var triLen = tri.Select(x => x.GetLength()).ToList();
+            var triLen = tri.Select(x => x.Length).ToList();
 
             // generate lines
             List<List<Line>> res = new List<List<Line>>();
-            for (int i = 0; i < triPoly.Count; i++)
+            for (int i = 0; i < tri.Count; i++)
             {
                 // for each triangle, divide pts based on the density param, and create OM lines
-                int divN = (int)Math.Round(triPoly[i].Length / distDen[i] * dOM / 10) * 3;
+                int divN = (int)Math.Round(tri[i].Length / distDen[i] * dOM / 10) * 3;
                 if (divN == 0)
                     continue;
 
-                var omLn = createOM(triCore[i], triPoly[i], divN);
+                var omLn = createOM(triCore[i], tri[i], divN);
                 res.Add(omLn);
             }
 
