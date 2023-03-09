@@ -9,9 +9,6 @@ using MathNet.Numerics.Interpolation;
 
 namespace BeingAliveLanguage
 {
-    //using PathD = List<PointD>;
-    using PathsD = List<List<PointD>>;
-
     public static class ClipperUtils
     {
         public static Polyline OffsetPolygon(in Plane pln, in Polyline polyIn, in double ratio)
