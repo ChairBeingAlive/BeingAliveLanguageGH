@@ -1132,43 +1132,44 @@ namespace BeingAliveLanguage
 
             var genCen = new List<Point3d>();
             var stoneCen = new List<Point3d>();
-            var bndPoly = sBase.bnd;
-            //var bndPoly = ClipperUtils.OffsetPolygon(sBase.pln, sBase.bnd.ToPolyline(), 0.95);
 
             // scale the bnd a bit to allow clay appears on borders
-            BeingAliveLanguageRC.Utils.SampleElim(bndPoly, stoneCntLst.Sum(), out genCen, out stoneCen, 0.93);
+            BeingAliveLanguageRC.Utils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, 0.93);
 
             // ! separate the stoneCen into several clusters according to the number of stone types, and collect the initial triangle
             // we use a new struct "StoneCluster" to store info related to the final stones
             var stoneCol = new List<StoneCluster>(stoneCen.Count);
 
-
-            #region Stone Count
             // ! Explanation:
             /// to decide the number of stones for each ratio, we actually need to solve a linear programming question of:
             ///
             /// Sum(N_i) = N
             /// Sum(N_i * f_area(stone_i)) = A_i
             /// N_i * f_area(stone_i) = A_i
+            /// 
+            /// to get multiple solutions.
             ///
-            /// To get multiple solutions.
             /// To get a usable solution, we need more assumptions, for instance, N_i ~ ratio_i, etc.
             ///
+            /// 
             /// However, for the two stone type case, we can direct solve the only solution without the linear programming issue:
+            /// 
             /// N_1 * Area(stone_1) = A_1
             /// N_2 * Area(stone_2) = A_2
             /// N_1 + N_2 = N
+            /// 
             /// Area(stone_1) : Area(stone_2) = sz_1 : sz_2
-            #endregion
 
             #region Initialize Stone Collection
             int idxCnt = 0;
             var tmpStoneCen = stoneCen;
 
-            for (int i = 0; i < ratioLst.Count; i++)
+            //for (int i = ratioLst.Count - 1; i >= 0; i--) // reverse the order, from bigger elements to smaller
+            for (int i = 0; i < ratioLst.Count; i++) 
             {
-                //var cnt = (int)Math.Round(totalArea * ratioLst[i] / (Math.Sqrt(3) / 4 * stoneR[i] * stoneR[i]));
-                var curLst = tmpStoneCen.OrderBy(_ => Utils.balRnd.Next()).Take(stoneCntLst[i]).ToList();
+                var curLst = new List<Point3d>();
+                BeingAliveLanguageRC.Utils.SampleElim(tmpStoneCen, sBase.bnd.Area, stoneCntLst[i], out curLst);
+                //var curLst = tmpStoneCen.OrderBy(_ => Utils.balRnd.Next()).Take(stoneCntLst[i]).ToList();
 
                 // record centre triangle
                 foreach (var pt in curLst)

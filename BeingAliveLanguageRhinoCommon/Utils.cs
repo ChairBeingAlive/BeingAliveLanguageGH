@@ -38,14 +38,32 @@ namespace BeingAliveLanguageRC
         }
 
         // Poisson Elimination Sampling overload, given rectangle bound
-        public static void SampleElim(Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, double bndScale = 1.0)
+        public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, double bndScale = 1.0)
         {
-            // scale the sampling area to avoid border accumulation
-            if (bndScale != 1.0)
-                bnd.Transform(Transform.Scale(bnd.Center, 0.9));
+            var toLocal = Transform.ChangeBasis(Plane.WorldXY, bnd.Plane);
+            var toWorld = Transform.ChangeBasis(bnd.Plane, Plane.WorldXY);
 
-            var lowerLeft = bnd.Corner(0);
-            var diagVec = bnd.Corner(2) - bnd.Corner(0);
+            var curBnd = bnd;
+            // we transform "scale" into "offset" to have equal distance in borders
+            if (bndScale != 1.0)
+            {
+                curBnd.Transform(toWorld);
+                var w = (curBnd.Corner(1) - curBnd.Corner(0)).Length;
+                var h = (curBnd.Corner(3) - curBnd.Corner(0)).Length;
+
+                double wScale = (w - h * (1 - bndScale)) / w;
+
+                var tmpPln = Plane.WorldXY;
+                tmpPln.Translate(curBnd.Center - Plane.WorldXY.Origin);
+                curBnd.Transform(Transform.Scale(tmpPln, wScale, bndScale, 1));
+                //bnd.Transform(Transform.Scale(bnd.Center, bndScale));
+
+                curBnd.Transform(toLocal);
+            }
+
+            // generate random points
+            var lowerLeft = curBnd.Corner(0);
+            var diagVec = curBnd.Corner(2) - curBnd.Corner(0);
 
             genPt = new List<Point3d>();
             for (int i = 0; i < num * 15; i++)
@@ -53,7 +71,7 @@ namespace BeingAliveLanguageRC
                 genPt.Add(new Point3d(rnd.NextDouble() * diagVec.X, rnd.NextDouble() * diagVec.Y, rnd.NextDouble() * diagVec.Z) + lowerLeft);
             }
 
-            SampleElim(genPt, bnd.Area, num, out outPt);
+            SampleElim(genPt, curBnd.Area, num, out outPt);
         }
 
         // helper func
