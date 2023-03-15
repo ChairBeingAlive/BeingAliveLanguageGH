@@ -7,10 +7,12 @@
 
 #define RH_C_FUNCTION extern "C" __declspec(dllexport)
 
-// ! Sampling
-RH_C_FUNCTION
-void BAL_possionDiskElimSample(ON_SimpleArray<float>* inPt, double area, int n,
-	ON_3dPointArray* outPt);
-
+// ! testing func for cpp/c# integration
 RH_C_FUNCTION
 double BAL_Addition(double a, double b);
+
+// ! Sampling
+RH_C_FUNCTION
+void BAL_possionDiskElimSample(ON_SimpleArray<double>* inPt, double area, int n,
+	ON_3dPointArray* outPt);
+
