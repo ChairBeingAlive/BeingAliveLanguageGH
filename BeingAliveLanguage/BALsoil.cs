@@ -332,7 +332,6 @@ namespace BeingAliveLanguage
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No urban stone contains sand and stone simultaneously.");
                 return;
             }
-
             if (rSand + rClay + rBiochar + rOM + rStone.Sum() != 1)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Ratio of all contents need to sum up to 1. Current value is {rSand + rClay + rBiochar + rOM + rStone.Sum()}");
@@ -341,10 +340,12 @@ namespace BeingAliveLanguage
             if (szStone.Any(x => x < 1 || x > 5))
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Relative stone size out of range [1 - 5].");
+                return;
             }
             if (rStone.Count != szStone.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "# of Stone ratios and sizes need to be matched.");
+                return;
             }
 
             // ! step1: scaling the ratio of sand, clay, biochar, stone if organic matter is presented

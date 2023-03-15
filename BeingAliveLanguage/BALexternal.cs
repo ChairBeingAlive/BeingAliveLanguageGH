@@ -9,6 +9,7 @@ using MathNet.Numerics.Interpolation;
 
 namespace BeingAliveLanguage
 {
+    // ! For offsetting complex polylines (Rhino's build-in offset is not as good)
     public static class ClipperUtils
     {
         public static Polyline OffsetPolygon(in Plane pln, in Polyline polyIn, in double ratio)
@@ -60,12 +61,11 @@ namespace BeingAliveLanguage
 
             return new Polyline(polyOut);
         }
-
     }
 
     // ! For Poisson Sampling, use the WeightedSamplingElimination Approach in the CppPort project.
     // ! The following approach is obsolete
-    public static class samplingUtils
+    public static class SamplingUtils
     {
         static public List<Point3d> uniformSampling(ref SoilBase sBase, int num)
         {

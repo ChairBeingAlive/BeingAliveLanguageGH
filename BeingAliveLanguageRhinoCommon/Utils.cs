@@ -37,24 +37,24 @@ namespace BeingAliveLanguageRC
             outPt = new List<Point3d>(outPcpp.ToArray());
         }
 
-
         // Poisson Elimination Sampling overload, given rectangle bound
-        public static void SampleElim(Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt)
+        public static void SampleElim(Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, double bndScale = 1.0)
         {
-            //var minMaxCorner = new List<Point3d> { bnd.Corner(0), bnd.Corner(2) };
+            // scale the sampling area to avoid border accumulation
+            if (bndScale != 1.0)
+                bnd.Transform(Transform.Scale(bnd.Center, 0.9));
+
             var lowerLeft = bnd.Corner(0);
-            //var upperRight = bnd.Corner(2);
             var diagVec = bnd.Corner(2) - bnd.Corner(0);
 
             genPt = new List<Point3d>();
-            for (int i = 0; i < num * 10; i++)
+            for (int i = 0; i < num * 15; i++)
             {
                 genPt.Add(new Point3d(rnd.NextDouble() * diagVec.X, rnd.NextDouble() * diagVec.Y, rnd.NextDouble() * diagVec.Z) + lowerLeft);
             }
 
             SampleElim(genPt, bnd.Area, num, out outPt);
         }
-
 
         // helper func
         public static Random rnd = new Random(Guid.NewGuid().GetHashCode());
