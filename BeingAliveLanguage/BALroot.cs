@@ -364,7 +364,7 @@ namespace BeingAliveLanguage
         public BALtreeRoot()
         : base("TreeRoot", "balTreeRoot",
               "Generate the BAL tree-root drawing using the BAL tree and soil information.",
-              "BAL", "03::plant")
+              "BAL", "02::root")
         { }
 
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
