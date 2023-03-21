@@ -119,8 +119,8 @@ namespace BeingAliveLanguage
     public class BALsoilDiagramGeneral : GH_Component
     {
         public BALsoilDiagramGeneral()
-          : base("General Soil Content", "balsoilGeneral",
-                "Draw a soil map based on the ratio of 3 soil contents, and avoid rock area rocks if rock curves are provided.",
+          : base("General Soil Separates", "balsoilGeneral",
+                "Draw a soil map based on the ratio of 3 soil separates, and avoid rock area rocks if rock curves are provided.",
                 "BAL", "01::soil")
         {
         }
@@ -186,8 +186,8 @@ namespace BeingAliveLanguage
     public class BALsoilDiagramUrban : GH_Component
     {
         public BALsoilDiagramUrban()
-          : base("Urban Soil Content", "balsoilUrban",
-                "Draw a soil map based on the ratio of soil contents of different urban soil types.",
+          : base("Urban Soil", "balsoilUrban",
+                "Draw a soil map based on the ratio of soil compositions of different urban soil types.",
                 "BAL", "01::soil")
         {
         }
@@ -443,7 +443,7 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles, representing soil content without any water.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles, representing soil separates without any water.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Wilting Point", "soilWP", "Soil wilting point triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Field Capacity", "soilFC", "Soil field capacity triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Saturation", "soilST", "Soil saturation triangles.", GH_ParamAccess.list);
