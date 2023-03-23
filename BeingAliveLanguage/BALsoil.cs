@@ -145,7 +145,7 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Clay Triangle", "clayT", "Clay triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("All Triangle", "soilT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
 
-            pManager.AddNumberParameter("debug", "debugNum", "debugging", GH_ParamAccess.item);
+            //pManager.AddNumberParameter("debug", "debugNum", "debugging", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
