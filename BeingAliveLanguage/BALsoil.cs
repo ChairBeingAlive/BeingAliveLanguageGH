@@ -53,9 +53,9 @@ namespace BeingAliveLanguage
             if (!DA.GetData("Clay Ratio", ref rClay))
             { return; }
 
-            if (rSand + rClay + rSilt != 1)
+            if (rSand + rClay + rSilt != 1 || rSand < 0 || rClay < 0 || rSilt < 0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio of all content need to sum up to 1.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio of all content need to sum up to 1. Only positive ratio allowed.");
                 return;
             }
 
@@ -136,6 +136,8 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Rocks", "R", "Curves represendting the rocks in the soil.", GH_ParamAccess.list);
             pManager[2].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
             pManager[2].Optional = true; // rock can be optionally provided
+            pManager.AddIntegerParameter("seed", "s", "Int seed for randomize the generated soil pattern.", GH_ParamAccess.item, -1);
+            pManager[3].Optional = true; // rock can be optionally provided
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -155,11 +157,13 @@ namespace BeingAliveLanguage
             var sBase = new SoilBase();
             var sInfo = new SoilProperty();
             List<Curve> rock = new List<Curve>();
+            int seed = -1;
             if (!DA.GetData("Soil Base", ref sBase))
             { return; }
             if (!DA.GetData("Soil Info", ref sInfo))
             { return; }
             DA.GetDataList("Rocks", rock);
+            DA.GetData("seed", ref seed);
 
 
             //List<Polyline> triPoly = sBase.soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
@@ -167,7 +171,7 @@ namespace BeingAliveLanguage
 
             // call the actural function
             //var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
-            var soil = new SoilGeneral(sBase, sInfo, rock);
+            var soil = new SoilGeneral(sBase, sInfo, rock, seed);
             soil.Build();
 
             DA.SetDataList(0, soil.mSandT);

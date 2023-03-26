@@ -38,8 +38,12 @@ namespace BeingAliveLanguageRC
         }
 
         // Poisson Elimination Sampling overload, given rectangle bound
-        public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, double bndScale = 1.0)
+        public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, int seed = -1, double bndScale = 1.0)
         {
+
+            var rnd = seed >= 0 ? new Random(seed) : new Random(Guid.NewGuid().GetHashCode());
+
+
             var toLocal = Transform.ChangeBasis(Plane.WorldXY, bnd.Plane);
             var toWorld = Transform.ChangeBasis(bnd.Plane, Plane.WorldXY);
 
@@ -75,6 +79,6 @@ namespace BeingAliveLanguageRC
         }
 
         // helper func
-        public static Random rnd = new Random(Guid.NewGuid().GetHashCode());
+        //public static Random rnd = new Random(Guid.NewGuid().GetHashCode());
     }
 }

@@ -873,24 +873,28 @@ namespace BeingAliveLanguage
 
     class SoilGeneral
     {
-        public SoilGeneral(in SoilBase sBase, in SoilProperty sInfo, in List<Curve> stone)
+        public SoilGeneral(in SoilBase sBase, in SoilProperty sInfo, in List<Curve> stone, in int seed)
         {
             this.mBase = sBase;
             this.mInfo = sInfo;
             this.mStone = stone;
+            this.mSeed = seed;
         }
 
         public void Build()
         {
-            var triL = mBase.soilT;
+            var triLOrigin = mBase.soilT;
 
             // get area
-            double totalArea = triL.Sum(x => BalCore.triArea(x));
+            double totalArea = triLOrigin.Sum(x => BalCore.triArea(x));
 
             var totalASand = totalArea * mInfo.rSand;
             var totalASilt = totalArea * mInfo.rSilt;
             var totalAClay = totalArea * mInfo.rClay;
 
+            // we randomize the triangle list's sequence to simulate a random-order Poisson Disk sampling 
+            var rnd = mSeed >= 0 ? new Random(mSeed) : new Random(Guid.NewGuid().GetHashCode());
+            var triL = triLOrigin.OrderBy(x => rnd.Next()).ToList();
 
             // sand
             var triCen = triL.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
@@ -898,7 +902,6 @@ namespace BeingAliveLanguage
 
             // sand
             var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
-            //mSandT = triL.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
             BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numSand, out List<Point3d> outSandCen);
             mSandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
@@ -910,7 +913,6 @@ namespace BeingAliveLanguage
 
             double avgPreSiltTArea = preSiltTDiv.Sum(x => BalCore.triArea(x)) / preSiltTDiv.Count;
             var numSilt = (int)Math.Round(totalASilt / avgPreSiltTArea);
-            //mSiltT = preSiltTDiv.OrderBy(x => Guid.NewGuid()).Take(numSilt).ToList();
             BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numSilt, out List<Point3d> outSiltCen);
             mSiltT = outSiltCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
@@ -955,6 +957,7 @@ namespace BeingAliveLanguage
         SoilBase mBase;
         SoilProperty mInfo;
         List<Curve> mStone;
+        int mSeed;
 
         // out param
         public List<Polyline> mClayT, mSiltT, mSandT;
@@ -1134,7 +1137,7 @@ namespace BeingAliveLanguage
             var stoneCen = new List<Point3d>();
 
             // scale the bnd a bit to allow clay appears on borders
-            BeingAliveLanguageRC.Utils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, 0.93);
+            BeingAliveLanguageRC.Utils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, -1, 0.93);
 
             // ! separate the stoneCen into several clusters according to the number of stone types, and collect the initial triangle
             // we use a new struct "StoneCluster" to store info related to the final stones
@@ -1165,7 +1168,7 @@ namespace BeingAliveLanguage
             var tmpStoneCen = stoneCen;
 
             //for (int i = ratioLst.Count - 1; i >= 0; i--) // reverse the order, from bigger elements to smaller
-            for (int i = 0; i < ratioLst.Count; i++) 
+            for (int i = 0; i < ratioLst.Count; i++)
             {
                 var curLst = new List<Point3d>();
                 BeingAliveLanguageRC.Utils.SampleElim(tmpStoneCen, sBase.bnd.Area, stoneCntLst[i], out curLst);
