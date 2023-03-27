@@ -33,10 +33,12 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddNumberParameter("Evapotraspiration-Corrected", "ETP.corr", "Corrected evapotranspiration (mm/yr).", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Evapotraspiration-Real", "ETR", "Real evapotranspiration (mm/yr).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Potential Evapotraspiration (Corrected)", "PET.corr", "Corrected evapotranspiration (mm/yr).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Actual Evapotraspiration", "ETa", "Real evapotranspiration (mm/yr).", GH_ParamAccess.list);
             pManager.AddNumberParameter("Surplus", "SUR", "The water that is not evapotranspired or held in the soil (mm).", GH_ParamAccess.list);
             pManager.AddNumberParameter("Deficit", "DEF", "The difference between the maximum evapotranspiration and the water in the system (mm).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Reserve", "RES", "The ammount of water reserved in the soil (mm).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("MaxReserve", "maxRES", "The maximum ammount of water can be reserved in the soil (mm). When this value is reached, the soil is fully saturated.", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -99,6 +101,8 @@ namespace BeingAliveLanguage
             DA.SetDataList(1, etr);
             DA.SetDataList(2, surplus);
             DA.SetDataList(3, deficit);
+            DA.SetDataList(4, reserve);
+            DA.SetData(5, maxReserve);
         }
     }
 }
