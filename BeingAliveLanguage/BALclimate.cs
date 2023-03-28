@@ -22,7 +22,7 @@ namespace BeingAliveLanguage
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddNumberParameter("Participation", "P", "Participation of given location in 12 months.", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Precipitation", "P", "Precipitation of given location in 12 months.", GH_ParamAccess.list);
             pManager.AddNumberParameter("Temperature", "T", "Temperature of given location in 12 months.", GH_ParamAccess.list);
             pManager.AddNumberParameter("Latitude", "Lat", "Latitude of the given location.", GH_ParamAccess.item);
             //pManager.AddNumberParameter("MaxReserve", "maxRes", "Maximum reserved water of previous years.", GH_ParamAccess.item);
@@ -33,8 +33,8 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddNumberParameter("Potential Evapotraspiration (Corrected)", "PET.corr", "Corrected evapotranspiration (mm/yr).", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Actual Evapotraspiration", "ETa", "Real evapotranspiration (mm/yr).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Potential Evapotranspiration (Corrected)", "PET.corr", "Corrected evapotranspiration (mm/yr).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Actual Evapotranspiration", "ETa", "Real evapotranspiration (mm/yr).", GH_ParamAccess.list);
             pManager.AddNumberParameter("Surplus", "SUR", "The water that is not evapotranspired or held in the soil (mm).", GH_ParamAccess.list);
             pManager.AddNumberParameter("Deficit", "DEF", "The difference between the maximum evapotranspiration and the water in the system (mm).", GH_ParamAccess.list);
             pManager.AddNumberParameter("Reserve", "RES", "The ammount of water reserved in the soil (mm).", GH_ParamAccess.list);
