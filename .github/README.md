@@ -1,4 +1,4 @@
-![](https://raw.githubusercontent.com/ChairBeingAlive/BeingAliveLanguageGH/main/graphics/soil_overview_img.png)
+![](https://raw.githubusercontent.com/ChairBeingAlive/BeingAliveLanguageGH/main/.github/title-img.png)
 
 <h1 align="center">BeingAliveLanguage</h1>
 <div align="center">
