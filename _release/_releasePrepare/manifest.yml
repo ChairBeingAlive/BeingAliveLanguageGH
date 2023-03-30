@@ -1,6 +1,6 @@
 ---
 name: BeingAliveLanguage
-version: 0.3.4
+version: 0.3.5
 authors:
 - Dr. Zhao Ma @ BeingAlive
 description: This is the plugin for automatically using the set of language developed by the Chair of Being Alive at ETH Zurich.
