@@ -133,11 +133,13 @@ namespace BeingAliveLanguage
         {
             pManager.AddGenericParameter("Soil Base", "soilBase", "soil base triangle map.", GH_ParamAccess.item);
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+
             pManager.AddCurveParameter("Rocks", "R", "Curves represendting the rocks in the soil.", GH_ParamAccess.list);
             pManager[2].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
             pManager[2].Optional = true; // rock can be optionally provided
+
             pManager.AddIntegerParameter("seed", "s", "Int seed for randomize the generated soil pattern.", GH_ParamAccess.item, -1);
-            pManager[3].Optional = true; // rock can be optionally provided
+            pManager[3].Optional = true; // if no seed is provided, use random seeds
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -147,13 +149,13 @@ namespace BeingAliveLanguage
             pManager.AddCurveParameter("Clay Triangle", "clayT", "Clay triangles.", GH_ParamAccess.list);
             pManager.AddCurveParameter("All Triangle", "soilT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
 
+            //pManager.AddCurveParameter("debugPts", "dP", "Debugging point list.", GH_ParamAccess.list);
             //pManager.AddNumberParameter("debug", "debugNum", "debugging", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // get data
-            //List<Curve> triL = new List<Curve>();
             var sBase = new SoilBase();
             var sInfo = new SoilProperty();
             List<Curve> rock = new List<Curve>();
@@ -164,10 +166,6 @@ namespace BeingAliveLanguage
             { return; }
             DA.GetDataList("Rocks", rock);
             DA.GetData("seed", ref seed);
-
-
-            //List<Polyline> triPoly = sBase.soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-            //double[] ratio = new double[3] { sInfo.rSand, sInfo.rSilt, sInfo.rClay };
 
             // call the actural function
             //var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
