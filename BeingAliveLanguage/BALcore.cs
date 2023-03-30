@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using System.Diagnostics;
 using Rhino.Geometry.Intersect;
+using Rhino.Render;
+using System.Data;
 
 namespace BeingAliveLanguage
 {
@@ -879,6 +881,9 @@ namespace BeingAliveLanguage
             this.mInfo = sInfo;
             this.mStone = stone;
             this.mSeed = seed;
+
+            toLocal = Transform.ChangeBasis(Plane.WorldXY, sBase.pln);
+            toWorld = Transform.ChangeBasis(sBase.pln, Plane.WorldXY);
         }
 
         public void Build()
@@ -896,13 +901,39 @@ namespace BeingAliveLanguage
             var rnd = mSeed >= 0 ? new Random(mSeed) : new Random(Guid.NewGuid().GetHashCode());
             var triL = triLOrigin.OrderBy(x => rnd.Next()).ToList();
 
+            var kdMap = new KdTree<double, Point3d>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
+            foreach (var pl in triL)
+            {
+                var cen = (pl[0] + pl[1] + pl[2]) / 3;
+                var originalCen = cen;
+                cen.Transform(toLocal);
+                kdMap.Add(new[] { cen.X, cen.Y }, originalCen);
+            }
+
             // sand
             var triCen = triL.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
             BalCore.CreateCentreMap(triL, out cenMap);
 
             // sand
             var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
-            BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numSand, out List<Point3d> outSandCen);
+            // ! method 1: just eliminate sampling for triangle centres, cleaner, but when sand ratio is tool high, silt/clay will accumulate to the sides
+            //BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numSand, out List<Point3d> outSandCen);
+
+            // ! method 2: sample general points, then find the corresponding triangles, final results not as clean as method 1
+            List<Point3d> genPt = new List<Point3d>();
+            List<Point3d> sampledPt = new List<Point3d>();
+            BeingAliveLanguageRC.Utils.SampleElim(mBase.bnd, numSand, out genPt, out sampledPt, mSeed, 1);
+
+            var outSandCen = new List<Point3d>();
+            foreach (var pt in sampledPt)
+            {
+                var tmpP = pt;
+                tmpP.Transform(toLocal);
+                var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
+                outSandCen.Add(kdRes[0].Value);
+                kdMap.RemoveAt(kdRes[0].Point);
+            }
+
             mSandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
             // silt
@@ -964,6 +995,9 @@ namespace BeingAliveLanguage
 
         // private
         private Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap;
+
+        Transform toLocal;
+        Transform toWorld;
     }
 
     class SoilUrban
