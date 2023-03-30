@@ -53,17 +53,17 @@ Alternatively, users can also download and install the plugin from the Food4Rhin
 
 ---
 ## Credit & Citation 
-Author: [Zhao Ma](https://beyond-disciplines.com)
+Author: [Dr. Zhao Ma](https://beyond-disciplines.com)
 
 If `BeingAliveLanguage` contributes to an academic publication, please cite it as:
+
 ```bib
 @software{beingalivelanguage,
   title = {BeingAliveLanguage},
   author = {Zhao Ma},
   url = {https://github.com/ChairBeingAlive/BeingAliveLanguageGH},
-  <!-- doi = {10.5281/zenodo.6499203}, -->
-  version = {0.2.2}
-  year = {2022}
+  version = {0.3.5}
+  year = {2023}
 }
 ```
 
