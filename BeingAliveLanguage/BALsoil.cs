@@ -54,7 +54,7 @@ namespace BeingAliveLanguage
             { return; }
 
             // tolerance issue, using abs approach
-            if (Math.Abs(rSand + rClay + rSilt - 1) > 1e-4 || rSand < 0 || rClay < 0 || rSilt < 0)
+            if (rSand + rClay + rSilt - 1 > 1e-4 || rSand < 0 || rClay < 0 || rSilt < 0)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio of all content need to sum up to 1. Only positive ratio allowed.");
                 return;
@@ -174,7 +174,7 @@ namespace BeingAliveLanguage
             DA.GetData("stage", ref stage);
 
 
-            if (stage < 1 || stage > 8)
+            if (stage < 0 || stage > 8)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Randomness of soil separates distribution should be within the range [1 - 8].");
                 return;

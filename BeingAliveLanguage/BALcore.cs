@@ -900,57 +900,67 @@ namespace BeingAliveLanguage
 
             // we randomize the triangle list's sequence to simulate a random-order Poisson Disk sampling 
             var rnd = mSeed >= 0 ? new Random(mSeed) : new Random(Guid.NewGuid().GetHashCode());
-            var triL = triLOrigin.OrderBy(x => rnd.Next()).ToList();
+            var triL = triLOrigin;
+            //var triL = triLOrigin.OrderBy(x => rnd.Next()).ToList();
 
-            var kdMap = new KdTree<double, Point3d>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
-            foreach (var pl in triL)
-            {
-                var cen = (pl[0] + pl[1] + pl[2]) / 3;
-                var originalCen = cen;
-                cen.Transform(toLocal);
-                kdMap.Add(new[] { cen.X, cen.Y }, originalCen);
-            }
+            //var kdMap = new KdTree<double, Point3d>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
+            //foreach (var pl in triL)
+            //{
+            //    var cen = (pl[0] + pl[1] + pl[2]) / 3;
+            //    var originalCen = cen;
+            //    cen.Transform(toLocal);
+            //    kdMap.Add(new[] { cen.X, cen.Y }, originalCen);
+            //}
 
             // sand
             var triCen = triL.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
+            List<Point3d> outSandCen = new List<Point3d>();
             BalCore.CreateCentreMap(triL, out cenMap);
 
             // sand
             var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
 
 
-            #region method 1
             //! just eliminate sampling for triangle centres, cleaner, but when sand ratio is tool high, silt/clay will accumulate to the sides
             // convert stage to randomness param: 1-10 --> 5% - 95% from Poisson's Disk Sampling, the rest from random sampling
 
-            // part 1
-            int numPoisson = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 0.05, 0.95));
-            BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoisson, out List<Point3d> outSandCen, mSeed);
+            if (mStage == 0)
+            {
+                var nStep = (int)Math.Round(1 / mInfo.rSand);
+                // a special case (hidden option to have very regularized grid, regardless of the ratio)
+                outSandCen = triCen.Where((x, i) => i % nStep == 0).ToList();
+            }
+            else
+            {
+                // part 1
+                int numPoisson = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
+                BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoisson, out outSandCen, mSeed);
 
-            // part 2
-            var remainingTriCen = triCen.Except(outSandCen).ToList();
-            var randomTriCen = remainingTriCen.OrderBy(x => rnd.Next()).Take(numSand - numPoisson);
+                // part 2
+                var remainingTriCen = triCen.Except(outSandCen).ToList();
+                var randomTriCen = remainingTriCen.OrderBy(x => rnd.Next()).Take(numSand - numPoisson);
 
-            // combine the two parts
-            outSandCen.AddRange(randomTriCen);
-            #endregion
+                // combine the two parts
+                outSandCen.AddRange(randomTriCen);
+            }
 
-            #region method 2
-            // ! sample general points, then find the corresponding triangles, final results not as clean as method 1
-            //List<Point3d> genPt = new List<Point3d>();
-            //List<Point3d> sampledPt = new List<Point3d>();
-            //BeingAliveLanguageRC.Utils.SampleElim(mBase.bnd, numSand, out genPt, out sampledPt, mSeed, 1, mStage);
 
-            //var outSandCen = new List<Point3d>();
-            //foreach (var pt in sampledPt)
-            //{
-            //    var tmpP = pt;
-            //    tmpP.Transform(toLocal);
-            //    var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
-            //    outSandCen.Add(kdRes[0].Value);
-            //    kdMap.RemoveAt(kdRes[0].Point);
-            //}
-            #endregion
+            //#region method 2
+            //// ! sample general points, then find the corresponding triangles, final results not as clean as method 1
+            ////List<Point3d> genPt = new List<Point3d>();
+            ////List<Point3d> sampledPt = new List<Point3d>();
+            ////BeingAliveLanguageRC.Utils.SampleElim(mBase.bnd, numSand, out genPt, out sampledPt, mSeed, 1, mStage);
+
+            ////var outSandCen = new List<Point3d>();
+            ////foreach (var pt in sampledPt)
+            ////{
+            ////    var tmpP = pt;
+            ////    tmpP.Transform(toLocal);
+            ////    var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
+            ////    outSandCen.Add(kdRes[0].Value);
+            ////    kdMap.RemoveAt(kdRes[0].Point);
+            ////}
+            //#endregion
 
             mSandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
