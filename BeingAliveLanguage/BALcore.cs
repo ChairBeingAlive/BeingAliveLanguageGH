@@ -875,12 +875,13 @@ namespace BeingAliveLanguage
 
     class SoilGeneral
     {
-        public SoilGeneral(in SoilBase sBase, in SoilProperty sInfo, in List<Curve> stone, in int seed)
+        public SoilGeneral(in SoilBase sBase, in SoilProperty sInfo, in List<Curve> stone, in int seed, in int stage = 5)
         {
             this.mBase = sBase;
             this.mInfo = sInfo;
             this.mStone = stone;
             this.mSeed = seed;
+            this.mStage = stage;
 
             toLocal = Transform.ChangeBasis(Plane.WorldXY, sBase.pln);
             toWorld = Transform.ChangeBasis(sBase.pln, Plane.WorldXY);
@@ -916,23 +917,40 @@ namespace BeingAliveLanguage
 
             // sand
             var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
-            // ! method 1: just eliminate sampling for triangle centres, cleaner, but when sand ratio is tool high, silt/clay will accumulate to the sides
-            //BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numSand, out List<Point3d> outSandCen);
 
-            // ! method 2: sample general points, then find the corresponding triangles, final results not as clean as method 1
-            List<Point3d> genPt = new List<Point3d>();
-            List<Point3d> sampledPt = new List<Point3d>();
-            BeingAliveLanguageRC.Utils.SampleElim(mBase.bnd, numSand, out genPt, out sampledPt, mSeed, 1);
 
-            var outSandCen = new List<Point3d>();
-            foreach (var pt in sampledPt)
-            {
-                var tmpP = pt;
-                tmpP.Transform(toLocal);
-                var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
-                outSandCen.Add(kdRes[0].Value);
-                kdMap.RemoveAt(kdRes[0].Point);
-            }
+            #region method 1
+            //! just eliminate sampling for triangle centres, cleaner, but when sand ratio is tool high, silt/clay will accumulate to the sides
+            // convert stage to randomness param: 1-10 --> 5% - 95% from Poisson's Disk Sampling, the rest from random sampling
+
+            // part 1
+            int numPoisson = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 0.05, 0.95));
+            BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoisson, out List<Point3d> outSandCen, mSeed);
+
+            // part 2
+            var remainingTriCen = triCen.Except(outSandCen).ToList();
+            var randomTriCen = remainingTriCen.OrderBy(x => rnd.Next()).Take(numSand - numPoisson);
+
+            // combine the two parts
+            outSandCen.AddRange(randomTriCen);
+            #endregion
+
+            #region method 2
+            // ! sample general points, then find the corresponding triangles, final results not as clean as method 1
+            //List<Point3d> genPt = new List<Point3d>();
+            //List<Point3d> sampledPt = new List<Point3d>();
+            //BeingAliveLanguageRC.Utils.SampleElim(mBase.bnd, numSand, out genPt, out sampledPt, mSeed, 1, mStage);
+
+            //var outSandCen = new List<Point3d>();
+            //foreach (var pt in sampledPt)
+            //{
+            //    var tmpP = pt;
+            //    tmpP.Transform(toLocal);
+            //    var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
+            //    outSandCen.Add(kdRes[0].Value);
+            //    kdMap.RemoveAt(kdRes[0].Point);
+            //}
+            #endregion
 
             mSandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
@@ -989,6 +1007,7 @@ namespace BeingAliveLanguage
         SoilProperty mInfo;
         List<Curve> mStone;
         int mSeed;
+        int mStage;
 
         // out param
         public List<Polyline> mClayT, mSiltT, mSandT;

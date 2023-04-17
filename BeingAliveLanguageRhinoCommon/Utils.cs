@@ -18,7 +18,8 @@ namespace BeingAliveLanguageRC
         }
 
         // Poisson Elimination Sampling
-        public static void SampleElim(in List<Point3d> inPt, double area, int num, out List<Point3d> outPt)
+        public static void SampleElim(in List<Point3d> inPt, double area, int num, out List<Point3d> outPt,
+            int seed = -1)
         {
             var Parray = new List<double>();
             foreach (var p in inPt)
@@ -38,11 +39,10 @@ namespace BeingAliveLanguageRC
         }
 
         // Poisson Elimination Sampling overload, given rectangle bound
-        public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, int seed = -1, double bndScale = 1.0)
+        public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt,
+            int seed = -1, double bndScale = 1.0, int initPtRange = 8)
         {
-
             var rnd = seed >= 0 ? new Random(seed) : new Random(Guid.NewGuid().GetHashCode());
-
 
             var toLocal = Transform.ChangeBasis(Plane.WorldXY, bnd.Plane);
             var toWorld = Transform.ChangeBasis(bnd.Plane, Plane.WorldXY);
@@ -70,7 +70,7 @@ namespace BeingAliveLanguageRC
             var diagVec = curBnd.Corner(2) - curBnd.Corner(0);
 
             genPt = new List<Point3d>();
-            for (int i = 0; i < num * 15; i++)
+            for (int i = 0; i < num * initPtRange * 2; i++)
             {
                 genPt.Add(new Point3d(rnd.NextDouble() * diagVec.X, rnd.NextDouble() * diagVec.Y, rnd.NextDouble() * diagVec.Z) + lowerLeft);
             }

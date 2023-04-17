@@ -53,7 +53,8 @@ namespace BeingAliveLanguage
             if (!DA.GetData("Clay Ratio", ref rClay))
             { return; }
 
-            if (rSand + rClay + rSilt != 1 || rSand < 0 || rClay < 0 || rSilt < 0)
+            // tolerance issue, using abs approach
+            if (Math.Abs(rSand + rClay + rSilt - 1) > 1e-4 || rSand < 0 || rClay < 0 || rSilt < 0)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio of all content need to sum up to 1. Only positive ratio allowed.");
                 return;
@@ -140,6 +141,9 @@ namespace BeingAliveLanguage
 
             pManager.AddIntegerParameter("seed", "s", "Int seed for randomize the generated soil pattern.", GH_ParamAccess.item, -1);
             pManager[3].Optional = true; // if no seed is provided, use random seeds
+
+            pManager.AddIntegerParameter("stage", "t", "Int stage index [1 - 8] representing the randomness of the soil separates that are gradually changed by the organic matter.", GH_ParamAccess.item, 5);
+            pManager[4].Optional = true; // if no seed is provided, use random seeds
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -160,16 +164,25 @@ namespace BeingAliveLanguage
             var sInfo = new SoilProperty();
             List<Curve> rock = new List<Curve>();
             int seed = -1;
+            int stage = 5;
             if (!DA.GetData("Soil Base", ref sBase))
             { return; }
             if (!DA.GetData("Soil Info", ref sInfo))
             { return; }
             DA.GetDataList("Rocks", rock);
             DA.GetData("seed", ref seed);
+            DA.GetData("stage", ref stage);
+
+
+            if (stage < 1 || stage > 8)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Randomness of soil separates distribution should be within the range [1 - 8].");
+                return;
+            }
+
 
             // call the actural function
-            //var (sandT, siltT, clayT, soilInfo) = BalCore.DivGeneralSoilMap(in sBase.soilT, in ratio, in rock);
-            var soil = new SoilGeneral(sBase, sInfo, rock, seed);
+            var soil = new SoilGeneral(sBase, sInfo, rock, seed, stage);
             soil.Build();
 
             DA.SetDataList(0, soil.mSandT);
