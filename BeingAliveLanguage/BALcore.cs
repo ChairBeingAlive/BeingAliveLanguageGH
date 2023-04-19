@@ -11,6 +11,7 @@ using System.Diagnostics;
 using Rhino.Geometry.Intersect;
 using Rhino.Render;
 using System.Data;
+using System.Net.Security;
 
 namespace BeingAliveLanguage
 {
@@ -215,7 +216,7 @@ namespace BeingAliveLanguage
                 { 15, new List<double>{ 0.97, 0.91, 1.03, 1.04, 1.11, 1.08, 1.12, 1.08, 1.02, 1.01, 0.95, 0.97 } },
                 { 20, new List<double>{ 0.95, 0.90, 1.03, 1.05, 1.13, 1.11, 1.14, 1.11, 1.02, 1.00, 0.93, 0.94 } },
                 { 25, new List<double>{ 0.93, 0.89, 1.03, 1.06, 1.15, 1.14, 1.17, 1.12, 1.02, 0.99, 0.91, 0.91 } },
-                { 26, new List<double>{ 0.92, 0.88, 1.03, 1.06, 1.15, 1.15, 1.17, 1.12, 1.02, 0.99, 0.91, 0.91 } }, 
+                { 26, new List<double>{ 0.92, 0.88, 1.03, 1.06, 1.15, 1.15, 1.17, 1.12, 1.02, 0.99, 0.91, 0.91 } },
                 { 27, new List<double>{ 0.92, 0.88, 1.03, 1.07, 1.16, 1.15, 1.18, 1.13, 1.02, 0.99, 0.90, 0.90 } },
                 { 28, new List<double>{ 0.91, 0.88, 1.03, 1.07, 1.16, 1.16, 1.18, 1.13, 1.02, 0.98, 0.90, 0.90 } },
                 { 29, new List<double>{ 0.91, 0.87, 1.03, 1.07, 1.17, 1.16, 1.19, 1.13, 1.03, 0.98, 0.90, 0.89 } },
@@ -912,6 +913,7 @@ namespace BeingAliveLanguage
 
             // we randomize the triangle list's sequence to simulate a random-order Poisson Disk sampling 
             var rnd = mSeed >= 0 ? new Random(mSeed) : new Random(Guid.NewGuid().GetHashCode());
+
             var triL = triLOrigin;
             //var triL = triLOrigin.OrderBy(x => rnd.Next()).ToList();
 
@@ -929,13 +931,7 @@ namespace BeingAliveLanguage
             List<Point3d> outSandCen = new List<Point3d>();
             BalCore.CreateCentreMap(triL, out cenMap);
 
-            // sand
-            var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
-
-
-            //! just eliminate sampling for triangle centres, cleaner, but when sand ratio is tool high, silt/clay will accumulate to the sides
-            // convert stage to randomness param: 1-10 --> 5% - 95% from Poisson's Disk Sampling, the rest from random sampling
-
+            //! sand
             if (mStage == 0)
             {
                 var nStep = (int)Math.Round(1 / mInfo.rSand);
@@ -945,49 +941,63 @@ namespace BeingAliveLanguage
             else
             {
                 // part 1
-                int numPoisson = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
-                BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoisson, out outSandCen, mSeed);
+                /* 
+                  * convert stage to randomness param: 1-10 --> 5% - 95% from Poisson's Disk Sampling, the rest from random sampling.
+                  * 100% will cause all clay/silt triangle accumulated to the edge if sand ratio > 90%
+                 */
+                var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
+                int numPoissonSand = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
+                BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
 
                 // part 2
                 var remainingTriCen = triCen.Except(outSandCen).ToList();
-                var randomTriCen = remainingTriCen.OrderBy(x => rnd.Next()).Take(numSand - numPoisson);
+                var randomTriCen = remainingTriCen.OrderBy(x => rnd.Next()).Take(numSand - numPoissonSand);
 
                 // combine the two parts
                 outSandCen.AddRange(randomTriCen);
             }
 
-
             //#region method 2
-            //// ! sample general points, then find the corresponding triangles, final results not as clean as method 1
-            ////List<Point3d> genPt = new List<Point3d>();
-            ////List<Point3d> sampledPt = new List<Point3d>();
-            ////BeingAliveLanguageRC.Utils.SampleElim(mBase.bnd, numSand, out genPt, out sampledPt, mSeed, 1, mStage);
+            //  sample general points, then find the corresponding triangles, final results not as clean as method 1
+            //List<Point3d> genPt = new List<Point3d>();
+            //List<Point3d> sampledPt = new List<Point3d>();
+            //BeingAliveLanguageRC.Utils.SampleElim(mBase.bnd, numSand, out genPt, out sampledPt, mSeed, 1, mStage);
 
-            ////var outSandCen = new List<Point3d>();
-            ////foreach (var pt in sampledPt)
-            ////{
-            ////    var tmpP = pt;
-            ////    tmpP.Transform(toLocal);
-            ////    var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
-            ////    outSandCen.Add(kdRes[0].Value);
-            ////    kdMap.RemoveAt(kdRes[0].Point);
-            ////}
+            //var outSandCen = new List<Point3d>();
+            //foreach (var pt in sampledPt)
+            //{
+            //    var tmpP = pt;
+            //    tmpP.Transform(toLocal);
+            //    var kdRes = kdMap.GetNearestNeighbours(new[] { tmpP.X, tmpP.Y }, 1);
+            //    outSandCen.Add(kdRes[0].Value);
+            //    kdMap.RemoveAt(kdRes[0].Point);
+            //}
             //#endregion
 
             mSandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
-            // silt
+            //! silt
             var preSiltT = triL.Except(mSandT).ToList();
             var preSiltTDiv = BalCore.subDivTriLst(preSiltT);
             var preSiltCen = preSiltTDiv.Select(x => (x[0] + x[1] + x[2]) / 3).ToList();
             BalCore.CreateCentreMap(preSiltTDiv, out cenMap);
-
             double avgPreSiltTArea = preSiltTDiv.Sum(x => BalCore.triArea(x)) / preSiltTDiv.Count;
+
+            // part 1
             var numSilt = (int)Math.Round(totalASilt / avgPreSiltTArea);
-            BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numSilt, out List<Point3d> outSiltCen);
+            int numPoissonSilt = Convert.ToInt32(numSilt * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
+            BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out List<Point3d> outSiltCen);
+
+            // part 2
+            var curRemainTriCen = preSiltCen.Except(outSiltCen).ToList();
+            var curRandomTriCen = curRemainTriCen.OrderBy(x => rnd.Next()).Take(numSilt - numPoissonSilt);
+
+            // combine
+            outSiltCen.AddRange(curRandomTriCen);
+
             mSiltT = outSiltCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
-            // clay
+            //! clay
             var preClayT = preSiltTDiv.Except(mSiltT).ToList();
             mClayT = BalCore.subDivTriLst(preClayT);
 

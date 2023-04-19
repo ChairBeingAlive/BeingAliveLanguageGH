@@ -18,8 +18,7 @@ namespace BeingAliveLanguageRC
         }
 
         // Poisson Elimination Sampling
-        public static void SampleElim(in List<Point3d> inPt, double area, int num, out List<Point3d> outPt,
-            int seed = -1)
+        public static void SampleElim(in List<Point3d> inPt, double area, int num, out List<Point3d> outPt)
         {
             var Parray = new List<double>();
             foreach (var p in inPt)
