@@ -209,7 +209,13 @@ namespace BeingAliveLanguage
         // hard-coded ETP correction factor, new data can be interpolated from the chart
         static readonly Dictionary<int, List<double>> correctionFactorETP =
             new Dictionary<int, List<double>>() {
-                {  0, new List<double>{ 1.04, 0.94, 1.04, 1.01, 1.04, 1.01, 1.04, 1.01, 1.01, 1.04, 1.01, 1.04 } },
+                {  0, new List<double>{ 1.04, 0.94, 1.04, 1.01, 1.04, 1.01, 1.04, 1.04, 1.01, 1.04, 1.01, 1.04 } },
+                {  5, new List<double>{ 1.02, 0.93, 1.03, 1.02, 1.06, 1.03, 1.06, 1.05, 1.01, 1.03, 0.99, 1.02 } },
+                { 10, new List<double>{ 1.00, 0.91, 1.03, 1.03, 1.08, 1.06, 1.08, 1.07, 1.02, 1.02, 0.98, 0.99 } },
+                { 15, new List<double>{ 0.97, 0.91, 1.03, 1.04, 1.11, 1.08, 1.12, 1.08, 1.02, 1.01, 0.95, 0.97 } },
+                { 20, new List<double>{ 0.95, 0.90, 1.03, 1.05, 1.13, 1.11, 1.14, 1.11, 1.02, 1.00, 0.93, 0.94 } },
+                { 25, new List<double>{ 0.93, 0.89, 1.03, 1.06, 1.15, 1.14, 1.17, 1.12, 1.02, 0.99, 0.91, 0.91 } },
+                { 26, new List<double>{ 0.92, 0.88, 1.03, 1.06, 1.15, 1.15, 1.17, 1.12, 1.02, 0.99, 0.91, 0.91 } }, 
                 { 27, new List<double>{ 0.92, 0.88, 1.03, 1.07, 1.16, 1.15, 1.18, 1.13, 1.02, 0.99, 0.90, 0.90 } },
                 { 28, new List<double>{ 0.91, 0.88, 1.03, 1.07, 1.16, 1.16, 1.18, 1.13, 1.02, 0.98, 0.90, 0.90 } },
                 { 29, new List<double>{ 0.91, 0.87, 1.03, 1.07, 1.17, 1.16, 1.19, 1.13, 1.03, 0.98, 0.90, 0.89 } },
@@ -224,13 +230,19 @@ namespace BeingAliveLanguage
                 { 42, new List<double>{ 0.82, 0.83, 1.03, 1.12, 1.26, 1.27, 1.28, 1.19, 1.04, 0.95, 0.82, 0.79 } },
                 { 43, new List<double>{ 0.81, 0.82, 1.02, 1.12, 1.26, 1.28, 1.29, 1.20, 1.04, 0.95, 0.81, 0.77 } },
                 { 44, new List<double>{ 0.81, 0.82, 1.02, 1.13, 1.27, 1.29, 1.30, 1.20, 1.04, 0.95, 0.80, 0.76 } },
+                { 45, new List<double>{ 0.80, 0.81, 1.02, 1.13, 1.28 ,1.29 ,1.31 ,1.21, 1.04, 0.94, 0.79, 0.75 } },
+                { 46, new List<double>{ 0.79, 0.81, 1.02, 1.13, 1.29, 1.31, 1.32, 1.22, 1.04, 0.94, 0.79, 0.74 } },
+                { 47, new List<double>{ 0.77, 0.80, 1.02, 1.14, 1.30, 1.32, 1.33, 1.22, 1.04, 0.93, 0.78, 0.73 } },
+                { 48, new List<double>{ 0.76, 0.80, 1.02, 1.14, 1.31, 1.33, 1.34, 1.23, 1.05, 0.93, 0.77, 0.72 } },
+                { 49, new List<double>{ 0.75, 0.79, 1.02, 1.14, 1.32, 1.34, 1.35, 1.24, 1.05, 0.93, 0.76, 0.71 } },
+                { 50, new List<double>{ 0.74, 0.78, 1.02, 1.15, 1.33, 1.36, 1.37, 1.25, 1.06, 0.92, 0.76, 0.70 } },
                 };
+
 
         public static List<double> GetCorrectionFactorETP(double lat)
         {
-            //int latInt = (Math.Abs(lat - (int)lat) < 1e-5)  
-            int lBound = correctionFactorETP.Keys.Where(x => x <= lat).Max(); // min = 5
-            int uBound = correctionFactorETP.Keys.Where(x => x >= lat).Min(); // max = 7
+            int lBound = correctionFactorETP.Keys.Where(x => x <= lat).Max();
+            int uBound = correctionFactorETP.Keys.Where(x => x >= lat).Min();
 
             if (lBound == uBound)
                 return correctionFactorETP[lBound].ToList();
