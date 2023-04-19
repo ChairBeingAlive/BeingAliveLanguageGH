@@ -207,7 +207,7 @@ namespace BeingAliveLanguage
 
         // ! Climate Related
         // hard-coded ETP correction factor, new data can be interpolated from the chart
-        static readonly Dictionary<int, List<double>> correctionFactorETP =
+        static readonly Dictionary<int, List<double>> correctionFactorPET =
             new Dictionary<int, List<double>>() {
                 {  0, new List<double>{ 1.04, 0.94, 1.04, 1.01, 1.04, 1.01, 1.04, 1.04, 1.01, 1.04, 1.01, 1.04 } },
                 {  5, new List<double>{ 1.02, 0.93, 1.03, 1.02, 1.06, 1.03, 1.06, 1.05, 1.01, 1.03, 0.99, 1.02 } },
@@ -239,19 +239,19 @@ namespace BeingAliveLanguage
                 };
 
 
-        public static List<double> GetCorrectionFactorETP(double lat)
+        public static List<double> GetCorrectionFactorPET(double lat)
         {
-            int lBound = correctionFactorETP.Keys.Where(x => x <= lat).Max();
-            int uBound = correctionFactorETP.Keys.Where(x => x >= lat).Min();
+            int lBound = correctionFactorPET.Keys.Where(x => x <= lat).Max();
+            int uBound = correctionFactorPET.Keys.Where(x => x >= lat).Min();
 
             if (lBound == uBound)
-                return correctionFactorETP[lBound].ToList();
+                return correctionFactorPET[lBound].ToList();
 
             var factorL = new List<double>();
             for (int i = 0; i < 12; i++)
             {
-                var dat = correctionFactorETP[lBound][i] +
-                    (lat - lBound) / (uBound - lBound) * (correctionFactorETP[uBound][i] - correctionFactorETP[lBound][i]);
+                var dat = correctionFactorPET[lBound][i] +
+                    (lat - lBound) / (uBound - lBound) * (correctionFactorPET[uBound][i] - correctionFactorPET[lBound][i]);
                 factorL.Add(dat);
             }
 

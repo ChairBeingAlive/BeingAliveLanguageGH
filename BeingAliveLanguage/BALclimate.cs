@@ -75,7 +75,7 @@ namespace BeingAliveLanguage
 
             // ! ETP related
             var etpUncorrected = temp.Select(x => 16 * Math.Pow((x * 10 / sumHeatIdx), aHeatIdx)).ToList();
-            var correctFactor = Utils.GetCorrectionFactorETP(lat);
+            var correctFactor = Utils.GetCorrectionFactorPET(lat);
             var etpCorrected = etpUncorrected.Zip(correctFactor, (x, y) => (x * y)).ToList();
 
             // !ETR, surplus, reserve, etc.
