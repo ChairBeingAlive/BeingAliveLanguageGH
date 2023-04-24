@@ -75,6 +75,11 @@ namespace BeingAliveLanguage
         {
         }
 
+        public override Guid ComponentGuid => new Guid("27d616d0-c23c-4ae6-8108-ecbcb3d9125a");
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilBase;
+
+        public string resMode = "vertical";
+
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddRectangleParameter("Boundary", "Bound", "Boundary rectangle.", GH_ParamAccess.item);
@@ -98,7 +103,7 @@ namespace BeingAliveLanguage
             { return; }
 
             // call the actural function
-            var (uL, res) = BalCore.MakeTriMap(ref rec, rsl);
+            var (uL, res) = BalCore.MakeTriMap(ref rec, rsl, resMode);
             rec.ToNurbsCurve().TryGetPlane(out Plane curPln);
 
             var triArray = new List<Polyline>();
@@ -112,9 +117,39 @@ namespace BeingAliveLanguage
             DA.SetDataList(1, triArray);
         }
 
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilBase;
+        protected override void BeforeSolveInstance()
+        {
+            Message = "RES: " + resMode.ToUpper();
+        }
 
-        public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Resolution Mode:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+            Menu_AppendItem(menu, "horizontal", (sender, e) => Menu.SelectMode(this, sender, e, ref resMode, "horizontal"), true, CheckMode("horizontal"));
+            Menu_AppendItem(menu, " vertical", (sender, e) => Menu.SelectMode(this, sender, e, ref resMode, "vertical"), true, CheckMode("vertical"));
+        }
+
+        private bool CheckMode(string _modeCheck) => resMode == _modeCheck;
+
+        public override bool Write(GH_IWriter writer)
+        {
+            if (resMode != "")
+                writer.SetString("resMode", resMode);
+            return base.Write(writer);
+        }
+        public override bool Read(GH_IReader reader)
+        {
+            if (reader.ItemExists("resMode"))
+                resMode = reader.GetString("resMode");
+
+            Message = "RES: " + reader.GetString("resMode").ToUpper();
+
+            return base.Read(reader);
+        }
+
     }
 
     public class BALsoilDiagramGeneral : GH_Component

@@ -27,10 +27,10 @@ namespace BeingAliveLanguage
 
         public SoilBase(Rectangle3d bound, Rhino.Geometry.Plane plane, List<Polyline> poly, double uL)
         {
-            bnd = bound;
-            pln = plane;
-            soilT = poly;
-            unitL = uL;
+            this.bnd = bound;
+            this.pln = plane;
+            this.soilT = poly;
+            this.unitL = uL;
         }
     }
 
@@ -330,15 +330,36 @@ namespace BeingAliveLanguage
 
         /// MainFunc: make a triMap from given rectangle boundary.
         /// </summary>
-        public static (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int resolution)
+        public static (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int resolution, string resMode = "vertical")
         {
             // basic param
             var pln = rec.Plane;
-            var hTri = rec.Height / resolution; // height of base triangle
-            var sTri = hTri * 2 * Math.Sqrt(3.0) / 3; // side length of base triangle
 
-            var nHorizontal = (int)(rec.Width / sTri * 2);
-            var nVertical = resolution;
+            double hTri = 1.0;
+            double sTri = 1.0;
+            int nHorizontal = 1;
+            int nVertical = 1;
+
+            // make sure recW > recH
+            double recH = rec.Width < rec.Height ? rec.Width : rec.Height;
+            double recW = rec.Width < rec.Height ? rec.Height : rec.Width;
+
+            if (resMode == "vertical")
+            {
+                hTri = recH / resolution; // height of base triangle
+                sTri = hTri * 2 * Math.Sqrt(3.0) / 3; // side length of base triangle
+
+                nHorizontal = (int)(recW / sTri * 2);
+                nVertical = resolution;
+            }
+            else if (resMode == "horizontal")
+            {
+                sTri = recW / resolution;
+                hTri = sTri / 2.0 * Math.Sqrt(3.0);
+
+                nHorizontal = resolution * 2;
+                nVertical = (int)(recH / hTri);
+            }
 
             // up-triangle's three position vector from bottom left corner
             var vTop = createVec(pln, sTri / 2, hTri);

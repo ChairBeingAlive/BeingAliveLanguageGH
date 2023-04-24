@@ -174,4 +174,56 @@ namespace BeingAliveLanguage
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilWaterVis;
         public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
     }
+
+    public class BALsoilBase_OBSOLETE : GH_Component
+    {
+        public BALsoilBase_OBSOLETE()
+          : base("Soil Base", "balSoilBase",
+            "Generate a base map from the boundary rectangle.",
+            "BAL", "01::soil")
+        {
+        }
+
+        public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilBase;
+
+        public override GH_Exposure Exposure => GH_Exposure.hidden;
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddRectangleParameter("Boundary", "Bound", "Boundary rectangle.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Resolution", "res", "Vertical resolution of the generated grid.", GH_ParamAccess.item);
+        }
+
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Soil Base", "soilBase", "The base object used for soil diagram generation.", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Soil Base Grid", "soilT", "The base grids used for soil diagram generation.", GH_ParamAccess.list);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            Rectangle3d rec = new Rectangle3d();
+            int rsl = 1;
+
+            if (!DA.GetData(0, ref rec))
+            { return; }
+            if (!DA.GetData(1, ref rsl))
+            { return; }
+
+            // call the actural function
+            var (uL, res) = BalCore.MakeTriMap(ref rec, rsl);
+            rec.ToNurbsCurve().TryGetPlane(out Plane curPln);
+
+            var triArray = new List<Polyline>();
+            for (int i = 0; i < res.Count; i++)
+            {
+                var path = new GH_Path(i);
+                triArray.AddRange(res[i].Select(x => x.ToPolyline()).ToList());
+            }
+
+            DA.SetData(0, new SoilBase(rec, curPln, triArray, uL));
+            DA.SetDataList(1, triArray);
+        }
+    }
 }
