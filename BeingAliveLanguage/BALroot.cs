@@ -692,6 +692,7 @@ namespace BeingAliveLanguage
                 deadRoot.Add(new Line(startPtH3, -hVec * 4));
             }
 
+            // export all 
             DA.SetDataList("RootLevel-1", mainRoot);
             DA.SetDataList("Dead Roots", deadRoot);
         }

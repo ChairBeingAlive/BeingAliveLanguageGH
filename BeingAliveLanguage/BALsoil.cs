@@ -84,6 +84,7 @@ namespace BeingAliveLanguage
         {
             pManager.AddRectangleParameter("Boundary", "Bound", "Boundary rectangle.", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Resolution", "res", "Vertical resolution of the generated grid.", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Scale", "scale", "Scale the generated grid to fill the boundary. (note: the triangles will not be regular triangle.)", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -96,14 +97,16 @@ namespace BeingAliveLanguage
         {
             Rectangle3d rec = new Rectangle3d();
             int rsl = 1;
+            bool gridScale = false;
 
             if (!DA.GetData(0, ref rec))
             { return; }
             if (!DA.GetData(1, ref rsl))
             { return; }
+            DA.GetData(2, ref gridScale);
 
             // call the actural function
-            var (uL, res) = BalCore.MakeTriMap(ref rec, rsl, resMode);
+            var (uL, res) = BalCore.MakeTriMap(ref rec, rsl, resMode, gridScale);
             rec.ToNurbsCurve().TryGetPlane(out Plane curPln);
 
             var triArray = new List<Polyline>();

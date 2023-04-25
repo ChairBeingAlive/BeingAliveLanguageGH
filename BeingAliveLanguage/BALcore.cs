@@ -12,6 +12,7 @@ using Rhino.Geometry.Intersect;
 using Rhino.Render;
 using System.Data;
 using System.Net.Security;
+using System.Text.RegularExpressions;
 
 namespace BeingAliveLanguage
 {
@@ -259,6 +260,15 @@ namespace BeingAliveLanguage
             return factorL;
         }
 
+
+
+        // compute transformation between local coordinates and world coordinates
+        public static (Transform, Transform) GetTransformation(in Plane localPln, in Plane worldPln)
+        {
+            var toLocal = Transform.ChangeBasis(worldPln, localPln);
+            var toWorld = Transform.ChangeBasis(localPln, worldPln);
+            return (toLocal, toWorld);
+        }
     }
 
     class BalCore
@@ -330,10 +340,15 @@ namespace BeingAliveLanguage
 
         /// MainFunc: make a triMap from given rectangle boundary.
         /// </summary>
-        public static (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int resolution, string resMode = "vertical")
+        public static (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int resolution, string resMode = "vertical", bool gridScale = false)
         {
             // basic param
             var pln = rec.Plane;
+            var refPln = rec.Plane.Clone();
+
+            // move plane to the starting corner of the rectangle
+            var refPt = rec.Corner(0);
+            refPln.Translate(refPt - rec.Plane.Origin);
 
             double hTri = 1.0;
             double sTri = 1.0;
@@ -341,8 +356,10 @@ namespace BeingAliveLanguage
             int nVertical = 1;
 
             // make sure recW > recH
-            double recH = rec.Width < rec.Height ? rec.Width : rec.Height;
-            double recW = rec.Width < rec.Height ? rec.Height : rec.Width;
+            //double recH = rec.Width < rec.Height ? rec.Width : rec.Height;
+            //double recW = rec.Width < rec.Height ? rec.Height : rec.Width;
+            double recH = rec.Height;
+            double recW = rec.Width;
 
             if (resMode == "vertical")
             {
@@ -362,26 +379,53 @@ namespace BeingAliveLanguage
             }
 
             // up-triangle's three position vector from bottom left corner
-            var vTop = createVec(pln, sTri / 2, hTri);
-            var vForward = createVec(pln, sTri, 0);
-            List<Vector3d> triUp = new List<Vector3d> { createVec(pln, 0, 0), vForward, vTop };
+            var vTop = createVec(refPln, sTri / 2, hTri);
+            var vForward = createVec(refPln, sTri, 0);
+            List<Vector3d> triUp = new List<Vector3d> { createVec(refPln, 0, 0), vForward, vTop };
 
             // down-triangle's three position vector from top left corner
-            var vTopLeft = createVec(pln, 0, hTri);
-            var vTopRight = createVec(pln, sTri, hTri);
+            var vTopLeft = createVec(refPln, 0, hTri);
+            var vTopRight = createVec(refPln, sTri, hTri);
             List<Vector3d> triDown = new List<Vector3d> { vTopLeft, vForward / 2, vTopRight };
 
             // collection of the two types
             List<List<Vector3d>> triType = new List<List<Vector3d>> { triUp, triDown };
 
             // start making triGrid
-            var refPt = rec.Corner(0);
             List<List<PolylineCurve>> gridMap = new List<List<PolylineCurve>>();
             for (int i = 0; i < nVertical; i++)
             {
                 var pt = Point3d.Add(refPt, vTopLeft * i);
-                pt = Point3d.Add(pt, -0.5 * sTri * pln.XAxis); // compensate for the alignment
-                gridMap.Add(CreateTriLst(in pt, in pln, vForward, nHorizontal + 1, i % 2, in triType));
+                pt = Point3d.Add(pt, -0.5 * sTri * refPln.XAxis); // compensate for the alignment
+                gridMap.Add(CreateTriLst(in pt, in refPln, vForward, nHorizontal + 1, i % 2, in triType));
+            }
+
+            // scale if needed
+
+            if (gridScale)
+            {
+                Transform sca = new Transform();
+                // build transformation
+                if (resMode == "vertical")
+                {
+                    // scale horizontal
+                    sca = Transform.Scale(refPln, recW / (sTri * nHorizontal * 0.5), 1, 1);
+                }
+                else if (resMode == "horizontal")
+                {
+                    // scle vertical
+                    sca = Transform.Scale(refPln, 1, recH / (hTri * nVertical), 1);
+                }
+
+
+                // scale the triangles
+                foreach (var lst in gridMap)
+                {
+                    foreach (var tri in lst)
+                    {
+                        tri.Transform(sca);
+                    }
+                }
             }
 
             return (sTri, gridMap);
