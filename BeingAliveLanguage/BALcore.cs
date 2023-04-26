@@ -211,6 +211,7 @@ namespace BeingAliveLanguage
         // hard-coded ETP correction factor, new data can be interpolated from the chart
         static readonly Dictionary<int, List<double>> correctionFactorPET =
             new Dictionary<int, List<double>>() {
+                // north hemisphere
                 {  0, new List<double>{ 1.04, 0.94, 1.04, 1.01, 1.04, 1.01, 1.04, 1.04, 1.01, 1.04, 1.01, 1.04 } },
                 {  5, new List<double>{ 1.02, 0.93, 1.03, 1.02, 1.06, 1.03, 1.06, 1.05, 1.01, 1.03, 0.99, 1.02 } },
                 { 10, new List<double>{ 1.00, 0.91, 1.03, 1.03, 1.08, 1.06, 1.08, 1.07, 1.02, 1.02, 0.98, 0.99 } },
@@ -238,11 +239,32 @@ namespace BeingAliveLanguage
                 { 48, new List<double>{ 0.76, 0.80, 1.02, 1.14, 1.31, 1.33, 1.34, 1.23, 1.05, 0.93, 0.77, 0.72 } },
                 { 49, new List<double>{ 0.75, 0.79, 1.02, 1.14, 1.32, 1.34, 1.35, 1.24, 1.05, 0.93, 0.76, 0.71 } },
                 { 50, new List<double>{ 0.74, 0.78, 1.02, 1.15, 1.33, 1.36, 1.37, 1.25, 1.06, 0.92, 0.76, 0.70 } },
+
+
+                // south hemisphere (use negative deg)
+                {-5,  new List<double>{1.06, 0.95, 1.04, 1.00, 1.02, 0.99, 1.02, 1.03, 1.00, 1.05, 1.03, 1.06}},
+                {-10, new List<double>{1.08, 0.97, 1.05, 0.99, 1.01, 0.96, 1.00, 1.01, 1.00, 1.06, 1.05, 1.10}},
+                {-15, new List<double>{1.12, 0.98, 1.05, 0.98, 0.98, 0.94, 0.97, 1.00, 1.00, 1.07, 1.07, 1.12}},
+                {-20, new List<double>{1.14, 1.00, 1.05, 0.97, 0.96, 0.91, 0.95, 0.99, 1.00, 1.08, 1.09, 1.15}},
+                {-25, new List<double>{1.17, 1.01, 1.05, 0.96, 0.94, 0.88, 0.93, 0.98, 1.00, 1.10, 1.11, 1.18}},
+                {-30, new List<double>{1.20, 1.03, 1.06, 0.95, 0.92, 0.85, 0.90, 0.96, 1.00, 1.12, 1.14, 1.21}},
+                {-35, new List<double>{1.23, 1.04, 1.06, 0.94, 0.89, 0.82, 0.87, 0.94, 1.00, 1.13, 1.17, 1.25}},
+                {-40, new List<double>{1.27, 1.06, 1.07, 0.93, 0.86, 0.78, 0.84, 0.92, 1.00, 1.15, 1.20, 1.29}},
+                {-42, new List<double>{1.28, 1.07, 1.07, 0.92, 0.85, 0.76, 0.82, 0.92, 1.00, 1.16, 1.22, 1.31}},
+                {-44, new List<double>{1.30, 1.08, 1.07, 0.92, 0.83, 0.74, 0.81, 0.91, 0.99, 1.17, 1.23, 1.33}},
+                {-46, new List<double>{1.32, 1.10, 1.07, 0.91, 0.82, 0.72, 0.79, 0.90, 0.99, 1.17, 1.25, 1.35}},
+                {-48, new List<double>{1.34, 1.11, 1.08, 0.90, 0.80, 0.70, 0.76, 0.89, 0.99, 1.18, 1.27, 1.37}},
+                {-50, new List<double>{1.37, 1.12, 1.08, 0.89, 0.77, 0.67, 0.74, 0.88, 0.99, 1.19, 1.29, 1.41}},
                 };
 
 
         public static List<double> GetCorrectionFactorPET(double lat)
         {
+            // for lat larger than 50 or smaller than -50, use the +/-50 value.
+            lat = lat > 50 ? 50 : lat;
+            lat = lat < -50 ? -50 : lat;
+
+            // find upper/lower bound for interpolation
             int lBound = correctionFactorPET.Keys.Where(x => x <= lat).Max();
             int uBound = correctionFactorPET.Keys.Where(x => x >= lat).Min();
 

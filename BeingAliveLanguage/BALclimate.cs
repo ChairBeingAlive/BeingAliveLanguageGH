@@ -54,7 +54,7 @@ namespace BeingAliveLanguage
             double lat = 0;
             if (!DA.GetData(2, ref lat))
             { return; }
-            if (lat > 90 || lat < 0) // no correction factor available
+            if (lat > 90 || lat < -90) // no correction factor available
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Latitude should be within [0, 90].");
                 return;
