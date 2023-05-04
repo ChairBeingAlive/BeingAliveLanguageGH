@@ -59,7 +59,7 @@ namespace BeingAliveLanguage
         { }
 
         public override GH_Exposure Exposure => GH_Exposure.primary;
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilInfo;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilMorphFan;
         public override Guid ComponentGuid => new Guid("e08cd0fa-c27d-4d1b-85fc-da0353bda292");
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
