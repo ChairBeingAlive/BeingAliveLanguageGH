@@ -62,7 +62,7 @@ If `BeingAliveLanguage` contributes to an academic publication, please cite it a
   title = {BeingAliveLanguage},
   author = {Zhao Ma},
   url = {https://github.com/ChairBeingAlive/BeingAliveLanguageGH},
-  version = {0.3.5}
+  version = {0.4.2}
   year = {2023}
 }
 ```

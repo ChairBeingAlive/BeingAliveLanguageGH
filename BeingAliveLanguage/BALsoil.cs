@@ -12,6 +12,7 @@ using System.ComponentModel.Composition.Hosting;
 using System.Windows.Forms;
 
 using GH_IO.Serialization;
+using Rhino.Geometry.Collections;
 
 namespace BeingAliveLanguage
 {
@@ -105,9 +106,17 @@ namespace BeingAliveLanguage
             { return; }
             DA.GetData(2, ref gridScale);
 
+            // calculate plane and rectify the rec
+            //rec.ToNurbsCurve().TryGetPlane(out Plane curPln);
+            //Plane curPln = rec.Plane;
+            var xVec = rec.Corner(1) - rec.Corner(0);
+            var yVec = rec.Corner(3) - rec.Corner(0);
+            Plane curPln = new Plane(rec.Corner(0), xVec, yVec);
+            //if (Vector3d.CrossProduct(xVec, yVec) * curPln.ZAxis < 0)
+            //{ curPln.Flip(); }
+
             // call the actural function
             var (uL, res) = BalCore.MakeTriMap(ref rec, rsl, resMode, gridScale);
-            rec.ToNurbsCurve().TryGetPlane(out Plane curPln);
 
             var triArray = new List<Polyline>();
             for (int i = 0; i < res.Count; i++)
@@ -426,48 +435,6 @@ namespace BeingAliveLanguage
     }
 
 
-
-    public class BALsoilInfo : GH_Component
-    {
-        public BALsoilInfo() :
-            base("Soil_Information", "balSoilInfoText",
-                "Export the soil information in text format.",
-                "BAL", "09::utils")
-        { }
-
-        public override GH_Exposure Exposure => GH_Exposure.primary;
-
-        protected override void RegisterInputParams(GH_InputParamManager pManager)
-        {
-            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
-        }
-
-        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-        {
-            pManager.AddTextParameter("Soil Info Text", "soilText", "Soil Info that can be visualized with the TAG component.", GH_ParamAccess.item);
-        }
-
-        protected override void SolveInstance(IGH_DataAccess DA)
-        {
-            // get data
-            SoilProperty soilInfo = new SoilProperty();
-            List<Curve> triCrv = new List<Curve>();
-
-            if (!DA.GetData(0, ref soilInfo))
-            { return; }
-
-
-            var sText = BalCore.SoilText(soilInfo);
-
-            // assign output
-            DA.SetData(0, sText);
-        }
-
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilInfo;
-        public override Guid ComponentGuid => new Guid("af64a14a-6795-469c-b044-7db972d5bd84");
-
-    }
-
     public class BALsoilWaterOffset : GH_Component
     {
         public BALsoilWaterOffset()
@@ -575,7 +542,7 @@ namespace BeingAliveLanguage
         {
             pManager.AddGenericParameter("Soil Base", "soilBase", "The base object used for soil diagram generation.", GH_ParamAccess.item);
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
-            pManager.AddCurveParameter("Soil Tri", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Soil Triangle", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
             pManager.AddNumberParameter("Organic Matter Density", "dOrganics", "Density of organic matter [ 0 - 1 ].", GH_ParamAccess.item, 0.5);
             pManager[3].Optional = true; // OM
         }
@@ -598,7 +565,7 @@ namespace BeingAliveLanguage
             { return; }
             if (!DA.GetData("Soil Info", ref soilInfo))
             { return; }
-            if (!DA.GetDataList("Soil Tri", soilT))
+            if (!DA.GetDataList("Soil Triangle", soilT))
             { return; }
             DA.GetData("Organic Matter Density", ref dOM);
             if (dOM <= 0)

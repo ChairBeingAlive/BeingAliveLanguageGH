@@ -63,7 +63,7 @@ namespace BeingAliveLanguage
 
 
             var inputGeo = new List<IGH_Goo>();
-            if (!DA.GetDataList(1, inputGeo))
+            if (!DA.GetDataList(1, inputGeo) || inputGeo.Count == 0)
             { return; }
 
             var conPt = new ConcurrentBag<Point3d>();
