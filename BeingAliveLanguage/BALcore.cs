@@ -1520,6 +1520,9 @@ namespace BeingAliveLanguage
 
         private void AddSectionalTriPt(in Polyline poly)
         {
+            // tolerance for angle in the grid map
+            double tol = 5; // considering the fact of the scaling, this should be adqueate
+
             // if triangle contains a 90deg corner, it is a side-triangle, ignore it.
             for (int i = 0; i < 3; i++)
             {
@@ -1527,10 +1530,10 @@ namespace BeingAliveLanguage
                 var v1 = poly[2] - poly[1];
                 var v2 = poly[0] - poly[2];
 
-                double tol = 1e-3;
-                if (Math.Abs(Vector3d.Multiply(v0, v1)) < tol ||
-                    Math.Abs(Vector3d.Multiply(v1, v2)) < tol ||
-                    Math.Abs(Vector3d.Multiply(v2, v0)) < tol)
+                double triTol = 1e-3;
+                if (Math.Abs(Vector3d.Multiply(v0, v1)) < triTol ||
+                    Math.Abs(Vector3d.Multiply(v1, v2)) < triTol ||
+                    Math.Abs(Vector3d.Multiply(v2, v0)) < triTol)
                     return;
             }
 
@@ -1560,21 +1563,17 @@ namespace BeingAliveLanguage
                     var vP = pNext - pt;
                     var ang = Utils.ToDegree(Vector3d.VectorAngle(pln.XAxis, vP, pln.ZAxis));
 
-                    if (Math.Abs(ang - 60) < 1e-3)
+                    if (Math.Abs(ang - 60) < tol)
                         AddNeighbour(strLoc, 0, pt, pNext);
-                    //else if (Math.Abs(ang - 90) < 1e-3)
-                    //    AddNeighbour(strLoc, 1, pt, pNext);
-                    else if (Math.Abs(ang - 120) < 1e-3)
+                    else if (Math.Abs(ang - 120) < tol)
                         AddNeighbour(strLoc, 1, pt, pNext);
-                    else if (Math.Abs(ang - 180) < 1e-3)
+                    else if (Math.Abs(ang - 180) < tol)
                         AddNeighbour(strLoc, 2, pt, pNext);
-                    else if (Math.Abs(ang - 240) < 1e-3)
+                    else if (Math.Abs(ang - 240) < tol)
                         AddNeighbour(strLoc, 3, pt, pNext);
-                    //else if (Math.Abs(ang - 270) < 1e-3)
-                    //    AddNeighbour(strLoc, 5, pt, pNext);
-                    else if (Math.Abs(ang - 300) < 1e-3)
+                    else if (Math.Abs(ang - 300) < tol)
                         AddNeighbour(strLoc, 4, pt, pNext);
-                    else if (Math.Abs(ang) < 1e-3 || Math.Abs(ang - 360) < 1e-3)
+                    else if (Math.Abs(ang) < tol || Math.Abs(ang - 360) < tol)
                         AddNeighbour(strLoc, 5, pt, pNext);
                     else
                         throw new ArgumentException($"Error: point {strLoc} has no neighbour!");

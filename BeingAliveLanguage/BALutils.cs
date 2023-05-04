@@ -72,8 +72,8 @@ namespace BeingAliveLanguage
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("Soil Triangle", "tSoilT", "Morphed soil triangles inside the given fan shape.", GH_ParamAccess.list);
-            pManager.AddPlaneParameter("fanPlan", "tPlan", "the mapped plane", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Transformed Geo", "fSoilG", "The morphed soil geometries inside the given fan shape.", GH_ParamAccess.list);
+            pManager.AddPlaneParameter("Transformed Plane", "fP", "The based plane for the polar coordinate system used during the mapping process", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
