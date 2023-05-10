@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using System.Diagnostics;
 using Rhino.Geometry.Intersect;
-using Rhino.Render;
+using System.Runtime.InteropServices;
 using System.Data;
 using System.Net.Security;
 using System.Text.RegularExpressions;
@@ -987,7 +987,7 @@ namespace BeingAliveLanguage
             toWorld = Transform.ChangeBasis(sBase.pln, Plane.WorldXY);
         }
 
-        public void Build()
+        public void Build(bool macOS = false)
         {
             var triLOrigin = mBase.soilT;
 
@@ -1034,14 +1034,25 @@ namespace BeingAliveLanguage
                  */
                 var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
                 int numPoissonSand = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
-                BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
 
-                // part 2
-                var remainingTriCen = triCen.Except(outSandCen).ToList();
-                var randomTriCen = remainingTriCen.OrderBy(x => rnd.Next()).Take(numSand - numPoissonSand);
 
-                // combine the two parts
-                outSandCen.AddRange(randomTriCen);
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
+                    // part 2
+                    var remainingTriCen = triCen.Except(outSandCen).ToList();
+                    var randomTriCen = remainingTriCen.OrderBy(x => rnd.Next()).Take(numSand - numPoissonSand);
+
+                    // combine the two parts
+                    outSandCen.AddRange(randomTriCen);
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    //! as OSX cannot import cpp lib, we use a non-poisson based approach for the sampling
+                    outSandCen = triCen.OrderBy(x => rnd.Next()).Take(numSand).ToList();
+                }
+
+
             }
 
             //#region method 2
@@ -1070,17 +1081,28 @@ namespace BeingAliveLanguage
             BalCore.CreateCentreMap(preSiltTDiv, out cenMap);
             double avgPreSiltTArea = preSiltTDiv.Sum(x => BalCore.triArea(x)) / preSiltTDiv.Count;
 
+            List<Point3d> outSiltCen = new List<Point3d>();
+
             // part 1
             var numSilt = (int)Math.Round(totalASilt / avgPreSiltTArea);
             int numPoissonSilt = Convert.ToInt32(numSilt * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
-            BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out List<Point3d> outSiltCen);
 
             // part 2
-            var curRemainTriCen = preSiltCen.Except(outSiltCen).ToList();
-            var curRandomTriCen = curRemainTriCen.OrderBy(x => rnd.Next()).Take(numSilt - numPoissonSilt);
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out outSiltCen);
 
-            // combine
-            outSiltCen.AddRange(curRandomTriCen);
+                var curRemainTriCen = preSiltCen.Except(outSiltCen).ToList();
+                var curRandomTriCen = curRemainTriCen.OrderBy(x => rnd.Next()).Take(numSilt - numPoissonSilt);
+
+                // combine
+                outSiltCen.AddRange(curRandomTriCen);
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                outSandCen = preSiltCen.OrderBy(x => rnd.Next()).Take(numSilt).ToList();
+
+            }
 
             mSiltT = outSiltCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
@@ -1179,6 +1201,7 @@ namespace BeingAliveLanguage
                 BalCore.CreateCentreMap(postSandT, out cenMap);
 
                 // sand
+                //todo: add OSX variation
                 var numSand = (int)(Math.Round(postSandT.Count * rSand));
                 BeingAliveLanguageRC.Utils.SampleElim(triCen, sBase.bnd.Area, numSand, out List<Point3d> outSandCen);
                 sandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();

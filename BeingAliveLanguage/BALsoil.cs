@@ -6,9 +6,8 @@ using Rhino.Geometry;
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Collections.Generic;
-using System.ComponentModel.Composition;
-using System.ComponentModel.Composition.Hosting;
 using System.Windows.Forms;
 
 using GH_IO.Serialization;
@@ -173,6 +172,12 @@ namespace BeingAliveLanguage
         {
         }
 
+        // additional constructor for macOS-version component
+        public BALsoilDiagramGeneral(string name, string nickname, string description, string category, string subCategory)
+          : base(name, nickname, description, category, subCategory)
+        {
+        }
+
         public override GH_Exposure Exposure => GH_Exposure.secondary;
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv;
         public override Guid ComponentGuid => new Guid("8634cd28-f37e-4204-b60b-d36b16181d7b");
@@ -188,6 +193,7 @@ namespace BeingAliveLanguage
 
             pManager.AddIntegerParameter("seed", "s", "Int seed for randomize the generated soil pattern.", GH_ParamAccess.item, -1);
             pManager[3].Optional = true; // if no seed is provided, use random seeds
+
 
             pManager.AddIntegerParameter("stage", "t", "Int stage index [1 - 8] representing the randomness of the soil separates that are gradually changed by the organic matter.", GH_ParamAccess.item, 5);
             pManager[4].Optional = true; // if no seed is provided, use random seeds
@@ -231,6 +237,87 @@ namespace BeingAliveLanguage
             // call the actural function
             var soil = new SoilGeneral(sBase, sInfo, rock, seed, stage);
             soil.Build();
+
+            DA.SetDataList(0, soil.mSandT);
+            DA.SetDataList(1, soil.mSiltT);
+            DA.SetDataList(2, soil.mClayT);
+
+            DA.SetDataList(3, soil.Collect());
+
+            // debug
+            //var res = BeingAliveLanguageRC.Utils.Addition(10, 23.5);
+            //DA.SetData(4, res);
+        }
+    }
+
+    public class BALsoilDiagramGeneral_OSX: BALsoilDiagramGeneral
+    {
+        public BALsoilDiagramGeneral_OSX()
+          : base("General Soil Separates (OSX)", "balsoilGeneral_osx",
+                "Draw a soil map based on the ratio of 3 soil separates, and avoid rock area rocks if rock curves are provided.",
+                "BAL", "01::soil")
+        {
+        }
+
+        //public override GH_Exposure Exposure => GH_Exposure.secondary;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv_osx;
+        public override Guid ComponentGuid => new Guid("cadf094b-a4a0-4dc3-b971-1d00612d99c3");
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("Soil Base", "soilBase", "soil base triangle map.", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+
+            pManager.AddCurveParameter("Rocks", "R", "Curves represendting the rocks in the soil.", GH_ParamAccess.list);
+            pManager[2].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
+            pManager[2].Optional = true; // rock can be optionally provided
+
+            pManager.AddIntegerParameter("seed", "s", "Int seed for randomize the generated soil pattern.", GH_ParamAccess.item, -1);
+            pManager[3].Optional = true; // if no seed is provided, use random seeds
+
+            //pManager.AddIntegerParameter("stage", "t", "Int stage index [1 - 8] representing the randomness of the soil separates that are gradually changed by the organic matter.", GH_ParamAccess.item, 5);
+            //pManager[4].Optional = true; // if no seed is provided, use random seeds
+        }
+
+        //protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        //{
+        //    pManager.AddCurveParameter("Sand Triangle", "sandT", "Sand triangles.", GH_ParamAccess.list);
+        //    pManager.AddCurveParameter("Silt Triangle", "siltT", "Silt triangles.", GH_ParamAccess.list);
+        //    pManager.AddCurveParameter("Clay Triangle", "clayT", "Clay triangles.", GH_ParamAccess.list);
+        //    pManager.AddCurveParameter("All Triangle", "soilT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
+
+        //    //pManager.AddCurveParameter("debugPts", "dP", "Debugging point list.", GH_ParamAccess.list);
+        //    //pManager.AddNumberParameter("debug", "debugNum", "debugging", GH_ParamAccess.item);
+        //}
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The MacOS version component does not allow the adjustment of randomness levels in the soil generation process.");
+            // get data
+            var sBase = new SoilBase();
+            var sInfo = new SoilProperty();
+            List<Curve> rock = new List<Curve>();
+            int seed = -1;
+            int stage = 5;
+            if (!DA.GetData("Soil Base", ref sBase))
+            { return; }
+            if (!DA.GetData("Soil Info", ref sInfo))
+            { return; }
+            DA.GetDataList("Rocks", rock);
+            DA.GetData("seed", ref seed);
+            //DA.GetData("stage", ref stage);
+
+
+            if (stage < 0 || stage > 8)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Randomness of soil separates distribution should be within the range [1 - 8].");
+                return;
+            }
+
+
+            // call the actural function
+            var soil = new SoilGeneral(sBase, sInfo, rock, seed, stage);
+            soil.Build(true);
 
             DA.SetDataList(0, soil.mSandT);
             DA.SetDataList(1, soil.mSiltT);
