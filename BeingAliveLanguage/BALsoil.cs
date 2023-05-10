@@ -308,11 +308,11 @@ namespace BeingAliveLanguage
             //DA.GetData("stage", ref stage);
 
 
-            if (stage < 0 || stage > 8)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Randomness of soil separates distribution should be within the range [1 - 8].");
-                return;
-            }
+            //if (stage < 0 || stage > 8)
+            //{
+            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Randomness of soil separates distribution should be within the range [1 - 8].");
+            //    return;
+            //}
 
 
             // call the actural function
