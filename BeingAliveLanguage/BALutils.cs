@@ -126,11 +126,9 @@ namespace BeingAliveLanguage
             var xDir = innerArc.StartPoint - innerArc.Center;
             var yDir = Vector3d.CrossProduct(tPln.ZAxis, xDir);
             var basePln = new Plane(innerArc.Center, xDir, yDir);
-            //var basePln = new Plane(plnCen, xDir, yDir);
 
             var polarAngRange = Math.Abs(innerArc.EndAngle - innerArc.StartAngle);
             var s0 = innerArc.Radius;
-
 
             /* 
              * The approach here is to:

@@ -1100,7 +1100,7 @@ namespace BeingAliveLanguage
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                outSandCen = preSiltCen.OrderBy(x => rnd.Next()).Take(numSilt).ToList();
+                outSiltCen = preSiltCen.OrderBy(x => rnd.Next()).Take(numSilt).ToList();
 
             }
 

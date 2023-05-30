@@ -20,13 +20,11 @@ namespace BeingAliveLanguage
 
         public override Guid Id => new Guid("43E47992-4A44-4951-9F57-30300CFE12A2");
 
-        //Return a string identifying you or your company.
         public override string AuthorName => "Dr. Zhao Ma @ BeingAlive";
-        //Return a string representing your preferred contact details.
-        public override string AuthorContact => "ma@arch.ethz.ch";
-
+        public override string AuthorContact => "https://beingalivelanguage.arch.ethz.ch";
         public override GH_LibraryLicense License => GH_LibraryLicense.opensource;
-        public override string Version => "0.4.5";
+
+        public override string Version => "0.4.8";
     }
 
     // update plugin icons in the tab

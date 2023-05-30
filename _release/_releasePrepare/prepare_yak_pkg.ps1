@@ -8,7 +8,8 @@ Copy-Item -Path "..\..\bin\Release\*.gha" -Destination ".\" -Recurse
 
 &'C:\Program Files\Rhino 7\System\Yak.exe' spec
 
-Add-Content manifest.yml "`nicon_url: https://i.imgur.com/WABE4LN.png"
+# Add-Content manifest.yml "`nicon: `"https://i.imgur.com/WABE4LN.png`""
+Add-Content manifest.yml "`nicon: packageManagerIcon.png"
 Add-Content manifest.yml "`nkeywords: `n - drawing `n - climate `n - soil `n - language"
 
 Write-Host "========================="
