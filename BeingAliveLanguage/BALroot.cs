@@ -173,6 +173,11 @@ namespace BeingAliveLanguage
             pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
             pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
             pManager.AddNumberParameter("Radius", "R", "Root Radius.", GH_ParamAccess.item);
+
+            pManager.AddCurveParameter("Env Attractor", "envA", "Environmental attracting area (water, resource, etc.).", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Env Repeller", "envR", "Environmental repelling area (dryness, poison, etc.).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Env DetectionRange", "envD", "The range (to unit length of the grid) that a root can detect surrounding environment.", GH_ParamAccess.item, 5);
+            pManager.AddBooleanParameter("EnvAffector Toggle", "envToggle", "Toggle the affects caused by environmental factors.", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -222,6 +227,34 @@ namespace BeingAliveLanguage
             { return; }
 
 
+            // optional param
+            List<Curve> envAtt = new List<Curve>();
+            List<Curve> envRep = new List<Curve>();
+            double envRange = 5;
+            bool envToggle = false;
+            DA.GetDataList("Env Attractor", envAtt);
+            DA.GetDataList("Env Repeller", envRep);
+            DA.GetData("Env DetectionRange", ref envRange);
+            DA.GetData("EnvAffector Toggle", ref envToggle);
+
+            if (envToggle)
+            {
+                foreach (var crv in envAtt)
+                    if (!crv.IsClosed)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Attractors contain non-closed curve.");
+                        return;
+                    }
+
+                foreach (var crv in envRep)
+                    if (!crv.IsClosed)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Repellers contain non-closed curve.");
+                        return;
+                    }
+            }
+
+
             var root = new RootSec(sMap, anchor, formMode);
             root.GrowRoot(radius);
 
@@ -230,7 +263,7 @@ namespace BeingAliveLanguage
 
         string formMode = "multi";  // s-single, m-multi
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
-        public override Guid ComponentGuid => new Guid("A0E63559-41E8-4353-B78E-510E3FCEB577");
+        public override Guid ComponentGuid => new Guid("E2D1F590-4BE8-4AAD-812E-4BF682F786A4");
     }
 
     /// <summary>
@@ -263,10 +296,10 @@ namespace BeingAliveLanguage
             pManager.AddIntegerParameter("Division Num", "divN", "The number of initial root branching.", GH_ParamAccess.item);
 
             // 5-8
-            pManager.AddCurveParameter("Env Attractor", "envAtt", "Environmental attracting area (water, resource, etc.).", GH_ParamAccess.list);
-            pManager.AddCurveParameter("Env Repeller", "envRep", "Environmental repelling area (dryness, poison, etc.).", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Env DetectionRange", "envRange", "The range (to unit length of the grid) that a root can detect surrounding environment.", GH_ParamAccess.item, 5);
-            pManager.AddBooleanParameter("ToggleEnvAffector", "envToggle", "Toggle the affects caused by environmental factors.", GH_ParamAccess.item, false);
+            pManager.AddCurveParameter("Env Attractor", "envA", "Environmental attracting area (water, resource, etc.).", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Env Repeller", "envR", "Environmental repelling area (dryness, poison, etc.).", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Env DetectionRange", "envD", "The range (to unit length of the grid) that a root can detect surrounding environment.", GH_ParamAccess.item, 5);
+            pManager.AddBooleanParameter("EnvAffector Toggle", "envToggle", "Toggle the affects caused by environmental factors.", GH_ParamAccess.item, false);
 
             pManager[5].Optional = true;
             pManager[6].Optional = true;

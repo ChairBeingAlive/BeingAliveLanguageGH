@@ -226,4 +226,83 @@ namespace BeingAliveLanguage
             DA.SetDataList(1, triArray);
         }
     }
+
+    public class BALRootSec_OBSOLETE : GH_Component
+    {
+        /// <summary>
+        /// Initializes a new instance of the MyComponent1 class.
+        /// </summary>
+        public BALRootSec_OBSOLETE()
+          : base("Root_Sectional", "balRoot_S",
+              "Draw root in sectional soil map.",
+              "BAL", "02::root")
+        {
+        }
+
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
+
+        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+            pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Radius", "R", "Root Radius.", GH_ParamAccess.item);
+        }
+
+        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        {
+            pManager.AddGenericParameter("RootSectional", "root", "The sectional root drawing.", GH_ParamAccess.list);
+        }
+
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Root Type:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+            Menu_AppendItem(menu, " Single Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "single"), true, CheckMode("single"));
+            Menu_AppendItem(menu, " Multi  Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "multi"), true, CheckMode("multi"));
+        }
+
+        private bool CheckMode(string _modeCheck) => formMode == _modeCheck;
+
+        public override bool Write(GH_IWriter writer)
+        {
+            if (formMode != "")
+                writer.SetString("formMode", formMode);
+            return base.Write(writer);
+        }
+        public override bool Read(GH_IReader reader)
+        {
+            if (reader.ItemExists("formMode"))
+                formMode = reader.GetString("formMode");
+
+            Message = reader.GetString("formMode").ToUpper();
+
+            return base.Read(reader);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            var sMap = new SoilMap();
+            var anchor = new Point3d();
+            double radius = 10.0;
+
+            if (!DA.GetData(0, ref sMap) || sMap.mapMode != "sectional")
+            { return; }
+            if (!DA.GetData(1, ref anchor))
+            { return; }
+            if (!DA.GetData(2, ref radius))
+            { return; }
+
+
+            var root = new RootSec(sMap, anchor, formMode);
+            root.GrowRoot(radius);
+
+            DA.SetDataList(0, root.crv);
+        }
+
+        string formMode = "multi";  // s-single, m-multi
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
+        public override Guid ComponentGuid => new Guid("A0E63559-41E8-4353-B78E-510E3FCEB577");
+    }
 }
