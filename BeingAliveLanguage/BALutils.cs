@@ -118,18 +118,15 @@ namespace BeingAliveLanguage
             }
 
             var innerArc = tArc.OrderBy(x => x.Length).First();
-            //innerArc.Plane = tPln;
 
             // make sure the direction is always CW
             if (innerArc.Plane.ZAxis * tPln.ZAxis < 0)
-            //if (Vector3d.CrossProduct((innerArc.PointAt(0) - innerArc.Center), innerArc.TangentAt(0)) * tPln.ZAxis < 0)
             { innerArc.Reverse(); }
 
-            //var yDir = innerArc.TangentAt(0);
-            //var xDir = Vector3d.CrossProduct(tPln.ZAxis, innerArc.TangentAt(0));
             var xDir = innerArc.StartPoint - innerArc.Center;
             var yDir = Vector3d.CrossProduct(tPln.ZAxis, xDir);
             var basePln = new Plane(innerArc.Center, xDir, yDir);
+            //var basePln = new Plane(plnCen, xDir, yDir);
 
             var polarAngRange = Math.Abs(innerArc.EndAngle - innerArc.StartAngle);
             var s0 = innerArc.Radius;
@@ -137,7 +134,7 @@ namespace BeingAliveLanguage
 
             /* 
              * The approach here is to:
-             * 1. parametrize the original geometry in the original bounds
+             * 1. parametrize the original geometry in the original bounds, origin in the centre
              * 2. convert the parametrized coordinates into the new polar system
              * 3. convert the polar coordinates into the local Euclidian system
              * 4. convert the local to the world global system
@@ -157,8 +154,8 @@ namespace BeingAliveLanguage
                         var tParam = t / sBase.bnd.Height;
 
                         // step 2
-                        var u = s0 + tParam * polarLenRange;
-                        var v = (1 - sParam) * polarAngRange;
+                        var u = s0 + tParam * polarLenRange + 0.5 * polarLenRange;
+                        var v = (1 - sParam) * polarAngRange - 0.5 * polarAngRange;
 
                         // step 3
                         var localX = u * Math.Cos(v);

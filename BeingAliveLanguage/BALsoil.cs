@@ -106,11 +106,9 @@ namespace BeingAliveLanguage
             DA.GetData(2, ref gridScale);
 
             // calculate plane and rectify the rec
-            //rec.ToNurbsCurve().TryGetPlane(out Plane curPln);
-            //Plane curPln = rec.Plane;
             var xVec = rec.Corner(1) - rec.Corner(0);
             var yVec = rec.Corner(3) - rec.Corner(0);
-            Plane curPln = new Plane(rec.Corner(0), xVec, yVec);
+            Plane curPln = new Plane(rec.Center, xVec, yVec);
             //if (Vector3d.CrossProduct(xVec, yVec) * curPln.ZAxis < 0)
             //{ curPln.Flip(); }
 
