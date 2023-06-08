@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -239,7 +240,8 @@ namespace BeingAliveLanguage
         {
         }
 
-        public override GH_Exposure Exposure => GH_Exposure.secondary;
+        //public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.hidden;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
