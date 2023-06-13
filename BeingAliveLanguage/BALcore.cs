@@ -1749,11 +1749,15 @@ namespace BeingAliveLanguage
 
         }
 
-        public RootSec(in SoilMap map, in Point3d anchor, string rootType = "single")
+        public RootSec(in SoilMap map, in Point3d anchor, string rootType = "single",
+            List<Curve> envAtt = null, List<Curve> envRep = null)
         {
-            sMap = map;
-            anc = anchor;
-            rType = rootType;
+            this.sMap = map;
+            this.anc = anchor;
+            this.rType = rootType;
+
+            this.envAtt = envAtt;
+            this.envRep = envRep;
         }
 
         // rootTyle: 0 - single, 1 - multi(branching)
@@ -1836,7 +1840,10 @@ namespace BeingAliveLanguage
         ConcurrentDictionary<string, double> disMap = new ConcurrentDictionary<string, double>();
         Point3d anc = new Point3d();
         SoilMap sMap = new SoilMap();
+
         string rType = "single";
+        List<Curve> envAtt = null;
+        List<Curve> envRep = null;
 
     }
 

@@ -268,7 +268,7 @@ namespace BeingAliveLanguage
     }
 
     /// <summary>
-    /// Draw the root map in planar soil grid.
+    /// Draw the planar roots.
     /// </summary>
     public class BALRootPlanar : GH_Component
     {
@@ -393,6 +393,9 @@ namespace BeingAliveLanguage
         }
     }
 
+    /// <summary>
+    /// Draw tree roots 
+    /// </summary>
     public class BALtreeRoot : GH_Component
     {
         public BALtreeRoot()
