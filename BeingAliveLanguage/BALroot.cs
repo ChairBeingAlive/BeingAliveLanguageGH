@@ -6,12 +6,10 @@ using Rhino.Geometry;
 using System;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.ComponentModel.Composition.Hosting;
 using System.Windows.Forms;
-using BeingAliveLanguage;
 using GH_IO.Serialization;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
@@ -167,7 +165,10 @@ namespace BeingAliveLanguage
         {
         }
 
+        string formMode = "multi";  // s-single, m-multi
         public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override Guid ComponentGuid => new Guid("E2D1F590-4BE8-4AAD-812E-4BF682F786A4");
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -262,9 +263,6 @@ namespace BeingAliveLanguage
             DA.SetDataList(0, root.crv);
         }
 
-        string formMode = "multi";  // s-single, m-multi
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
-        public override Guid ComponentGuid => new Guid("E2D1F590-4BE8-4AAD-812E-4BF682F786A4");
     }
 
     /// <summary>

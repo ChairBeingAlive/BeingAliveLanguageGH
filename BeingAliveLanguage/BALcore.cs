@@ -1997,7 +1997,6 @@ namespace BeingAliveLanguage
             }
         }
 
-
         protected void BranchExtend(int lvId, in Point3d startP, in Vector3d dir, double L)
         {
             var endPtOffGrid = envT ? GrowPointWithEnvEffect(startP, dir * L) : Point3d.Add(startP, dir * L);
