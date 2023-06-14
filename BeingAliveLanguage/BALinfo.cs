@@ -24,7 +24,7 @@ namespace BeingAliveLanguage
         public override string AuthorContact => "https://beingalivelanguage.arch.ethz.ch";
         public override GH_LibraryLicense License => GH_LibraryLicense.opensource;
 
-        public override string Version => "0.5.0";
+        public override string Version => "0.4.9";
     }
 
     // update plugin icons in the tab
