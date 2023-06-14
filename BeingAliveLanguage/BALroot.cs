@@ -257,7 +257,7 @@ namespace BeingAliveLanguage
             }
 
 
-            var root = new RootSec(sMap, anchor, formMode);
+            var root = new RootSec(sMap, anchor, formMode, envAtt, envRep);
             root.GrowRoot(radius);
 
             DA.SetDataList(0, root.crv);
