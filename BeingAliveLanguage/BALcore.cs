@@ -283,7 +283,6 @@ namespace BeingAliveLanguage
         }
 
 
-
         // compute transformation between local coordinates and world coordinates
         public static (Transform, Transform) GetTransformation(in Plane localPln, in Plane worldPln)
         {
@@ -629,8 +628,6 @@ namespace BeingAliveLanguage
         }
 
 
-
-
         // offset using scale mechanism
         private static readonly Func<Polyline, double, Polyline> OffsetTri = (tri, ratio) =>
         {
@@ -875,6 +872,141 @@ namespace BeingAliveLanguage
             });
 
             return res;
+        }
+
+        /// <summary>
+        /// Use environment to affect the EndPoint.
+        /// If the startPt is inside any attractor / repeller area, that area will dominant the effect;
+        /// Otherwise, we accumulate weighted (dist-based) effect of all the attractor/repeller area.
+        /// </summary>
+        public static Point3d ExtendDirByAffector(in Point3d pt, in Vector3d scaledDir,
+            in SoilMap sMap, in bool envToggle = false,
+            in double envDectectDist = 0.0,
+            in List<Curve> envA = null, in List<Curve> envR = null)
+        {
+            // temporary value for rooth growth
+            double forceInAttactor = 2;
+            double forceOutAttractor = 1.5;
+            double forceInRepeller = 0.3;
+            double forceOutRepeller = 0.5;
+
+            var sortingDict = new SortedDictionary<double, Tuple<Curve, char>>();
+
+            // attractor
+            foreach (var crv in envA)
+            {
+                var contain = crv.Contains(pt, sMap.pln, 0.01);
+                if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
+                    return Point3d.Add(pt, scaledDir * forceInAttactor); // grow faster
+                else
+                {
+                    double dist;
+                    if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDectectDist)
+                        sortingDict[dist] = new Tuple<Curve, char>(crv, 'a');
+                }
+            }
+
+            //repeller
+            foreach (var crv in envR)
+            {
+                var contain = crv.Contains(pt, sMap.pln, 0.01);
+                if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
+                    return Point3d.Add(pt, scaledDir * forceInRepeller); // grow slower
+                else
+                {
+                    double dist;
+                    if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDectectDist)
+                        sortingDict[dist] = new Tuple<Curve, char>(crv, 'r');
+                }
+            }
+
+            // if not affected by the environment, return the original point
+            if (sortingDict.Count == 0)
+                return pt + scaledDir;
+
+            // for how attractor and repeller affect the growth, considering the following cases:
+            // 1. for a given area inside the detecting range, get the facing segment to the testing point.
+            // 2. if the growing dir intersect the seg, growth intensity is affected;
+            // 2.1 accumulate the forces
+            // 3. if the growing dir doesn't interset the seg, but near the "facing cone", growing direction is affected;
+            // 4. otherwise, growing is not affected.
+
+            //                                                                                                                
+            //                  +-------------------------+                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  |                         |                                                      
+            //                  ---------------------------                                                      
+            //                   \                       /                                                       
+            //                    \                     /                                                        
+            //                     \                   /                                                         
+            //                      \                 /                                                          
+            //                       \               /                                                           
+            //            --       v1 \-           -/ v0                                                         
+            //              \--         \         /             --                                               
+            //                 \--       \       /          ---/                                                 
+            //                    \--     \     /        --/                                                     
+            //              v1_rot   \--   \   /      --/  v0_rot                                                
+            //                          \-- \ /   ---/                                                           
+            //                             \-   -/                     
+
+            // each attractor/repeller curve act independently ==> resolve one by one, and average afterwards
+            var ptCol = new List<Point3d>();
+            foreach (var pair in sortingDict)
+            {
+                var (v0, v1) = Utils.GetPtCrvFacingVector(pt, sMap.pln, pair.Value.Item1);
+
+                // enlarge the ray range by 15-deg
+                var v0_enlarge = v0;
+                var v1_enlarge = v1;
+                v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.pln.Normal);
+                v1_enlarge.Rotate(Utils.ToRadian(15), sMap.pln.Normal);
+
+                // calcuate angles between dir and the 4 vec
+                var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.pln.Normal);
+                var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.pln.Normal);
+                var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.Normal);
+                var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.Normal);
+
+                // clamp force
+                var K = envDectectDist * envDectectDist;
+                var forceAtt = Math.Min(K / (pair.Key * pair.Key), forceOutAttractor);
+                var forceRep = Math.Min(K / (pair.Key * pair.Key), forceOutRepeller);
+                var newDir = scaledDir;
+
+                // conditional decision:
+                // dir in [vec0_enlarge, vec0] => rotate CCW
+                if (ang0 * ang0_rot < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang0_rot) < 90)
+                {
+                    var rotA = pair.Value.Item2 == 'a' ? -ang0_rot : ang0_rot;
+                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
+
+                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
+                }
+                // dir in [vec1, vec1_enlarge] => rotate CW
+                else if (ang1 * ang1_rot < 0 && Math.Abs(ang1) < 90 && Math.Abs(ang1_rot) < 90)
+                {
+                    var rotA = pair.Value.Item2 == 'a' ? -ang1_rot : ang1_rot;
+                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
+
+                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
+                }
+                // dir in [vec0, vec1] => grow with force
+                else if (ang0 * ang1 < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang1) < 90)
+                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
+
+
+                ptCol.Add(pt + newDir);
+            }
+
+            return ptCol.Aggregate(new Point3d(0, 0, 0), (s, v) => s + v) / ptCol.Count;
         }
     }
 
@@ -2023,123 +2155,124 @@ namespace BeingAliveLanguage
         /// </summary>
         protected Point3d GrowPointWithEnvEffect(in Point3d pt, in Vector3d scaledDir)
         {
-            var sortingDict = new SortedDictionary<double, Tuple<Curve, char>>();
+            return BalCore.ExtendDirByAffector(pt, scaledDir, sMap, envT, envDetectingDist, envA, envR);
+            //var sortingDict = new SortedDictionary<double, Tuple<Curve, char>>();
 
-            // attractor
-            foreach (var crv in envA)
-            {
-                var contain = crv.Contains(pt, sMap.pln, 0.01);
-                if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
-                    return Point3d.Add(pt, scaledDir * forceInAttactor); // grow faster
-                else
-                {
-                    double dist;
-                    if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDetectingDist)
-                        sortingDict[dist] = new Tuple<Curve, char>(crv, 'a');
-                }
-            }
+            //// attractor
+            //foreach (var crv in envA)
+            //{
+            //    var contain = crv.Contains(pt, sMap.pln, 0.01);
+            //    if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
+            //        return Point3d.Add(pt, scaledDir * forceInAttactor); // grow faster
+            //    else
+            //    {
+            //        double dist;
+            //        if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDetectingDist)
+            //            sortingDict[dist] = new Tuple<Curve, char>(crv, 'a');
+            //    }
+            //}
 
-            //repeller
-            foreach (var crv in envR)
-            {
-                var contain = crv.Contains(pt, sMap.pln, 0.01);
-                if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
-                    return Point3d.Add(pt, scaledDir * forceInRepeller); // grow slower
-                else
-                {
-                    double dist;
-                    if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDetectingDist)
-                        sortingDict[dist] = new Tuple<Curve, char>(crv, 'r');
-                }
-            }
+            ////repeller
+            //foreach (var crv in envR)
+            //{
+            //    var contain = crv.Contains(pt, sMap.pln, 0.01);
+            //    if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
+            //        return Point3d.Add(pt, scaledDir * forceInRepeller); // grow slower
+            //    else
+            //    {
+            //        double dist;
+            //        if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDetectingDist)
+            //            sortingDict[dist] = new Tuple<Curve, char>(crv, 'r');
+            //    }
+            //}
 
-            // if not affected by the environment, return the original point
-            if (sortingDict.Count == 0)
-                return pt + scaledDir;
+            //// if not affected by the environment, return the original point
+            //if (sortingDict.Count == 0)
+            //    return pt + scaledDir;
 
-            // for how attractor and repeller affect the growth, considering the following cases:
-            // 1. for a given area inside the detecting range, get the facing segment to the testing point.
-            // 2. if the growing dir intersect the seg, growth intensity is affected;
-            // 2.1 accumulate the forces
-            // 3. if the growing dir doesn't interset the seg, but near the "facing cone", growing direction is affected;
-            // 4. otherwise, growing is not affected.
+            //// for how attractor and repeller affect the growth, considering the following cases:
+            //// 1. for a given area inside the detecting range, get the facing segment to the testing point.
+            //// 2. if the growing dir intersect the seg, growth intensity is affected;
+            //// 2.1 accumulate the forces
+            //// 3. if the growing dir doesn't interset the seg, but near the "facing cone", growing direction is affected;
+            //// 4. otherwise, growing is not affected.
 
-            //                                                                                                                
-            //                  +-------------------------+                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  |                         |                                                      
-            //                  ---------------------------                                                      
-            //                   \                       /                                                       
-            //                    \                     /                                                        
-            //                     \                   /                                                         
-            //                      \                 /                                                          
-            //                       \               /                                                           
-            //            --       v1 \-           -/ v0                                                         
-            //              \--         \         /             --                                               
-            //                 \--       \       /          ---/                                                 
-            //                    \--     \     /        --/                                                     
-            //              v1_rot   \--   \   /      --/  v0_rot                                                
-            //                          \-- \ /   ---/                                                           
-            //                             \-   -/                     
+            ////                                                                                                                
+            ////                  +-------------------------+                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  |                         |                                                      
+            ////                  ---------------------------                                                      
+            ////                   \                       /                                                       
+            ////                    \                     /                                                        
+            ////                     \                   /                                                         
+            ////                      \                 /                                                          
+            ////                       \               /                                                           
+            ////            --       v1 \-           -/ v0                                                         
+            ////              \--         \         /             --                                               
+            ////                 \--       \       /          ---/                                                 
+            ////                    \--     \     /        --/                                                     
+            ////              v1_rot   \--   \   /      --/  v0_rot                                                
+            ////                          \-- \ /   ---/                                                           
+            ////                             \-   -/                     
 
-            // each attractor/repeller curve act independently ==> resolve one by one, and average afterwards
-            var ptCol = new List<Point3d>();
-            foreach (var pair in sortingDict)
-            {
-                var (v0, v1) = Utils.GetPtCrvFacingVector(pt, sMap.pln, pair.Value.Item1);
+            //// each attractor/repeller curve act independently ==> resolve one by one, and average afterwards
+            //var ptCol = new List<Point3d>();
+            //foreach (var pair in sortingDict)
+            //{
+            //    var (v0, v1) = Utils.GetPtCrvFacingVector(pt, sMap.pln, pair.Value.Item1);
 
-                // enlarge the ray range by 15-deg
-                var v0_enlarge = v0;
-                var v1_enlarge = v1;
-                v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.pln.Normal);
-                v1_enlarge.Rotate(Utils.ToRadian(15), sMap.pln.Normal);
+            //    // enlarge the ray range by 15-deg
+            //    var v0_enlarge = v0;
+            //    var v1_enlarge = v1;
+            //    v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.pln.Normal);
+            //    v1_enlarge.Rotate(Utils.ToRadian(15), sMap.pln.Normal);
 
-                // calcuate angles between dir and the 4 vec
-                var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.pln.Normal);
-                var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.pln.Normal);
-                var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.Normal);
-                var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.Normal);
+            //    // calcuate angles between dir and the 4 vec
+            //    var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.pln.Normal);
+            //    var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.pln.Normal);
+            //    var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.Normal);
+            //    var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.Normal);
 
-                // clamp force
-                var K = envDetectingDist * envDetectingDist;
-                var forceAtt = Math.Min(K / (pair.Key * pair.Key), forceOutAttractor);
-                var forceRep = Math.Min(K / (pair.Key * pair.Key), forceOutRepeller);
-                var newDir = scaledDir;
+            //    // clamp force
+            //    var K = envDetectingDist * envDetectingDist;
+            //    var forceAtt = Math.Min(K / (pair.Key * pair.Key), forceOutAttractor);
+            //    var forceRep = Math.Min(K / (pair.Key * pair.Key), forceOutRepeller);
+            //    var newDir = scaledDir;
 
-                // conditional decision:
-                // dir in [vec0_enlarge, vec0] => rotate CCW
-                if (ang0 * ang0_rot < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang0_rot) < 90)
-                {
-                    var rotA = pair.Value.Item2 == 'a' ? -ang0_rot : ang0_rot;
-                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
+            //    // conditional decision:
+            //    // dir in [vec0_enlarge, vec0] => rotate CCW
+            //    if (ang0 * ang0_rot < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang0_rot) < 90)
+            //    {
+            //        var rotA = pair.Value.Item2 == 'a' ? -ang0_rot : ang0_rot;
+            //        newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
 
-                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
-                }
-                // dir in [vec1, vec1_enlarge] => rotate CW
-                else if (ang1 * ang1_rot < 0 && Math.Abs(ang1) < 90 && Math.Abs(ang1_rot) < 90)
-                {
-                    var rotA = pair.Value.Item2 == 'a' ? -ang1_rot : ang1_rot;
-                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
+            //        newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
+            //    }
+            //    // dir in [vec1, vec1_enlarge] => rotate CW
+            //    else if (ang1 * ang1_rot < 0 && Math.Abs(ang1) < 90 && Math.Abs(ang1_rot) < 90)
+            //    {
+            //        var rotA = pair.Value.Item2 == 'a' ? -ang1_rot : ang1_rot;
+            //        newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
 
-                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
-                }
-                // dir in [vec0, vec1] => grow with force
-                else if (ang0 * ang1 < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang1) < 90)
-                    newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
+            //        newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
+            //    }
+            //    // dir in [vec0, vec1] => grow with force
+            //    else if (ang0 * ang1 < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang1) < 90)
+            //        newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
 
 
-                ptCol.Add(pt + newDir);
-            }
+            //    ptCol.Add(pt + newDir);
+            //}
 
-            return ptCol.Aggregate(new Point3d(0, 0, 0), (s, v) => s + v) / ptCol.Count;
+            //return ptCol.Aggregate(new Point3d(0, 0, 0), (s, v) => s + v) / ptCol.Count;
         }
 
         protected SoilMap sMap = new SoilMap();
