@@ -270,7 +270,7 @@ namespace BeingAliveLanguage
             pManager[2].DataMapping = GH_DataMapping.Flatten; // flatten the triangle list by default
             pManager[2].Optional = true; // rock can be optionally provided
 
-            pManager.AddIntegerParameter("seed", "s", "Int seed for randomize the generated soil pattern.", GH_ParamAccess.item, -1);
+            pManager.AddIntegerParameter("seed", "s", "Int seed to randomize the generated soil pattern.", GH_ParamAccess.item, -1);
             pManager[3].Optional = true; // if no seed is provided, use random seeds
 
             //pManager.AddIntegerParameter("stage", "t", "Int stage index [1 - 8] representing the randomness of the soil separates that are gradually changed by the organic matter.", GH_ParamAccess.item, 5);

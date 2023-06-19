@@ -13,6 +13,10 @@ using System.Runtime.InteropServices;
 using System.Data;
 using System.Net.Security;
 using System.Text.RegularExpressions;
+using System.Net.Mail;
+using System.Xml;
+using System.Xml.Schema;
+using MathNet.Numerics.Random;
 
 namespace BeingAliveLanguage
 {
@@ -884,6 +888,13 @@ namespace BeingAliveLanguage
             in double envDectectDist = 0.0,
             in List<Curve> envA = null, in List<Curve> envR = null)
         {
+
+            // if the environment is not activated, directly output the extension
+            if (!envToggle)
+            {
+                return pt + scaledDir;
+            }
+
             // temporary value for rooth growth
             double forceInAttactor = 2;
             double forceOutAttractor = 1.5;
@@ -895,7 +906,7 @@ namespace BeingAliveLanguage
             // attractor
             foreach (var crv in envA)
             {
-                var contain = crv.Contains(pt, sMap.pln, 0.01);
+                var contain = crv.Contains(pt, sMap.mPln, 0.01);
                 if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
                     return Point3d.Add(pt, scaledDir * forceInAttactor); // grow faster
                 else
@@ -909,7 +920,7 @@ namespace BeingAliveLanguage
             //repeller
             foreach (var crv in envR)
             {
-                var contain = crv.Contains(pt, sMap.pln, 0.01);
+                var contain = crv.Contains(pt, sMap.mPln, 0.01);
                 if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
                     return Point3d.Add(pt, scaledDir * forceInRepeller); // grow slower
                 else
@@ -961,19 +972,19 @@ namespace BeingAliveLanguage
             var ptCol = new List<Point3d>();
             foreach (var pair in sortingDict)
             {
-                var (v0, v1) = Utils.GetPtCrvFacingVector(pt, sMap.pln, pair.Value.Item1);
+                var (v0, v1) = Utils.GetPtCrvFacingVector(pt, sMap.mPln, pair.Value.Item1);
 
                 // enlarge the ray range by 15-deg
                 var v0_enlarge = v0;
                 var v1_enlarge = v1;
-                v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.pln.Normal);
-                v1_enlarge.Rotate(Utils.ToRadian(15), sMap.pln.Normal);
+                v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.mPln.Normal);
+                v1_enlarge.Rotate(Utils.ToRadian(15), sMap.mPln.Normal);
 
                 // calcuate angles between dir and the 4 vec
-                var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.pln.Normal);
-                var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.pln.Normal);
-                var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.Normal);
-                var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.Normal);
+                var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.mPln.Normal);
+                var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.mPln.Normal);
+                var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.mPln.Normal);
+                var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.mPln.Normal);
 
                 // clamp force
                 var K = envDectectDist * envDectectDist;
@@ -986,7 +997,7 @@ namespace BeingAliveLanguage
                 if (ang0 * ang0_rot < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang0_rot) < 90)
                 {
                     var rotA = pair.Value.Item2 == 'a' ? -ang0_rot : ang0_rot;
-                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
+                    newDir.Rotate(Utils.ToRadian(rotA), sMap.mPln.Normal);
 
                     newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
                 }
@@ -994,7 +1005,7 @@ namespace BeingAliveLanguage
                 else if (ang1 * ang1_rot < 0 && Math.Abs(ang1) < 90 && Math.Abs(ang1_rot) < 90)
                 {
                     var rotA = pair.Value.Item2 == 'a' ? -ang1_rot : ang1_rot;
-                    newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
+                    newDir.Rotate(Utils.ToRadian(rotA), sMap.mPln.Normal);
 
                     newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
                 }
@@ -1647,7 +1658,7 @@ namespace BeingAliveLanguage
     {
         public SoilMap()
         {
-            this.pln = Plane.WorldXY;
+            this.mPln = Plane.WorldXY;
             this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
             this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
             this.ptMap = new ConcurrentDictionary<string, Point3d>();
@@ -1656,10 +1667,16 @@ namespace BeingAliveLanguage
 
         public SoilMap(in Plane pl, in string mapMode)
         {
-            this.pln = pl;
+            // kd-tree map
             this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
+
+            // topological map
             this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
+
+            // point map
             this.ptMap = new ConcurrentDictionary<string, Point3d>();
+
+            this.mPln = pl;
             this.distNorm = new Normal(3.5, 0.5);
             this.mapMode = mapMode;
         }
@@ -1716,7 +1733,7 @@ namespace BeingAliveLanguage
                 foreach (var pNext in surLst)
                 {
                     var vP = pNext - pt;
-                    var ang = Utils.ToDegree(Vector3d.VectorAngle(pln.XAxis, vP, pln.ZAxis));
+                    var ang = Utils.ToDegree(Vector3d.VectorAngle(mPln.XAxis, vP, mPln.ZAxis));
 
                     if (Math.Abs(ang - 60) < tol)
                         AddNeighbour(strLoc, 0, pt, pNext);
@@ -1735,6 +1752,10 @@ namespace BeingAliveLanguage
                 }
             }
         }
+
+        public void AddGeo(in ConcurrentBag<Polyline> polyIn) { }
+
+        public void AddGeo(in ConcurrentBag<Point3d> ptIn) { }
 
         public void BuildMap(in ConcurrentBag<Polyline> polyBag)
         {
@@ -1809,6 +1830,37 @@ namespace BeingAliveLanguage
             }).Average();
         }
 
+        public void BuildBound()
+        {
+            List<double> uLst = new List<double>();
+            List<double> vLst = new List<double>();
+            foreach (var node in kdMap)
+            {
+                var pt3d = new Point3d(node.Point[0], node.Point[1], node.Point[2]);
+                double u, v;
+                if (mPln.ClosestParameter(pt3d, out u, out v))
+                {
+                    uLst.Add(u);
+                    vLst.Add(v);
+                }
+            }
+            mBndParam = new Tuple<double, double, double, double>(uLst.Min(), uLst.Max(), vLst.Min(), vLst.Max());
+        }
+        public bool IsOnBound(in Point3d pt)
+        {
+            double u, v;
+            if (mPln.ClosestParameter(pt, out u, out v))
+            {
+                if ((mBndParam.Item1 - u) * (mBndParam.Item1 - u) < 1e-2
+                    || (mBndParam.Item2 - u) * (mBndParam.Item2 - u) < 1e-2
+                    || (mBndParam.Item3 - v) * (mBndParam.Item3 - v) < 1e-2
+                    || (mBndParam.Item4 - v) * (mBndParam.Item4 - v) < 1e-2)
+                    return true;
+            }
+
+            return false;
+        }
+
         public Point3d GetNearestPoint(in Point3d pt)
         {
             var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, 1)[0];
@@ -1864,7 +1916,10 @@ namespace BeingAliveLanguage
         }
 
 
-        public Plane pln;
+        public Plane mPln;
+        // boundary param based on the basePlane
+        Tuple<double, double, double, double> mBndParam = new Tuple<double, double, double, double>(0, 0, 0, 0);
+
         public double unitLen = float.MaxValue;
         readonly KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
         readonly ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
@@ -1874,38 +1929,156 @@ namespace BeingAliveLanguage
 
     }
 
-    class RootSec
+    class MapNode
     {
-        public RootSec()
+        public Point3d pos;
+        public List<MapNode> nextNode = new List<MapNode>();
+        public Vector3d dir = new Vector3d();
+
+        public double distance = 0.0;
+        public int steps = 0;
+
+        public MapNode(in Point3d pt)
+        {
+            this.pos = pt;
+        }
+
+        public void addChildNode(in MapNode node)
+        {
+            // pos, distance, direction
+            node.distance = distance + pos.DistanceTo(node.pos);
+            node.steps = steps + 1;
+            node.dir = node.pos - pos;
+
+            nextNode.Add(node);
+        }
+    }
+
+    class RootSectional
+    {
+        // for sectional root, we use a "TREE" structure, and BFS for constructing the "radius" of each branch
+        public RootSectional()
         {
 
         }
 
-        public RootSec(in SoilMap map, in Point3d anchor, string rootType = "single",
-            List<Curve> envAtt = null, List<Curve> envRep = null)
+        public RootSectional(in SoilMap map, in Point3d anchor,
+            string rootType, in int seed = -1,
+            in bool envToggle = false, in double envRange = 0.0,
+            in List<Curve> envAtt = null, in List<Curve> envRep = null)
         {
-            this.sMap = map;
-            this.anc = anchor;
-            this.rType = rootType;
+            mSoilMap = map;
+            mAnchor = anchor;
+            mRootType = rootType;
+            mSeed = seed;
+            mRootNode = new MapNode(anchor);
 
+            mRnd = mSeed >= 0 ? new Random(mSeed) : Utils.balRnd;
+            mDownDir = -mSoilMap.mPln.YAxis;
+
+            // env param
+            this.envToggle = envToggle;
+            this.envDist = envRange;
             this.envAtt = envAtt;
             this.envRep = envRep;
         }
 
+        public Point3d extendRoot(in Point3d pt, in Vector3d dir)
+        {
+            var endPt = BalCore.ExtendDirByAffector(pt, dir, mSoilMap, envToggle, envDist, envAtt, envRep);
+            return mSoilMap.GetNearestPoint(endPt);
+        }
+
+        public void Grow(int rSteps, int rDen = 2)
+        {
+            var anchorOnMap = mSoilMap.GetNearestPoint(mAnchor);
+            if (anchorOnMap != null)
+                mRootNode = new MapNode(anchorOnMap);
+
+            mRootNode.dir = -mSoilMap.mPln.YAxis * mSoilMap.unitLen * 2;
+
+            if (mRootType == "single")
+            {
+                double singleRotAng = Math.PI / (rDen + 3.0);
+
+                //var curDir = mSoilMap.mPln.XAxis * mSoilMap.unitLen * 2;
+                for (int i = 2; i < rDen + 2; i++)
+                {
+                    var curDir = mSoilMap.mPln.XAxis * mSoilMap.unitLen * 2;
+                    curDir.Rotate(-singleRotAng * i, mSoilMap.mPln.ZAxis);
+                    var endPt = extendRoot(mRootNode.pos, curDir);
+
+                    var tmpNode = new MapNode(endPt);
+                    mRootNode.addChildNode(tmpNode);
+
+                    // ! collecting crv
+                    rootCrv.Add(new Line(mRootNode.pos, endPt));
+                }
+            }
+            //TODO: "multi" case init.
+
+            // init BFS queue
+            Queue<MapNode> rQ = new Queue<MapNode>();
+            foreach (var item in mRootNode.nextNode)
+            {
+                rQ.Enqueue(item);
+            }
+
+            while (rQ.Count > 0)
+            {
+                var curNode = rQ.Dequeue();
+
+                //  stopping criteria
+                if (curNode.steps >= rSteps || mSoilMap.IsOnBound(curNode.pos))
+                {
+                    continue; // skip this node
+                }
+                else
+                {
+                    var nextDir = curNode.dir;
+
+                    // direction variation + small turbulation
+                    nextDir.Unitize();
+                    if (curNode.steps < rSteps * 0.5) // gravity effect at the initial phases
+                        nextDir += mDownDir * 0.7;
+                    else
+                        nextDir += mDownDir * 0.3;
+
+                    nextDir.Unitize();
+                    if (curNode.steps > 3) // turbulation
+                        nextDir += (mRnd.Next(-50, 50) / 100.0) * mSoilMap.mPln.XAxis;
+
+                    // direction scale and extension
+                    nextDir.Unitize();
+                    nextDir *= mSoilMap.unitLen * (mRnd.Next(100, 120) / 100.0);
+                    var nextPos = extendRoot(curNode.pos, nextDir);
+
+                    var tmpNode = new MapNode(nextPos);
+                    curNode.addChildNode(tmpNode);
+                    rQ.Enqueue(tmpNode);
+
+
+                    // ! collecting crv
+                    rootCrv.Add(new Line(curNode.pos, nextPos));
+                }
+            }
+
+        }
+
         // rootTyle: 0 - single, 1 - multi(branching)
-        public void GrowRoot(double radius)
+        public void GrowRoot(double radius, int rDen = 2)
         {
             // init starting ptKey
-            var anchorOnMap = sMap.GetNearestPoints(anc, 1)[0];
+            var anchorOnMap = mSoilMap.GetNearestPoints(mAnchor, 1)[0];
             if (anchorOnMap != null)
                 frontKey.Add(anchorOnMap);
 
             // build a distance map from anchor point
             // using euclidian distance, not grid distance for ease
             disMap.Clear();
-            foreach (var pt in sMap.ptMap)
+            foreach (var pt in mSoilMap.ptMap)
             {
-                disMap[pt.Key] = pt.Value.DistanceTo(anc);
+                disMap[pt.Key] = pt.Value.DistanceTo(mAnchor);
             }
 
             // grow root until given radius is reached
@@ -1913,7 +2086,7 @@ namespace BeingAliveLanguage
             double aveR = 0;
 
             int branchNum;
-            switch (rType)
+            switch (mRootType)
             {
                 case "single":
                     branchNum = 1;
@@ -1926,7 +2099,7 @@ namespace BeingAliveLanguage
                     break;
             }
 
-            // 1000 is the limits, in case infinite loop
+            // TODO: change to "while"?
             for (int i = 0; i < 5000; i++)
             {
                 if (frontKey.Count == 0 || curR >= radius)
@@ -1946,10 +2119,10 @@ namespace BeingAliveLanguage
                         break;
 
                     // the GetNextPointAndDistance guarantee grow downwards
-                    var (dis, nextPt) = sMap.GetNextPointAndDistance(in startPt);
+                    var (dis, nextPt) = mSoilMap.GetNextPointAndDistance(in startPt);
                     if (nextFrontKey.Add(nextPt))
                     {
-                        crv.Add(new Line(sMap.GetPoint(startPt), sMap.GetPoint(nextPt)));
+                        rootCrv.Add(new Line(mSoilMap.GetPoint(startPt), mSoilMap.GetPoint(nextPt)));
                         curR = disMap[nextPt] > curR ? disMap[nextPt] : curR;
 
                         branchCnt += 1;
@@ -1964,16 +2137,23 @@ namespace BeingAliveLanguage
         }
 
         // public variables
-        public List<Line> crv = new List<Line>();
+        public List<Line> rootCrv = new List<Line>();
 
         // internal variables
         HashSet<string> frontKey = new HashSet<string>();
         HashSet<string> nextFrontKey = new HashSet<string>();
         ConcurrentDictionary<string, double> disMap = new ConcurrentDictionary<string, double>();
-        Point3d anc = new Point3d();
-        SoilMap sMap = new SoilMap();
+        Point3d mAnchor = new Point3d();
+        MapNode mRootNode = null;
+        SoilMap mSoilMap = new SoilMap();
 
-        string rType = "single";
+        int mSeed = -1;
+        Random mRnd;
+        Vector3d mDownDir;
+
+        string mRootType = "single";
+        bool envToggle = false;
+        double envDist = 0.0;
         List<Curve> envAtt = null;
         List<Curve> envRep = null;
 
@@ -2062,8 +2242,8 @@ namespace BeingAliveLanguage
                 dir0.Unitize();
                 dir1.Unitize();
 
-                dir0.Rotate(Utils.ToRadian(rotAng), sMap.pln.Normal);
-                dir1.Rotate(Utils.ToRadian(-rotAng), sMap.pln.Normal);
+                dir0.Rotate(Utils.ToRadian(rotAng), sMap.mPln.Normal);
+                dir1.Rotate(Utils.ToRadian(-rotAng), sMap.mPln.Normal);
 
                 foreach (var p in basePt)
                 {
@@ -2080,7 +2260,7 @@ namespace BeingAliveLanguage
 
             for (int i = 0; i < divN; i++)
             {
-                var dir = sMap.pln.PointAt(Math.Cos(ang * i), Math.Sin(ang * i), 0) - sMap.pln.Origin;
+                var dir = sMap.mPln.PointAt(Math.Cos(ang * i), Math.Sin(ang * i), 0) - sMap.mPln.Origin;
                 BranchExtend(phaseId, anchor, dir, curLen);
             }
         }
@@ -2099,8 +2279,8 @@ namespace BeingAliveLanguage
                 // v0, v1 are utilized
                 var v0 = curVec;
                 var v1 = curVec;
-                v0.Rotate(Utils.ToRadian(30), sMap.pln.Normal);
-                v1.Rotate(Utils.ToRadian(-30), sMap.pln.Normal);
+                v0.Rotate(Utils.ToRadian(30), sMap.mPln.Normal);
+                v1.Rotate(Utils.ToRadian(-30), sMap.mPln.Normal);
 
                 BranchExtend(phaseId, curPt, v0, curLen);
                 BranchExtend(phaseId, curPt, v1, curLen);
@@ -2121,17 +2301,17 @@ namespace BeingAliveLanguage
 
                 // v0, v1 are unitized
                 var tmpVec = Vector3d.CrossProduct(curVec, preVec);
-                var sign = tmpVec * sMap.pln.Normal;
+                var sign = tmpVec * sMap.mPln.Normal;
                 var ang = (sign >= 0 ? 15 : -15);
 
-                curVec.Rotate(Utils.ToRadian(ang), sMap.pln.Normal);
+                curVec.Rotate(Utils.ToRadian(ang), sMap.mPln.Normal);
                 BranchExtend(phaseId, curPt, curVec, curLen);
             }
         }
 
         protected void BranchExtend(int lvId, in Point3d startP, in Vector3d dir, double L)
         {
-            var endPtOffGrid = envT ? GrowPointWithEnvEffect(startP, dir * L) : Point3d.Add(startP, dir * L);
+            var endPtOffGrid = GrowPointWithEnvEffect(startP, dir * L);
 
             // record
             var ptKey2 = sMap.GetNearestPoints(endPtOffGrid, 2);
@@ -2156,123 +2336,6 @@ namespace BeingAliveLanguage
         protected Point3d GrowPointWithEnvEffect(in Point3d pt, in Vector3d scaledDir)
         {
             return BalCore.ExtendDirByAffector(pt, scaledDir, sMap, envT, envDetectingDist, envA, envR);
-            //var sortingDict = new SortedDictionary<double, Tuple<Curve, char>>();
-
-            //// attractor
-            //foreach (var crv in envA)
-            //{
-            //    var contain = crv.Contains(pt, sMap.pln, 0.01);
-            //    if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
-            //        return Point3d.Add(pt, scaledDir * forceInAttactor); // grow faster
-            //    else
-            //    {
-            //        double dist;
-            //        if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDetectingDist)
-            //            sortingDict[dist] = new Tuple<Curve, char>(crv, 'a');
-            //    }
-            //}
-
-            ////repeller
-            //foreach (var crv in envR)
-            //{
-            //    var contain = crv.Contains(pt, sMap.pln, 0.01);
-            //    if (contain == PointContainment.Inside || contain == PointContainment.Coincident)
-            //        return Point3d.Add(pt, scaledDir * forceInRepeller); // grow slower
-            //    else
-            //    {
-            //        double dist;
-            //        if (crv.ClosestPoint(pt, out double t) && (dist = crv.PointAt(t).DistanceTo(pt)) < envDetectingDist)
-            //            sortingDict[dist] = new Tuple<Curve, char>(crv, 'r');
-            //    }
-            //}
-
-            //// if not affected by the environment, return the original point
-            //if (sortingDict.Count == 0)
-            //    return pt + scaledDir;
-
-            //// for how attractor and repeller affect the growth, considering the following cases:
-            //// 1. for a given area inside the detecting range, get the facing segment to the testing point.
-            //// 2. if the growing dir intersect the seg, growth intensity is affected;
-            //// 2.1 accumulate the forces
-            //// 3. if the growing dir doesn't interset the seg, but near the "facing cone", growing direction is affected;
-            //// 4. otherwise, growing is not affected.
-
-            ////                                                                                                                
-            ////                  +-------------------------+                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  |                         |                                                      
-            ////                  ---------------------------                                                      
-            ////                   \                       /                                                       
-            ////                    \                     /                                                        
-            ////                     \                   /                                                         
-            ////                      \                 /                                                          
-            ////                       \               /                                                           
-            ////            --       v1 \-           -/ v0                                                         
-            ////              \--         \         /             --                                               
-            ////                 \--       \       /          ---/                                                 
-            ////                    \--     \     /        --/                                                     
-            ////              v1_rot   \--   \   /      --/  v0_rot                                                
-            ////                          \-- \ /   ---/                                                           
-            ////                             \-   -/                     
-
-            //// each attractor/repeller curve act independently ==> resolve one by one, and average afterwards
-            //var ptCol = new List<Point3d>();
-            //foreach (var pair in sortingDict)
-            //{
-            //    var (v0, v1) = Utils.GetPtCrvFacingVector(pt, sMap.pln, pair.Value.Item1);
-
-            //    // enlarge the ray range by 15-deg
-            //    var v0_enlarge = v0;
-            //    var v1_enlarge = v1;
-            //    v0_enlarge.Rotate(Utils.ToRadian(-15), sMap.pln.Normal);
-            //    v1_enlarge.Rotate(Utils.ToRadian(15), sMap.pln.Normal);
-
-            //    // calcuate angles between dir and the 4 vec
-            //    var ang0 = Utils.SignedVecAngle(scaledDir, v0, sMap.pln.Normal);
-            //    var ang0_rot = Utils.SignedVecAngle(scaledDir, v0_enlarge, sMap.pln.Normal);
-            //    var ang1 = Utils.SignedVecAngle(scaledDir, v1, sMap.pln.Normal);
-            //    var ang1_rot = Utils.SignedVecAngle(scaledDir, v1_enlarge, sMap.pln.Normal);
-
-            //    // clamp force
-            //    var K = envDetectingDist * envDetectingDist;
-            //    var forceAtt = Math.Min(K / (pair.Key * pair.Key), forceOutAttractor);
-            //    var forceRep = Math.Min(K / (pair.Key * pair.Key), forceOutRepeller);
-            //    var newDir = scaledDir;
-
-            //    // conditional decision:
-            //    // dir in [vec0_enlarge, vec0] => rotate CCW
-            //    if (ang0 * ang0_rot < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang0_rot) < 90)
-            //    {
-            //        var rotA = pair.Value.Item2 == 'a' ? -ang0_rot : ang0_rot;
-            //        newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
-
-            //        newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
-            //    }
-            //    // dir in [vec1, vec1_enlarge] => rotate CW
-            //    else if (ang1 * ang1_rot < 0 && Math.Abs(ang1) < 90 && Math.Abs(ang1_rot) < 90)
-            //    {
-            //        var rotA = pair.Value.Item2 == 'a' ? -ang1_rot : ang1_rot;
-            //        newDir.Rotate(Utils.ToRadian(rotA), sMap.pln.Normal);
-
-            //        newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
-            //    }
-            //    // dir in [vec0, vec1] => grow with force
-            //    else if (ang0 * ang1 < 0 && Math.Abs(ang0) < 90 && Math.Abs(ang1) < 90)
-            //        newDir *= (pair.Value.Item2 == 'a' ? forceAtt : forceRep);
-
-
-            //    ptCol.Add(pt + newDir);
-            //}
-
-            //return ptCol.Aggregate(new Point3d(0, 0, 0), (s, v) => s + v) / ptCol.Count;
         }
 
         protected SoilMap sMap = new SoilMap();
@@ -2285,11 +2348,6 @@ namespace BeingAliveLanguage
         List<Curve> envR = null;
         double envDetectingDist = 0;
         bool envT = false;
-
-        double forceInAttactor = 2;
-        double forceOutAttractor = 1.5;
-        double forceInRepeller = 0.3;
-        double forceOutRepeller = 0.5;
 
         readonly private List<double> scaleFactor = new List<double> { 1, 1.2, 1.5, 2, 2.5 };
 

@@ -298,10 +298,10 @@ namespace BeingAliveLanguage
             { return; }
 
 
-            var root = new RootSec(sMap, anchor, formMode);
+            var root = new RootSectional(sMap, anchor, formMode);
             root.GrowRoot(radius);
 
-            DA.SetDataList(0, root.crv);
+            DA.SetDataList(0, root.rootCrv);
         }
 
         string formMode = "multi";  // s-single, m-multi

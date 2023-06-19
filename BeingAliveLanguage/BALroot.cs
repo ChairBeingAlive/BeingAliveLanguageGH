@@ -112,6 +112,8 @@ namespace BeingAliveLanguage
                 sMap.BuildMap(conPoly);
             }
 
+            sMap.BuildBound();
+
             DA.SetData(0, sMap);
 
         }
@@ -174,10 +176,16 @@ namespace BeingAliveLanguage
         {
             pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
             pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Radius", "R", "Root Radius.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Steps", "S", "Root growing steps.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Density", "d", "Root Density ([1-9], controls the density of the roots)", GH_ParamAccess.item, 2);
+            pManager[3].Optional = true;
+            pManager.AddIntegerParameter("seed", "s", "Int seed to randomize the generated root pattern.", GH_ParamAccess.item, -1);
+            pManager[4].Optional = true;
 
             pManager.AddCurveParameter("Env Attractor", "envA", "Environmental attracting area (water, resource, etc.).", GH_ParamAccess.list);
+            pManager[5].Optional = true;
             pManager.AddCurveParameter("Env Repeller", "envR", "Environmental repelling area (dryness, poison, etc.).", GH_ParamAccess.list);
+            pManager[6].Optional = true;
             pManager.AddNumberParameter("Env DetectionRange", "envD", "The range (to unit length of the grid) that a root can detect surrounding environment.", GH_ParamAccess.item, 5);
             pManager.AddBooleanParameter("EnvAffector Toggle", "envToggle", "Toggle the affects caused by environmental factors.", GH_ParamAccess.item, false);
         }
@@ -219,14 +227,19 @@ namespace BeingAliveLanguage
         {
             var sMap = new SoilMap();
             var anchor = new Point3d();
-            double radius = 10.0;
+            //double radius = 10.0;
+            int steps = 10;
+            int den = 2;
+            int seed = -1;
 
-            if (!DA.GetData(0, ref sMap) || sMap.mapMode != "sectional")
+            if (!DA.GetData("SoilMap", ref sMap) || sMap.mapMode != "sectional")
             { return; }
-            if (!DA.GetData(1, ref anchor))
+            if (!DA.GetData("Anchor", ref anchor))
             { return; }
-            if (!DA.GetData(2, ref radius))
+            if (!DA.GetData("Radius", ref steps))
             { return; }
+            DA.GetData("Density", ref den);
+            DA.GetData("seed", ref seed);
 
 
             // optional param
@@ -238,6 +251,12 @@ namespace BeingAliveLanguage
             DA.GetDataList("Env Repeller", envRep);
             DA.GetData("Env DetectionRange", ref envRange);
             DA.GetData("EnvAffector Toggle", ref envToggle);
+
+            if (den < 1 || den > 9)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Density not in the allowed range.");
+                return;
+            }
 
             if (envToggle)
             {
@@ -256,11 +275,11 @@ namespace BeingAliveLanguage
                     }
             }
 
+            var root = new RootSectional(sMap, anchor, formMode, seed, envToggle, envRange, envAtt, envRep);
+            //root.GrowRoot(radius, den);
+            root.Grow(steps, den);
 
-            var root = new RootSec(sMap, anchor, formMode, envAtt, envRep);
-            root.GrowRoot(radius);
-
-            DA.SetDataList(0, root.crv);
+            DA.SetDataList(0, root.rootCrv);
         }
 
     }
@@ -440,7 +459,7 @@ namespace BeingAliveLanguage
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A tree root need a sectional soil map to grow upon.");
             }
 
-            if (sMap.pln != tInfo.pln)
+            if (sMap.mPln != tInfo.pln)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Tree plane and SoilMap plane does not match. This may cause issues for the root drawing.");
             }
@@ -482,8 +501,8 @@ namespace BeingAliveLanguage
             if (tInfo.phase < 1 || tInfo.phase > 12)
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tree phase is out of range [0, 12].");
 
-            var vVec = -sMap.pln.YAxis * vL * scalingFactor;
-            var hVec = sMap.pln.XAxis * uL * scalingFactor;
+            var vVec = -sMap.mPln.YAxis * vL * scalingFactor;
+            var hVec = sMap.mPln.XAxis * uL * scalingFactor;
 
             int vSideParam = 3;
 
@@ -729,7 +748,7 @@ namespace BeingAliveLanguage
             int preParam = 0;
             int curParam = 0;
 
-            var startPtH2 = anchorPt - sMap.pln.YAxis * vL * 2;
+            var startPtH2 = anchorPt - sMap.mPln.YAxis * vL * 2;
             if (tInfo.phase >= 4 && tInfo.phase <= 6)
             {
                 if (tInfo.phase == 4)
@@ -791,7 +810,7 @@ namespace BeingAliveLanguage
             //       *****
 
             int prevParam = 0;
-            var startPtH3 = anchorPt - sMap.pln.YAxis * vL * 4;
+            var startPtH3 = anchorPt - sMap.mPln.YAxis * vL * 4;
             if (tInfo.phase == 6)
             {
                 curParam = 3;
