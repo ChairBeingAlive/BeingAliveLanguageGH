@@ -155,12 +155,12 @@ namespace BeingAliveLanguage
     /// <summary>
     /// Draw the root in sectional soil grid.
     /// </summary>
-    public class BALRootSec : GH_Component
+    public class BALRootSectional : GH_Component
     {
         /// <summary>
         /// Initializes a new instance of the MyComponent1 class.
         /// </summary>
-        public BALRootSec()
+        public BALRootSectional()
           : base("Root_Sectional", "balRoot_S",
               "Draw root in sectional soil map.",
               "BAL", "02::root")
@@ -236,7 +236,7 @@ namespace BeingAliveLanguage
             { return; }
             if (!DA.GetData("Anchor", ref anchor))
             { return; }
-            if (!DA.GetData("Radius", ref steps))
+            if (!DA.GetData("Steps", ref steps))
             { return; }
             DA.GetData("Density", ref den);
             DA.GetData("seed", ref seed);
@@ -275,7 +275,7 @@ namespace BeingAliveLanguage
                     }
             }
 
-            var root = new RootSectional(sMap, anchor, formMode, seed, envToggle, envRange, envAtt, envRep);
+            var root = new RootSectional(sMap, anchor, formMode, steps, den, seed, envToggle, envRange, envAtt, envRep);
             //root.GrowRoot(radius, den);
             root.Grow(steps, den);
 

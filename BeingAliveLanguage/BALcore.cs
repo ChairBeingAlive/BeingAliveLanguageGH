@@ -10,13 +10,9 @@ using Grasshopper.Kernel;
 using System.Diagnostics;
 using Rhino.Geometry.Intersect;
 using System.Runtime.InteropServices;
-using System.Data;
-using System.Net.Security;
-using System.Text.RegularExpressions;
-using System.Net.Mail;
-using System.Xml;
-using System.Xml.Schema;
-using MathNet.Numerics.Random;
+using System.Threading;
+using Grasshopper.GUI;
+using System.Windows.Forms.Layout;
 
 namespace BeingAliveLanguage
 {
@@ -1868,7 +1864,28 @@ namespace BeingAliveLanguage
             return new Point3d(resNode.Point[0], resNode.Point[1], resNode.Point[2]);
         }
 
-        public List<string> GetNearestPoints(in Point3d pt, int N)
+        public string GetNearestPointStr(in Point3d pt)
+        {
+            var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, 1)[0];
+
+            return resNode.Value;
+        }
+
+        public List<Point3d> GetNearestPoints(in Point3d pt, int N)
+        {
+            var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, N);
+
+            // error case
+            if (resNode.Length == 0)
+            {
+                return new List<Point3d>();
+            }
+
+            var resL = resNode.Select(x => new Point3d(x.Point[0], x.Point[1], x.Point[2])).ToList();
+            return resL;
+        }
+
+        public List<string> GetNearestPointsStr(in Point3d pt, int N)
         {
             var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, N);
 
@@ -1963,7 +1980,7 @@ namespace BeingAliveLanguage
         }
 
         public RootSectional(in SoilMap map, in Point3d anchor,
-            string rootType, in int seed = -1,
+            string rootType, in int steps = 1, in int density = 2, in int seed = -1,
             in bool envToggle = false, in double envRange = 0.0,
             in List<Curve> envAtt = null, in List<Curve> envRep = null)
         {
@@ -1971,6 +1988,8 @@ namespace BeingAliveLanguage
             mAnchor = anchor;
             mRootType = rootType;
             mSeed = seed;
+            mSteps = steps;
+            mDensity = density;
             mRootNode = new MapNode(anchor);
 
             mRnd = mSeed >= 0 ? new Random(mSeed) : Utils.balRnd;
@@ -1983,10 +2002,111 @@ namespace BeingAliveLanguage
             this.envRep = envRep;
         }
 
-        public Point3d extendRoot(in Point3d pt, in Vector3d dir)
+        private bool RootDensityCheck(Point3d pt)
         {
-            var endPt = BalCore.ExtendDirByAffector(pt, dir, mSoilMap, envToggle, envDist, envAtt, envRep);
-            return mSoilMap.GetNearestPoint(endPt);
+            var k = Utils.PtString(pt);
+            if (!mSoilEnv.ContainsKey(k))
+                mSoilEnv[k] = 0;
+            else if (mSoilEnv[k] > 20)
+                return false;
+
+            return true;
+        }
+
+        private void GrowSingleRoot(Vector3d nextDir, in MapNode curNode, ref List<MapNode> resLst)
+        {
+
+            // direction scale and extension
+            nextDir.Unitize();
+            if (Vector3d.Multiply(nextDir, mDownDir) < 1e-2)
+            {
+                nextDir += mDownDir * 0.3;
+            }
+
+            nextDir *= mSoilMap.unitLen * (mRnd.Next(100, 170) / 100.0);
+
+            var endPt = BalCore.ExtendDirByAffector(
+                curNode.pos, nextDir, mSoilMap,
+                envToggle, envDist, envAtt, envRep);
+
+            //tricks to add randomness
+            var tmpPos = mSoilMap.GetNearestPoint(endPt);
+            resLst.Add(new MapNode(tmpPos));
+        }
+
+        public List<MapNode> extendRoot(in MapNode curNode, in Vector3d dir, in string rType = "single")
+        {
+            var resLst = new List<MapNode>();
+            double denParam = curNode.steps < mSteps * 0.2 ? 0.1 : 0.03;
+
+            if (rType == "single")
+            {
+                // direction variation + small turbulation
+                var nextDir = dir;
+                nextDir.Unitize();
+                if (curNode.steps < mSteps * 0.5) // gravity effect at the initial phases
+                    nextDir += mDownDir * 0.7;
+                else
+                    nextDir += mDownDir * 0.3;
+
+                nextDir.Unitize();
+                var rnd = new Random((int)Math.Round(curNode.pos.DistanceToSquared(mSoilMap.mPln.Origin)));
+                if (curNode.steps > 3) // turbulation
+                {
+                    nextDir += (rnd.Next(-50, 50) / 100.0) * mSoilMap.mPln.XAxis;
+                }
+
+                // direction scale and extension
+                GrowSingleRoot(nextDir, curNode, ref resLst);
+
+                //nextDir.Unitize();
+                //nextDir *= mSoilMap.unitLen * (rnd.Next(100, 120) / 100.0);
+
+                //var endPt = BalCore.ExtendDirByAffector(
+                //    curNode.pos, nextDir, mSoilMap,
+                //    envToggle, envDist, envAtt, envRep);
+
+                //var tmpPos = mSoilMap.GetNearestPoint(endPt);
+                //resLst.Add(new MapNode(tmpPos));
+            }
+            else if (rType == "multi")
+            {
+                // direction variation + small turbulation
+                var initDir = dir;
+                var turbDir = Vector3d.Zero;
+
+                var nextDir = dir;
+                var nextDir2 = dir;
+
+                var rnd = new Random((int)Math.Round(curNode.pos.DistanceToSquared(mSoilMap.mPln.Origin)));
+
+                nextDir.Unitize();
+                if (curNode.steps < mSteps * 0.5) // gravity effect at the initial phases
+                    initDir += mDownDir * 0.4;
+                else
+                    initDir += mDownDir * 0.2;
+
+                initDir.Unitize();
+                if (curNode.steps > 2) // turbulation
+                {
+                    turbDir = (rnd.Next(-50, 50) / 100.0) * mSoilMap.mPln.XAxis;
+                    nextDir = initDir + turbDir;
+                }
+
+                // direction scale and extension
+                GrowSingleRoot(nextDir, curNode, ref resLst);
+
+                // ! density control: percentage control based on density param
+                if (mRnd.NextDouble() < mDensity * denParam)
+                {
+                    nextDir2 = initDir - turbDir;
+
+                    // direction scale and extension
+                    GrowSingleRoot(nextDir2, curNode, ref resLst);
+                }
+            }
+
+            return resLst;
         }
 
         public void Grow(int rSteps, int rDen = 2)
@@ -1995,81 +2115,98 @@ namespace BeingAliveLanguage
             if (anchorOnMap != null)
                 mRootNode = new MapNode(anchorOnMap);
 
+            //! prepare initial root and init BFS queue
+            bfsQ.Clear();
+            mSoilEnv.Clear();
+
             mRootNode.dir = -mSoilMap.mPln.YAxis * mSoilMap.unitLen * 2;
 
-            if (mRootType == "single")
+            //! get a bunch of closest points and sort it based on the angle with "down vector"
+            var pts = mSoilMap.GetNearestPoints(mRootNode.pos, rDen + 10).ToArray();
+
+            var ptLoc = new List<Point3d>();
+            var ptAng = new List<double>();
+            foreach (var p in pts)
             {
-                double singleRotAng = Math.PI / (rDen + 3.0);
+                var vec = p - mRootNode.pos;
+                vec.Unitize();
 
-                //var curDir = mSoilMap.mPln.XAxis * mSoilMap.unitLen * 2;
-                for (int i = 2; i < rDen + 2; i++)
+                var sign = Vector3d.CrossProduct(vec, mDownDir).Z > 0 ? 1 : -1;
+                var prod = Vector3d.Multiply(vec, mDownDir) * sign;
+
+                if (prod != 0)
                 {
-                    var curDir = mSoilMap.mPln.XAxis * mSoilMap.unitLen * 2;
-                    curDir.Rotate(-singleRotAng * i, mSoilMap.mPln.ZAxis);
-                    var endPt = extendRoot(mRootNode.pos, curDir);
-
-                    var tmpNode = new MapNode(endPt);
-                    mRootNode.addChildNode(tmpNode);
-
-                    // ! collecting crv
-                    rootCrv.Add(new Line(mRootNode.pos, endPt));
+                    ptLoc.Add(p);
+                    ptAng.Add(Math.Round(prod, 3));
                 }
             }
-            //TODO: "multi" case init.
 
-            // init BFS queue
-            Queue<MapNode> rQ = new Queue<MapNode>();
-            foreach (var item in mRootNode.nextNode)
+            // sort the points based on angle
+            var arrLoc = ptLoc.ToArray();
+            var arrAng = ptAng.ToArray();
+            Array.Sort(arrAng, arrLoc);
+
+            var distinctAngle = arrAng.Distinct().ToArray();
+            var distinctPt = distinctAngle.Select(x => arrLoc[arrAng.ToList().IndexOf(x)]).ToList();
+
+            // pick pts from the two sides
+            var pickedPt = new List<Point3d>();
+            for (int i = 0; i < rDen; i++)
             {
-                rQ.Enqueue(item);
+                if (i % 2 == 0)
+                    pickedPt.Add(distinctPt[i / 2]);
+                else
+                    pickedPt.Add(distinctPt[distinctPt.Count - (i / 2 + 1)]);
             }
 
-            while (rQ.Count > 0)
+            // add the first rDen points 
+            for (int i = 0; i < rDen; i++)
             {
-                var curNode = rQ.Dequeue();
+                var x = new MapNode(pickedPt[i]);
+                mRootNode.addChildNode(x);
+                bfsQ.Enqueue(x);
 
-                //  stopping criteria
+                //  collecting initial crv
+                rootCrv.Add(new Line(mRootNode.pos, x.pos));
+            }
+
+            // ! BFS starts
+            while (bfsQ.Count > 0)
+            {
+                var curNode = bfsQ.Dequeue();
+
+                //  ! stopping criteria
                 if (curNode.steps >= rSteps || mSoilMap.IsOnBound(curNode.pos))
                 {
-                    continue; // skip this node
+                    continue; // skip this node, start new item in the queue
                 }
-                else
+
+                var nextDir = curNode.dir;
+
+                // extend roots
+                var nodes = extendRoot(curNode, nextDir, mRootType);
+                nodes.ForEach(x =>
                 {
-                    var nextDir = curNode.dir;
+                    if (curNode.pos.DistanceToSquared(x.pos) >= 0.01 && RootDensityCheck(x.pos))
+                    {
 
-                    // direction variation + small turbulation
-                    nextDir.Unitize();
-                    if (curNode.steps < rSteps * 0.5) // gravity effect at the initial phases
-                        nextDir += mDownDir * 0.7;
-                    else
-                        nextDir += mDownDir * 0.3;
+                        curNode.addChildNode(x);
+                        bfsQ.Enqueue(x);
 
-                    nextDir.Unitize();
-                    if (curNode.steps > 3) // turbulation
-                        nextDir += (mRnd.Next(-50, 50) / 100.0) * mSoilMap.mPln.XAxis;
-
-                    // direction scale and extension
-                    nextDir.Unitize();
-                    nextDir *= mSoilMap.unitLen * (mRnd.Next(100, 120) / 100.0);
-                    var nextPos = extendRoot(curNode.pos, nextDir);
-
-                    var tmpNode = new MapNode(nextPos);
-                    curNode.addChildNode(tmpNode);
-                    rQ.Enqueue(tmpNode);
-
-
-                    // ! collecting crv
-                    rootCrv.Add(new Line(curNode.pos, nextPos));
-                }
+                        //  collecting crv
+                        mSoilEnv[Utils.PtString(x.pos)] += 1; // record # the location is used
+                        rootCrv.Add(new Line(curNode.pos, x.pos));
+                    }
+                });
             }
-
         }
 
         // rootTyle: 0 - single, 1 - multi(branching)
+        // deprecated: archived function, only for record purpose
         public void GrowRoot(double radius, int rDen = 2)
         {
             // init starting ptKey
-            var anchorOnMap = mSoilMap.GetNearestPoints(mAnchor, 1)[0];
+            var anchorOnMap = mSoilMap.GetNearestPointsStr(mAnchor, 1)[0];
             if (anchorOnMap != null)
                 frontKey.Add(anchorOnMap);
 
@@ -2146,8 +2283,12 @@ namespace BeingAliveLanguage
         Point3d mAnchor = new Point3d();
         MapNode mRootNode = null;
         SoilMap mSoilMap = new SoilMap();
+        Queue<MapNode> bfsQ = new Queue<MapNode>();
+        Dictionary<string, int> mSoilEnv = new Dictionary<string, int>();
 
         int mSeed = -1;
+        int mSteps = 0;
+        int mDensity = 1;
         Random mRnd;
         Vector3d mDownDir;
 
@@ -2314,7 +2455,7 @@ namespace BeingAliveLanguage
             var endPtOffGrid = GrowPointWithEnvEffect(startP, dir * L);
 
             // record
-            var ptKey2 = sMap.GetNearestPoints(endPtOffGrid, 2);
+            var ptKey2 = sMap.GetNearestPointsStr(endPtOffGrid, 2);
             var endPkey = Utils.PtString(endPtOffGrid) == ptKey2[0] ? ptKey2[1] : ptKey2[0];
             var endP = sMap.ptMap[endPkey];
 
