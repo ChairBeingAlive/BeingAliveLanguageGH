@@ -148,7 +148,7 @@ namespace BeingAliveLanguage
                 return null;
         }
 
-        public static string PtString(in Point3d pt, int dec = 3)
+        public static string PtString(in Point3d pt, int dec = 5)
         {
             var tmpPt = pt * Math.Pow(10, dec);
             return $"{tmpPt[0]:F0} {tmpPt[1].ToString("F0")} {tmpPt[2].ToString("F0")}";
