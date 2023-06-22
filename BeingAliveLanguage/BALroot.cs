@@ -439,7 +439,7 @@ namespace BeingAliveLanguage
 
             pManager.AddLineParameter("RootMain", "rootM", "Primary roots.", GH_ParamAccess.list);
             pManager.AddLineParameter("RootNew", "rootN", "Secondary roots.", GH_ParamAccess.list);
-            pManager.AddLineParameter("Dead Roots", "rootDead", "Dead roots in later phases of a tree's life.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootDead", "rootD", "Dead roots in later phases of a tree's life.", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -836,7 +836,7 @@ namespace BeingAliveLanguage
             // export all 
             DA.SetDataList("RootMain", mainRoot);
             DA.SetDataList("RootNew", newRoot);
-            DA.SetDataList("Dead Roots", deadRoot);
+            DA.SetDataList("RootDead", deadRoot);
         }
     }
 
