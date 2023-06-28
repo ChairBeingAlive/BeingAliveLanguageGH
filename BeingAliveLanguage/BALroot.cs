@@ -13,8 +13,8 @@ using System.Windows.Forms;
 using GH_IO.Serialization;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
-using System.Net.Mail;
-using Rhino.UI.ObjectProperties;
+using KdTree;
+using System.Runtime.CompilerServices;
 
 namespace BeingAliveLanguage
 {
@@ -260,19 +260,35 @@ namespace BeingAliveLanguage
 
             if (envToggle)
             {
-                foreach (var crv in envAtt)
-                    if (!crv.IsClosed)
+                if (envAtt.Count != 0)
+                {
+                    foreach (var crv in envAtt)
                     {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Attractors contain non-closed curve.");
-                        return;
-                    }
+                        if (crv == null)
+                        { continue; }
 
-                foreach (var crv in envRep)
-                    if (!crv.IsClosed)
-                    {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Repellers contain non-closed curve.");
-                        return;
+                        if (!crv.IsClosed)
+                        {
+                            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Attractors contain non-closed curve.");
+                            return;
+                        }
                     }
+                }
+
+                if (envRep.Count != 0)
+                {
+                    foreach (var crv in envRep)
+                    {
+                        if (crv == null)
+                        { continue; }
+
+                        if (!crv.IsClosed)
+                        {
+                            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Repellers contain non-closed curve.");
+                            return;
+                        }
+                    }
+                }
             }
 
             var root = new RootSectional(sMap, anchor, formMode, steps, den, seed, envToggle, envRange, envAtt, envRep);
@@ -811,4 +827,195 @@ namespace BeingAliveLanguage
         }
     }
 
+    /// <summary>
+    /// The component to transform sectional roots into soil organic matters
+    /// </summary>
+    public class BALRootOM : GH_Component
+    {
+        public BALRootOM() : base("Root_OrganicMatter", "balRootOM",
+            "Transforming roots into soil organic matters.", "BAL", "02::root")
+        { }
+
+        public override GH_Exposure Exposure => GH_Exposure.quarternary;
+        //protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree; //todo: update img
+        public override Guid ComponentGuid => new Guid("442FA58B-FD38-4403-A1EB-2D79987EC9B0");
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+
+            pManager.AddLineParameter("Root Geometry", "rG", "The sectional root geometries that will be transformed into soil organic matters.", GH_ParamAccess.list);
+            pManager[1].DataMapping = GH_DataMapping.Flatten;
+
+            pManager.AddBooleanParameter("Disperse", "D", "Boolean option for disperse the organic matter into soils.", GH_ParamAccess.item, false);
+
+            pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
+            pManager[3].Optional = true;
+            pManager.AddCurveParameter("Soil Triangle", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
+            pManager[4].Optional = true;
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddLineParameter("RootOM", "rOM", "Organic matters transformed from the roots", GH_ParamAccess.tree);
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            // ! 1. clean and remove duplicated segments
+            var sMap = new SoilMap();
+
+            var inLine = new List<Line>();
+            var cleanLine = new List<Line>();
+            var outLine = new List<Line>();
+
+            bool disperse = false;
+
+            if (!DA.GetData("SoilMap", ref sMap))
+            { return; }
+            if (!DA.GetDataList("Root Geometry", inLine))
+            { return; }
+            DA.GetData("Disperse", ref disperse);
+
+            ConcurrentBag<string> ptKey = new ConcurrentBag<string>();
+            var ptSet = new HashSet<string>();
+            Parallel.ForEach(inLine, ln =>
+            {
+                var key = Utils.PtString(ln.PointAt(0), 4) + Utils.PtString(ln.PointAt(1), 4);
+                if (ptSet.Add(key))
+                {
+                    cleanLine.Add(ln);
+                }
+            });
+
+            var omTree = new GH_Structure<GH_Line>();
+
+            // ! OptionA. divide curves into segs
+            if (!disperse)
+            {
+                //List<List<Line>> omCol = new List<List<Line>>();
+                foreach (var (ln, i) in cleanLine.Select((ln, i) => (ln, i)))
+                {
+                    Vector3d omDir = Vector3d.CrossProduct(sMap.mPln.ZAxis, ln.Direction);
+                    omDir.Unitize();
+
+                    double segLen = sMap.unitLen * 0.2;
+                    int segNum = (int)Math.Round(ln.Length / segLen);
+
+                    List<Line> segCol = new List<Line>();
+                    for (int n = 1; n < segNum; n++)
+                    {
+                        Point3d pt = ln.PointAt((double)n / (double)segNum);
+                        segCol.Add(new Line(pt - segLen * omDir, pt + segLen * omDir));
+                    }
+                    //omCol.Add(segCol);
+
+                    var path = new GH_Path(i);
+                    omTree.AppendRange(segCol.Select(x => new GH_Line(x)), path);
+                }
+
+                DA.SetDataTree(0, omTree);
+            }
+
+
+            // ! OptionB. find the corresponding triangles and create soil-based OM
+            else  // disperse
+            {
+                SoilProperty sInfo = new SoilProperty();
+                List<Curve> soilCrv = new List<Curve>();
+                if (!DA.GetData("Soil Info", ref sInfo))
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "To disperse the organic matters into the soil, soil saturation info is needed.");
+                    return;
+                }
+
+                //if (!DA.GetDataList("Soil Triangle", soilCrv))
+                if (!DA.GetDataList(4, soilCrv))
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "To disperse the organic matters into the soil, soil base is needed.");
+                    return;
+                }
+
+                List<Polyline> soilT = new List<Polyline>();
+                foreach (Curve c in soilCrv)
+                {
+                    c.TryGetPolyline(out Polyline ply);
+                    soilT.Add(ply);
+                }
+
+                // 1. find the nearest triangles
+                BalCore.CreateCentreMap(soilT, out Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap);
+                var kdMap = new KdTree<double, Point3d>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
+
+                var toLocal = Transform.ChangeBasis(Plane.WorldXY, sMap.mPln);
+                foreach (var pl in soilT)
+                {
+                    var cen = (pl[0] + pl[1] + pl[2]) / 3;
+                    var originalCen = cen;
+                    cen.Transform(toLocal);
+                    kdMap.Add(new[] { cen.X, cen.Y }, originalCen);
+                }
+
+                //HashSet<string> allTriCenStr = new HashSet<string>(cenMap.Keys);
+                HashSet<string> neighbourTriCen = new HashSet<string>();
+
+                Parallel.ForEach(cleanLine, ln =>
+                {
+                    var crv = ln.ToNurbsCurve();
+                    if (crv == null)
+                        return;
+
+                    crv.DivideByCount(6, true, out Point3d[] pts);
+                    foreach (var p in pts)
+                    {
+                        p.Transform(toLocal);
+                        var res = kdMap.GetNearestNeighbours(new[] { p.X, p.Y }, 4);
+
+                        foreach (var r in res)
+                            neighbourTriCen.Add(Utils.PtString(r.Value));
+                    }
+                });
+
+                // for debugging parallel computation
+                //foreach (var ln in cleanLine)
+                //{
+                //    var crv = ln.ToNurbsCurve();
+                //    if (crv != null)
+                //    {
+                //        crv.DivideByCount(6, true, out Point3d[] pts);
+                //        foreach (var p in pts)
+                //        {
+                //            p.Transform(toLocal);
+                //            var res = kdMap.GetNearestNeighbours(new[] { p.X, p.Y }, 2);
+
+                //            if (res[0].Value != null)
+                //                neighbourTriCen.Add(Utils.PtString(res[0].Value));
+                //        }
+
+                //    }
+                //}
+
+                var filteredCen = new HashSet<string>();
+                foreach (var c in neighbourTriCen)
+                {
+                    if (c != null)
+                        filteredCen.Add(c);
+                }
+
+                var triOuter = filteredCen.Select(x => cenMap[x].Item2).ToList();
+                var triInner = triOuter.Select(x => BalCore.OffsetTri(x.Duplicate(), 1 - sInfo.saturation));
+
+                var omRes = triOuter.Zip(triInner, (triO, triI) => BalCore.createOM(triO, triI, 7)).ToList();
+
+                for (int i = 0; i < omRes.Count; i++)
+                {
+                    var path = new GH_Path(i);
+                    omTree.AppendRange(omRes[i].Select(x => new GH_Line(x)), path);
+                }
+
+                DA.SetDataTree(0, omTree);
+            }
+        }
+
+    }
 }

@@ -629,7 +629,7 @@ namespace BeingAliveLanguage
 
 
         // offset using scale mechanism
-        private static readonly Func<Polyline, double, Polyline> OffsetTri = (tri, ratio) =>
+        public static readonly Func<Polyline, double, Polyline> OffsetTri = (tri, ratio) =>
         {
             var cen = (tri[0] + tri[1] + tri[2]) / 3;
             var trans = Transform.Scale(cen, ratio);
@@ -716,7 +716,7 @@ namespace BeingAliveLanguage
         private static readonly Func<double, double> CustomExpFit = x => 0.0210324 * Math.Exp(3.8621 * x);
 
         // create organic matter around a triangle
-        private static readonly Func<Polyline, Polyline, double, List<Line>> createOM = (polyout, polyin, divN) =>
+        public static readonly Func<Polyline, Polyline, double, List<Line>> createOM = (polyout, polyin, divN) =>
         {
             // ! important: adjust and align seams
             var nonRepLst = polyout.Take(polyout.Count - 1);
