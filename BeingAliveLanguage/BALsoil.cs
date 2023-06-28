@@ -277,17 +277,6 @@ namespace BeingAliveLanguage
             //pManager[4].Optional = true; // if no seed is provided, use random seeds
         }
 
-        //protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
-        //{
-        //    pManager.AddCurveParameter("Sand Triangle", "sandT", "Sand triangles.", GH_ParamAccess.list);
-        //    pManager.AddCurveParameter("Silt Triangle", "siltT", "Silt triangles.", GH_ParamAccess.list);
-        //    pManager.AddCurveParameter("Clay Triangle", "clayT", "Clay triangles.", GH_ParamAccess.list);
-        //    pManager.AddCurveParameter("All Triangle", "soilT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
-
-        //    //pManager.AddCurveParameter("debugPts", "dP", "Debugging point list.", GH_ParamAccess.list);
-        //    //pManager.AddNumberParameter("debug", "debugNum", "debugging", GH_ParamAccess.item);
-        //}
-
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The MacOS version component does not allow the adjustment of randomness levels in the soil generation process.");
@@ -304,13 +293,6 @@ namespace BeingAliveLanguage
             DA.GetDataList("Rocks", rock);
             DA.GetData("seed", ref seed);
             //DA.GetData("stage", ref stage);
-
-
-            //if (stage < 0 || stage > 8)
-            //{
-            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Randomness of soil separates distribution should be within the range [1 - 8].");
-            //    return;
-            //}
 
 
             // call the actural function
@@ -533,7 +515,7 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("320a54cc-ca9a-44a2-b313-2ba08035cb1c");
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilWaterVis;
 
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Soil Info", "soilInfo", "Info about the current soil based on given content ratio.", GH_ParamAccess.item);
             pManager.AddCurveParameter("Soil Triangle", "soilT", "Soil triangles, can be any or combined triangles of sand, silt, clay.", GH_ParamAccess.list);
@@ -546,7 +528,7 @@ namespace BeingAliveLanguage
             //pManager[4].Optional = true;
         }
 
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles, representing soil separates without any water.", GH_ParamAccess.list);
             pManager.AddCurveParameter("Wilting Point", "soilWP", "Soil wilting point triangles.", GH_ParamAccess.list);
