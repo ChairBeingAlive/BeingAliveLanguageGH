@@ -427,7 +427,7 @@ namespace BeingAliveLanguage
         private bool rootDense = false;
         private int scalingFactor = 1;
 
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("TreeInfo", "tInfo", "Information about the tree.", GH_ParamAccess.item);
             pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
@@ -517,16 +517,14 @@ namespace BeingAliveLanguage
             // --------------------
             //          *
             //          *
-            int verticalTapRootParam = 0;
+            int verticalTapRootParam = 4;
             if (tInfo.phase == 1)
             {
                 verticalTapRootParam = 3;
                 newRoot.Add(new Line(anchorPt, vVec * verticalTapRootParam));
             }
-            else if (tInfo.phase > 1 && tInfo.phase <= 8)
+            else if (tInfo.phase > 1 && tInfo.phase < 11)
             {
-                verticalTapRootParam = 4;
-
                 if (tInfo.phase == 2) // at phase 2, tap root grows longer
                 {
                     var preVerticalParam = verticalTapRootParam - 1;
@@ -538,21 +536,10 @@ namespace BeingAliveLanguage
                     mainRoot.Add(new Line(anchorPt, vVec * verticalTapRootParam));
                 }
             }
-            else if (tInfo.phase > 8 && tInfo.phase <= 11)
+            else if (tInfo.phase == 11)
             {
-                verticalTapRootParam = 2;
-
-                if (tInfo.phase == 9)
-                {
-                    var tmpPt = anchorPt + vVec * verticalTapRootParam;
-                    deadRoot.Add(new Line(tmpPt, vVec * verticalTapRootParam));
-                }
-                mainRoot.Add(new Line(anchorPt, vVec * verticalTapRootParam));
-            }
-
-            if (tInfo.phase == 12)
-            {
-                deadRoot.Add(new Line(anchorPt, vVec * 2));
+                //deadRoot.Add(new Line(anchorPt, vVec * 2));
+                deadRoot.Add(new Line(anchorPt, vVec * verticalTapRootParam));
             }
 
             //! vertical root (1nd layer)
@@ -568,7 +555,7 @@ namespace BeingAliveLanguage
                 newRoot.Add(new Line(lAnchor, vVec * vTmpParam));
                 newRoot.Add(new Line(rAnchor, vVec * vTmpParam));
             }
-            else if (tInfo.phase > 5 && tInfo.phase <= 9)
+            else if (tInfo.phase > 5 && tInfo.phase < 12)
             {
                 vTmpParam = vSideParam;
                 if (tInfo.phase == 6)
@@ -585,7 +572,7 @@ namespace BeingAliveLanguage
                     mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
                 }
             }
-            else if (tInfo.phase == 10)
+            else if (tInfo.phase == 12)
             {
                 // phase 10, dead root shown
                 deadRoot.Add(new Line(lAnchor, vVec * vSideParam));
@@ -599,35 +586,37 @@ namespace BeingAliveLanguage
             //     *  |  |  |  *
             lAnchor = anchorPt - hVec * 7;
             rAnchor = anchorPt + hVec * 7;
-            vTmpParam = 0;
+            vTmpParam = 2;
             if (tInfo.phase == 6)
             {
-                vTmpParam = 2;
                 newRoot.Add(new Line(lAnchor, vVec * vTmpParam));
                 newRoot.Add(new Line(rAnchor, vVec * vTmpParam));
             }
             else if (tInfo.phase > 6 && tInfo.phase <= 11)
             {
-                vTmpParam = vSideParam;
-                if (tInfo.phase == 7)
-                {
-                    var preVerticalParam = vTmpParam - 1;
-                    mainRoot.Add(new Line(lAnchor, vVec * preVerticalParam));
-                    mainRoot.Add(new Line(rAnchor, vVec * preVerticalParam));
-                    newRoot.Add(new Line(lAnchor + vVec * preVerticalParam, vVec));
-                    newRoot.Add(new Line(rAnchor + vVec * preVerticalParam, vVec));
-                }
-                else
-                {
-                    mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
-                    mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
-                }
+                //vTmpParam = vSideParam;
+                mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+                mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+
+                //if (tInfo.phase == 7)
+                //{
+                //    var preVerticalParam = vTmpParam - 1;
+                //    mainRoot.Add(new Line(lAnchor, vVec * preVerticalParam));
+                //    mainRoot.Add(new Line(rAnchor, vVec * preVerticalParam));
+                //    newRoot.Add(new Line(lAnchor + vVec * preVerticalParam, vVec));
+                //    newRoot.Add(new Line(rAnchor + vVec * preVerticalParam, vVec));
+                //}
+                //else
+                //{
+                //    mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+                //    mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+                //}
             }
             else if (tInfo.phase == 12)
             {
                 // phase 12, dead root shown
-                deadRoot.Add(new Line(lAnchor, vVec * vSideParam));
-                deadRoot.Add(new Line(rAnchor, vVec * vSideParam));
+                deadRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+                deadRoot.Add(new Line(rAnchor, vVec * vTmpParam));
             }
 
 
@@ -635,29 +624,31 @@ namespace BeingAliveLanguage
             // ---------------------
             //  *  |  |  |  |  |  *
             //  *  |  |  |  |  |  *
-            lAnchor = anchorPt - hVec * 10;
-            rAnchor = anchorPt + hVec * 10;
-            vTmpParam = 0;
-            if (tInfo.phase >= 7 && tInfo.phase <= 11)
-            {
-                vTmpParam = 2;
-                if (tInfo.phase == 7)
-                {
-                    newRoot.Add(new Line(lAnchor, vVec * vTmpParam));
-                    newRoot.Add(new Line(rAnchor, vVec * vTmpParam));
-                }
-                else
-                {
-                    mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
-                    mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
-                }
-            }
-            else if (tInfo.phase == 12)
-            {
-                // phase 12, dead root shown
-                deadRoot.Add(new Line(lAnchor, vVec * vSideParam));
-                deadRoot.Add(new Line(rAnchor, vVec * vSideParam));
-            }
+
+            // 2023.06.28: remove 3rd layer
+            //lAnchor = anchorPt - hVec * 10;
+            //rAnchor = anchorPt + hVec * 10;
+            //vTmpParam = 0;
+            //if (tInfo.phase >= 7 && tInfo.phase <= 11)
+            //{
+            //    vTmpParam = 2;
+            //    if (tInfo.phase == 7)
+            //    {
+            //        newRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+            //        newRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+            //    }
+            //    else
+            //    {
+            //        mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+            //        mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+            //    }
+            //}
+            //else if (tInfo.phase == 12)
+            //{
+            //    // phase 12, dead root shown
+            //    deadRoot.Add(new Line(lAnchor, vVec * vSideParam));
+            //    deadRoot.Add(new Line(rAnchor, vVec * vSideParam));
+            //}
 
             //! vertical root (secondary 1st layer)
             // ---------------------
@@ -666,30 +657,22 @@ namespace BeingAliveLanguage
             //  |  |  | *|* |  |  |
             lAnchor = anchorPt - hVec * 2 + vVec * 2;
             rAnchor = anchorPt + hVec * 2 + vVec * 2;
-            vTmpParam = 0;
-            if (tInfo.phase >= 8 && tInfo.phase <= 11)
-            {
-                vTmpParam = 1;
+            vTmpParam = 1;
 
-                if (tInfo.phase == 8)
-                {
-                    newRoot.Add(new Line(lAnchor, vVec * vTmpParam));
-                    newRoot.Add(new Line(rAnchor, vVec * vTmpParam));
-                }
-                if (tInfo.phase == 9)
-                {
-                    mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
-                    mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
-                }
-                else if (tInfo.phase == 10)
-                {
-                    mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
-                    deadRoot.Add(new Line(rAnchor, vVec * vTmpParam));
-                }
-                else if (tInfo.phase == 11)
-                {
-                    deadRoot.Add(new Line(lAnchor, vVec * vTmpParam));
-                }
+            if (tInfo.phase == 8)
+            {
+                newRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+                newRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+            }
+            if (tInfo.phase >= 9 && tInfo.phase < 11)
+            {
+                mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+                mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+            }
+            else if (tInfo.phase == 11)
+            {
+                deadRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+                deadRoot.Add(new Line(lAnchor, vVec * vTmpParam));
             }
 
 
@@ -700,14 +683,18 @@ namespace BeingAliveLanguage
             int totalHorizontalTapRootParam = 0;
             int prevHorTapRootParam = 0;
             int curHorTapRootParam = 0;
-            if (tInfo.phase > 1 && tInfo.phase <= 8)
+            if (tInfo.phase >= 1 && tInfo.phase < 9)
             {
-                //totalHorizontalTapRootParam = (tInfo.phase - 1) * 2 + 1;
-                curHorTapRootParam = 2;
                 if (tInfo.phase == 1)
-                { prevHorTapRootParam = 0; }
+                {
+                    prevHorTapRootParam = 0;
+                    curHorTapRootParam = 1;
+                }
                 else
-                { prevHorTapRootParam = (tInfo.phase - 2) * 2 + 1; }
+                {
+                    prevHorTapRootParam = (tInfo.phase - 2) * 2 + 1;
+                    curHorTapRootParam = 2;
+                }
 
                 newRoot.Add(new Line(anchorPt + hVec * prevHorTapRootParam, hVec * curHorTapRootParam));
                 newRoot.Add(new Line(anchorPt - hVec * prevHorTapRootParam, -hVec * curHorTapRootParam));
@@ -717,23 +704,21 @@ namespace BeingAliveLanguage
             }
             else
             {
-                if (tInfo.phase > 8 && tInfo.phase <= 10)
-                {
-                    totalHorizontalTapRootParam = 15;
-                }
-                else if (tInfo.phase > 10)
-                {
-                    totalHorizontalTapRootParam = 10;
+                totalHorizontalTapRootParam = 15;
 
-                    if (tInfo.phase == 11)
-                    {
-                        var lPt = anchorPt + hVec * totalHorizontalTapRootParam;
-                        deadRoot.Add(new Line(lPt, hVec * 5));
-                        var rPt = anchorPt - hVec * totalHorizontalTapRootParam;
-                        deadRoot.Add(new Line(rPt, -hVec * 5));
+                //if (tInfo.phase > 10)
+                //{
+                //    totalHorizontalTapRootParam = 10;
 
-                    }
-                }
+                //    if (tInfo.phase == 11)
+                //    {
+                //        var lPt = anchorPt + hVec * totalHorizontalTapRootParam;
+                //        deadRoot.Add(new Line(lPt, hVec * 5));
+                //        var rPt = anchorPt - hVec * totalHorizontalTapRootParam;
+                //        deadRoot.Add(new Line(rPt, -hVec * 5));
+
+                //    }
+                //}
                 mainRoot.Add(new Line(anchorPt, hVec * totalHorizontalTapRootParam));
                 mainRoot.Add(new Line(anchorPt, -hVec * totalHorizontalTapRootParam));
             }
@@ -743,13 +728,13 @@ namespace BeingAliveLanguage
             //         |
             //       *****
             //         |
-            int lParam = 0;
-            int rParam = 0;
+            int lParam = 5;
+            int rParam = 5;
             int preParam = 0;
             int curParam = 0;
 
             var startPtH2 = anchorPt - sMap.mPln.YAxis * vL * 2;
-            if (tInfo.phase >= 4 && tInfo.phase <= 6)
+            if (tInfo.phase >= 4 && tInfo.phase < 7)
             {
                 if (tInfo.phase == 4)
                 {
@@ -769,37 +754,17 @@ namespace BeingAliveLanguage
                 mainRoot.Add(new Line(startPtH2, hVec * preParam));
 
             }
-            else if (tInfo.phase > 6)
+            else if (tInfo.phase >= 7 && tInfo.phase < 11)
             {
-
-                lParam = 5;
-                rParam = 5;
-                if (tInfo.phase <= 11)
-                {
-                    if (tInfo.phase == 9)
-                    {
-                        rParam = 2;
-                        deadRoot.Add(new Line(startPtH2 + hVec * 2, hVec * 3));
-                    }
-                    else if (tInfo.phase == 10)
-                    {
-                        rParam = 0;
-                        deadRoot.Add(new Line(startPtH2, hVec * 2));
-                    }
-                    else if (tInfo.phase == 11)
-                    {
-                        rParam = 0;
-                    }
-                    mainRoot.Add(new Line(startPtH2, hVec * rParam));
-                    mainRoot.Add(new Line(startPtH2, -hVec * lParam));
-
-                }
-                else
-                {
-                    deadRoot.Add(new Line(startPtH2, -hVec * lParam));
-                }
-
+                mainRoot.Add(new Line(startPtH2, hVec * rParam));
+                mainRoot.Add(new Line(startPtH2, -hVec * lParam));
             }
+            else if (tInfo.phase == 11)
+            {
+                deadRoot.Add(new Line(startPtH2, hVec * rParam));
+                deadRoot.Add(new Line(startPtH2, -hVec * lParam));
+            }
+
 
 
             //! horizontal tap root (3rd layer)
@@ -827,13 +792,19 @@ namespace BeingAliveLanguage
                 mainRoot.Add(new Line(startPtH3, hVec * prevParam));
                 mainRoot.Add(new Line(startPtH3, -hVec * prevParam));
             }
-            else if (tInfo.phase == 8)
+            else if (tInfo.phase >= 8 && tInfo.phase < 10)
+            {
+                mainRoot.Add(new Line(startPtH3, hVec * 4));
+                mainRoot.Add(new Line(startPtH3, -hVec * 4));
+            }
+            else if (tInfo.phase == 10)
             {
                 deadRoot.Add(new Line(startPtH3, hVec * 4));
                 deadRoot.Add(new Line(startPtH3, -hVec * 4));
             }
 
-            // export all 
+
+            // ! export all 
             DA.SetDataList("RootMain", mainRoot);
             DA.SetDataList("RootNew", newRoot);
             DA.SetDataList("RootDead", deadRoot);
