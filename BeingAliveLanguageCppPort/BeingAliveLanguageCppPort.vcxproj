@@ -119,8 +119,8 @@ if %errorlevel% leq 1 exit 0 else exit %errorlevel%</Command>
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>
-      </Command>
+      <Command>robocopy $(TargetDir) $(SolutionDir)BeingAliveLanguage\bin *CppPort.dll
+if %errorlevel% leq 1 exit 0 else exit %errorlevel%</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
