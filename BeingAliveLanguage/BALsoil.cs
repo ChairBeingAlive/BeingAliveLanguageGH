@@ -54,7 +54,7 @@ namespace BeingAliveLanguage
             { return; }
 
             // tolerance issue, using abs approach
-            if (rSand + rClay + rSilt - 1 > 1e-4 || rSand < 0 || rClay < 0 || rSilt < 0)
+            if (Math.Abs(rSand + rClay + rSilt - 1) > 1e-4 || rSand < 0 || rClay < 0 || rSilt < 0)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Ratio of all content need to sum up to 1. Only positive ratio allowed.");
                 return;
