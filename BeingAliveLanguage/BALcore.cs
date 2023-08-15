@@ -1816,7 +1816,8 @@ namespace BeingAliveLanguage
             });
 
             // average 10 random selected pt to its nearest point as unitLen
-            var pt10 = ptLst.OrderBy(x => Guid.NewGuid()).Take(10).ToList();
+            var tmpN = (int)Math.Round(Math.Min(ptLst.Count() * 0.4, 100));
+            var pt10 = ptLst.OrderBy(x => Guid.NewGuid()).Take(tmpN).ToList();
             unitLen = pt10.Select(x =>
             {
                 // find the 2 nearest point and measure distance (0 and a p-p dist).
