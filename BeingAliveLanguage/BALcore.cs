@@ -1114,6 +1114,17 @@ namespace BeingAliveLanguage
 
     class SoilGeneral
     {
+        public SoilGeneral(in SoilBase sBase, in SoilProperty sInfo, in List<Curve> stone, in int seed)
+        {
+            this.mBase = sBase;
+            this.mInfo = sInfo;
+            this.mStone = stone;
+            this.mSeed = seed;
+
+            toLocal = Transform.ChangeBasis(Plane.WorldXY, sBase.pln);
+            toWorld = Transform.ChangeBasis(sBase.pln, Plane.WorldXY);
+        }
+
         public SoilGeneral(in SoilBase sBase, in SoilProperty sInfo, in List<Curve> stone, in int seed, in int stage = 5)
         {
             this.mBase = sBase;
@@ -1128,6 +1139,8 @@ namespace BeingAliveLanguage
 
         public void Build(bool macOS = false)
         {
+
+            var doRndControl = mStage == -1 ? false : true;
             var triLOrigin = mBase.soilT;
 
             // get area
@@ -1138,7 +1151,7 @@ namespace BeingAliveLanguage
             var totalAClay = totalArea * mInfo.rClay;
 
             // we randomize the triangle list's sequence to simulate a random-order Poisson Disk sampling 
-            var rnd = mSeed >= 0 ? new Random(mSeed) : new Random(Guid.NewGuid().GetHashCode());
+            var rnd = mSeed >= 0 ? new Random(mSeed) : Utils.balRnd;
 
             var triL = triLOrigin;
             //var triL = triLOrigin.OrderBy(x => rnd.Next()).ToList();
@@ -1158,26 +1171,28 @@ namespace BeingAliveLanguage
             BalCore.CreateCentreMap(triL, out cenMap);
 
             //! sand
-            if (mStage == 0)
+            var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
+            if (!doRndControl)
             {
-                var nStep = (int)Math.Round(1 / mInfo.rSand);
-                // a special case (hidden option to have very regularized grid, regardless of the ratio)
-                outSandCen = triCen.Where((x, i) => i % nStep == 0).ToList();
+                outSandCen = triCen.OrderBy(x => rnd.Next()).Take(numSand).ToList();
             }
-            else
+            else // RndControl
             {
-                // part 1
-                /* 
-                  * convert stage to randomness param: 1-10 --> 5% - 95% from Poisson's Disk Sampling, the rest from random sampling.
-                  * 100% will cause all clay/silt triangle accumulated to the edge if sand ratio > 90%
-                 */
-                var numSand = (int)(Math.Round(triL.Count * mInfo.rSand));
-                int numPoissonSand = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
-
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                if (mStage == 0)
                 {
+                    var nStep = (int)Math.Round(1 / mInfo.rSand);
+                    // a special case (hidden option to have very regularized grid, regardless of the ratio)
+                    outSandCen = triCen.Where((x, i) => i % nStep == 0).ToList();
+                }
+                else
+                {
+                    /*  part 1
+                      * convert stage to randomness param: 1-10 --> 5% - 95% from Poisson's Disk Sampling, the rest from random sampling.
+                      * 100% will cause all clay/silt triangle accumulated to the edge if sand ratio > 90%
+                     */
+                    int numPoissonSand = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
                     BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
+
                     // part 2
                     var remainingTriCen = triCen.Except(outSandCen).ToList();
                     var randomTriCen = remainingTriCen.OrderBy(x => rnd.Next()).Take(numSand - numPoissonSand);
@@ -1185,13 +1200,6 @@ namespace BeingAliveLanguage
                     // combine the two parts
                     outSandCen.AddRange(randomTriCen);
                 }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    //! as OSX cannot import cpp lib, we use a non-poisson based approach for the sampling
-                    outSandCen = triCen.OrderBy(x => rnd.Next()).Take(numSand).ToList();
-                }
-
-
             }
 
             //#region method 2
@@ -1222,25 +1230,24 @@ namespace BeingAliveLanguage
 
             List<Point3d> outSiltCen = new List<Point3d>();
 
-            // part 1
-            var numSilt = (int)Math.Round(totalASilt / avgPreSiltTArea);
-            int numPoissonSilt = Convert.ToInt32(numSilt * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
 
-            // part 2
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            var numSilt = (int)Math.Round(totalASilt / avgPreSiltTArea);
+            if (!doRndControl)
             {
+                outSiltCen = preSiltCen.OrderBy(x => rnd.Next()).Take(numSilt).ToList();
+            }
+            else // with RndControl 
+            {
+                // part 1
+                int numPoissonSilt = Convert.ToInt32(numSilt * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
                 BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out outSiltCen);
 
+                // part 2
                 var curRemainTriCen = preSiltCen.Except(outSiltCen).ToList();
                 var curRandomTriCen = curRemainTriCen.OrderBy(x => rnd.Next()).Take(numSilt - numPoissonSilt);
 
                 // combine
                 outSiltCen.AddRange(curRandomTriCen);
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                outSiltCen = preSiltCen.OrderBy(x => rnd.Next()).Take(numSilt).ToList();
-
             }
 
             mSiltT = outSiltCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
@@ -1287,7 +1294,7 @@ namespace BeingAliveLanguage
         SoilProperty mInfo;
         List<Curve> mStone;
         int mSeed;
-        int mStage;
+        int mStage = -1;
 
         // out param
         public List<Polyline> mClayT, mSiltT, mSandT;

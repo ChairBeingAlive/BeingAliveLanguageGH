@@ -178,7 +178,7 @@ namespace BeingAliveLanguage
 
         public override GH_Exposure Exposure => GH_Exposure.secondary;
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv;
-        public override Guid ComponentGuid => new Guid("8634cd28-f37e-4204-b60b-d36b16181d7b");
+        public override Guid ComponentGuid => new Guid("9ffd9134-0d95-4e4d-859d-753df5b8dd4a");
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -191,10 +191,6 @@ namespace BeingAliveLanguage
 
             pManager.AddIntegerParameter("seed", "s", "Int seed for randomize the generated soil pattern.", GH_ParamAccess.item, -1);
             pManager[3].Optional = true; // if no seed is provided, use random seeds
-
-
-            pManager.AddIntegerParameter("stage", "t", "Int stage index [1 - 8] representing the randomness of the soil separates that are gradually changed by the organic matter.", GH_ParamAccess.item, 5);
-            pManager[4].Optional = true; // if no seed is provided, use random seeds
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -215,25 +211,15 @@ namespace BeingAliveLanguage
             var sInfo = new SoilProperty();
             List<Curve> rock = new List<Curve>();
             int seed = -1;
-            int stage = 5;
             if (!DA.GetData("Soil Base", ref sBase))
             { return; }
             if (!DA.GetData("Soil Info", ref sInfo))
             { return; }
             DA.GetDataList("Rocks", rock);
             DA.GetData("seed", ref seed);
-            DA.GetData("stage", ref stage);
-
-
-            if (stage < 0 || stage > 8)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Randomness of soil separates distribution should be within the range [1 - 8].");
-                return;
-            }
-
 
             // call the actural function
-            var soil = new SoilGeneral(sBase, sInfo, rock, seed, stage);
+            var soil = new SoilGeneral(sBase, sInfo, rock, seed);
             soil.Build();
 
             DA.SetDataList(0, soil.mSandT);
@@ -248,17 +234,17 @@ namespace BeingAliveLanguage
         }
     }
 
-    public class BALsoilDiagramGeneral_OSX: BALsoilDiagramGeneral
+    public class BALsoilDiagramGeneral_RndControl: BALsoilDiagramGeneral
     {
-        public BALsoilDiagramGeneral_OSX()
-          : base("General Soil Separates (OSX)", "balsoilGeneral_osx",
-                "Draw a soil map based on the ratio of 3 soil separates, and avoid rock area rocks if rock curves are provided.",
+        public BALsoilDiagramGeneral_RndControl()
+          : base("General Soil Separates (RndControl)", "balsoilGeneral_rndControl",
+                "Draw a soil map based on the ratio of 3 soil separates, and avoid rock area rocks if rock curves are provided. This component provides additional control on the randomness stage, but only available for the Windows platform. NOTICE: This component does not gurantee the seed stability -- you may get different results even using the same seed.",
                 "BAL", "01::soil")
         {
         }
 
         //public override GH_Exposure Exposure => GH_Exposure.secondary;
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv_osx;
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv_rnd;
         public override Guid ComponentGuid => new Guid("cadf094b-a4a0-4dc3-b971-1d00612d99c3");
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -273,8 +259,8 @@ namespace BeingAliveLanguage
             pManager.AddIntegerParameter("seed", "s", "Int seed to randomize the generated soil pattern.", GH_ParamAccess.item, -1);
             pManager[3].Optional = true; // if no seed is provided, use random seeds
 
-            //pManager.AddIntegerParameter("stage", "t", "Int stage index [1 - 8] representing the randomness of the soil separates that are gradually changed by the organic matter.", GH_ParamAccess.item, 5);
-            //pManager[4].Optional = true; // if no seed is provided, use random seeds
+            pManager.AddIntegerParameter("stage", "t", "Int stage index [1 - 8] representing the randomness of the soil separates that are gradually changed by the organic matter.", GH_ParamAccess.item, 5);
+            pManager[4].Optional = true; // if no seed is provided, use random seeds
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -293,7 +279,12 @@ namespace BeingAliveLanguage
             DA.GetDataList("Rocks", rock);
             DA.GetData("seed", ref seed);
             //DA.GetData("stage", ref stage);
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "This component is only available for the Windows platform.");
 
+                return;
+            }
 
             // call the actural function
             var soil = new SoilGeneral(sBase, sInfo, rock, seed, stage);
@@ -302,7 +293,6 @@ namespace BeingAliveLanguage
             DA.SetDataList(0, soil.mSandT);
             DA.SetDataList(1, soil.mSiltT);
             DA.SetDataList(2, soil.mClayT);
-
             DA.SetDataList(3, soil.Collect());
 
             // debug
