@@ -630,7 +630,7 @@ namespace BeingAliveLanguage
         { }
 
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
-        protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree; //todo: update img
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeRoot; //todo: update img
         public override Guid ComponentGuid => new Guid("27C279E0-08C9-4110-AE40-81A59C9D9EB8");
         private bool rootDense = false;
         private int scalingFactor = 1;
