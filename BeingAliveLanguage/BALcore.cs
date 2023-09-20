@@ -9,10 +9,6 @@ using System.Threading.Tasks;
 using Grasshopper.Kernel;
 using System.Diagnostics;
 using Rhino.Geometry.Intersect;
-using System.Runtime.InteropServices;
-using System.Threading;
-using Grasshopper.GUI;
-using System.Windows.Forms.Layout;
 
 namespace BeingAliveLanguage
 {
