@@ -837,7 +837,7 @@ namespace BeingAliveLanguage
         { }
 
         public override GH_Exposure Exposure => GH_Exposure.quarternary;
-        //protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree; //todo: update img
+        protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootOrganicMatter;
         public override Guid ComponentGuid => new Guid("442FA58B-FD38-4403-A1EB-2D79987EC9B0");
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)

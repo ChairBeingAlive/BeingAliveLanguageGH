@@ -243,7 +243,7 @@ namespace BeingAliveLanguage
         {
         }
 
-        //public override GH_Exposure Exposure => GH_Exposure.secondary;
+        public override GH_Exposure Exposure => GH_Exposure.secondary;
         protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv_rnd;
         public override Guid ComponentGuid => new Guid("cadf094b-a4a0-4dc3-b971-1d00612d99c3");
 

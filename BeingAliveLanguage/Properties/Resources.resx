@@ -124,6 +124,9 @@
   <data name="balRootMap" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>iconImg\balRootMap.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="balRootOrganicMatter" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>iconImg\balRootOrganicMatter.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="balRootPlanar" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>iconImg\balRootPlanar.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
