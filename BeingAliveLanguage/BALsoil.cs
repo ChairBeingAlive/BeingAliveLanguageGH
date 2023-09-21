@@ -278,12 +278,17 @@ namespace BeingAliveLanguage
             { return; }
             DA.GetDataList("Rocks", rock);
             DA.GetData("seed", ref seed);
-            //DA.GetData("stage", ref stage);
+            DA.GetData("stage", ref stage);
+
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "This component is only available for the Windows platform.");
 
                 return;
+            }
+            if (stage < 1 || stage > 8)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Stage index out of range [1 - 8].");   
             }
 
             // call the actural function
