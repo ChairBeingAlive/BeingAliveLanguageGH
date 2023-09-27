@@ -95,88 +95,44 @@ namespace BeingAliveLanguage
             });
 
             sMap.BuildMap(conPt, conPoly);
-
-            //// TODO: find better ways to convert IGH_GOO to polyline
-            //if (inputGeo[0].CastTo<Point3d>(out Point3d pt))
-            //{
-            //    Parallel.ForEach(inputGeo, goo =>
-            //    {
-            //        goo.CastTo<Point3d>(out Point3d p);
-            //        conPt.Add(p);
-            //    });
-
-            //    sMap.BuildMap(conPt);
-            //}
-            //else if (inputGeo[0].CastTo<Polyline>(out Polyline pl))
-            //{
-            //    Parallel.ForEach(inputGeo, goo =>
-            //    {
-            //        goo.CastTo<Polyline>(out Polyline p);
-            //        conPoly.Add(p);
-            //    });
-
-            //    sMap.BuildMap(conPoly);
-            //}
-            //else if (inputGeo[0].CastTo<Curve>(out Curve crv))
-            //{
-            //    Parallel.ForEach(inputGeo, goo =>
-            //    {
-            //        goo.CastTo<Curve>(out Curve c);
-            //        if (c.TryGetPolyline(out Polyline ply))
-            //        {
-            //            conPoly.Add(ply);
-            //        }
-            //    });
-            //    sMap.BuildMap(conPoly);
-            //}
-            //else if (inputGeo[0].CastTo<Rectangle3d>(out Rectangle3d rec))
-            //{
-            //    Parallel.ForEach(inputGeo, goo =>
-            //    {
-            //        goo.CastTo<Rectangle3d>(out Rectangle3d c);
-            //        conPoly.Add(c.ToPolyline());
-            //    });
-            //    sMap.BuildMap(conPoly);
-            //}
-
             sMap.BuildBound();
 
             DA.SetData(0, sMap);
 
         }
 
-        protected override void BeforeSolveInstance()
-        {
-            Message = mapMode.ToUpper();
-        }
+        //protected override void BeforeSolveInstance()
+        //{
+        //    Message = mapMode.ToUpper();
+        //}
 
-        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
-        {
-            base.AppendAdditionalMenuItems(menu);
+        //public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        //{
+        //    base.AppendAdditionalMenuItems(menu);
 
-            Menu_AppendSeparator(menu);
-            Menu_AppendItem(menu, "Map Mode:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
-            Menu_AppendItem(menu, " Sectional", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "sectional"), true, CheckMode("sectional"));
-            Menu_AppendItem(menu, " Planar", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "planar"), true, CheckMode("planar"));
-        }
+        //    Menu_AppendSeparator(menu);
+        //    Menu_AppendItem(menu, "Map Mode:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+        //    Menu_AppendItem(menu, " Sectional", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "sectional"), true, CheckMode("sectional"));
+        //    Menu_AppendItem(menu, " Planar", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "planar"), true, CheckMode("planar"));
+        //}
 
-        private bool CheckMode(string _modeCheck) => mapMode == _modeCheck;
+        //private bool CheckMode(string _modeCheck) => mapMode == _modeCheck;
 
-        public override bool Write(GH_IWriter writer)
-        {
-            if (mapMode != "")
-                writer.SetString("mapMode", mapMode);
-            return base.Write(writer);
-        }
-        public override bool Read(GH_IReader reader)
-        {
-            if (reader.ItemExists("mapMode"))
-                mapMode = reader.GetString("mapMode");
+        //public override bool Write(GH_IWriter writer)
+        //{
+        //    if (mapMode != "")
+        //        writer.SetString("mapMode", mapMode);
+        //    return base.Write(writer);
+        //}
+        //public override bool Read(GH_IReader reader)
+        //{
+        //    if (reader.ItemExists("mapMode"))
+        //        mapMode = reader.GetString("mapMode");
 
-            Message = reader.GetString("mapMode").ToUpper();
+        //    Message = reader.GetString("mapMode").ToUpper();
 
-            return base.Read(reader);
-        }
+        //    return base.Read(reader);
+        //}
     }
 
     /// <summary>
