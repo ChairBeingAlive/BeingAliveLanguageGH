@@ -7,14 +7,11 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
-using System.ComponentModel.Composition;
-using System.ComponentModel.Composition.Hosting;
 using System.Windows.Forms;
 using GH_IO.Serialization;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using KdTree;
-using System.Runtime.CompilerServices;
 
 namespace BeingAliveLanguage
 {

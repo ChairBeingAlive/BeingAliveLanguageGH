@@ -144,7 +144,7 @@ namespace BeingAliveLanguage
                 return null;
         }
 
-        public static string PtString(in Point3d pt, int dec = 5)
+        public static string PtString(in Point3d pt, int dec = 4)
         {
             var tmpPt = pt * Math.Pow(10, dec);
             return $"{tmpPt[0]:F0} {tmpPt[1].ToString("F0")} {tmpPt[2].ToString("F0")}";
@@ -1809,16 +1809,9 @@ namespace BeingAliveLanguage
                 {
                     ptMap.TryAdd(strLoc, pt);
                 }
-                //var res = kdMap.RadialSearch(kdKey, (float)0.01, 1);
-
-                //if (res.Length == 0)
-                //{
-                //    kdMap.Add(kdKey, strLoc);
-                //    ptMap.TryAdd(strLoc, pt);
-                //}
             });
 
-            // average 10 random selected pt to its nearest point as unitLen
+            // average around 100 random selected pt to its nearest point as unitLen
             var tmpN = (int)Math.Round(Math.Min(ptLst.Count() * 0.4, 100));
             var pt10 = ptLst.OrderBy(x => Guid.NewGuid()).Take(tmpN).ToList();
             unitLen = pt10.Select(x =>
@@ -1846,6 +1839,7 @@ namespace BeingAliveLanguage
             }
             mBndParam = new Tuple<double, double, double, double>(uLst.Min(), uLst.Max(), vLst.Min(), vLst.Max());
         }
+
         public bool IsOnBound(in Point3d pt)
         {
             double u, v;
@@ -2062,16 +2056,6 @@ namespace BeingAliveLanguage
 
                 // direction scale and extension
                 GrowSingleRoot(nextDir, curNode, ref resLst);
-
-                //nextDir.Unitize();
-                //nextDir *= mSoilMap.unitLen * (rnd.Next(100, 120) / 100.0);
-
-                //var endPt = BalCore.ExtendDirByAffector(
-                //    curNode.pos, nextDir, mSoilMap,
-                //    envToggle, envDist, envAtt, envRep);
-
-                //var tmpPos = mSoilMap.GetNearestPoint(endPt);
-                //resLst.Add(new MapNode(tmpPos));
             }
             else if (rType == "multi")
             {
@@ -2113,6 +2097,15 @@ namespace BeingAliveLanguage
             return resLst;
         }
 
+        /// <summary>
+        /// Main function to grow sectional roots.
+        /// </summary>
+        /// <param name="rSteps">
+        /// growing steps
+        /// </param>
+        /// <param name="rDen">
+        /// Density Control
+        /// </param>
         public void Grow(int rSteps, int rDen = 2)
         {
             var anchorOnMap = mSoilMap.GetNearestPoint(mAnchor);
@@ -2207,75 +2200,75 @@ namespace BeingAliveLanguage
 
         // rootTyle: 0 - single, 1 - multi(branching)
         // deprecated: archived function, only for record purpose
-        public void GrowRoot(double radius, int rDen = 2)
-        {
-            // init starting ptKey
-            var anchorOnMap = mSoilMap.GetNearestPointsStr(mAnchor, 1)[0];
-            if (anchorOnMap != null)
-                frontKey.Add(anchorOnMap);
+        //public void GrowRoot(double radius, int rDen = 2)
+        //{
+        //    // init starting ptKey
+        //    var anchorOnMap = mSoilMap.GetNearestPointsStr(mAnchor, 1)[0];
+        //    if (anchorOnMap != null)
+        //        frontKey.Add(anchorOnMap);
 
-            // build a distance map from anchor point
-            // using euclidian distance, not grid distance for ease
-            disMap.Clear();
-            foreach (var pt in mSoilMap.ptMap)
-            {
-                disMap[pt.Key] = pt.Value.DistanceTo(mAnchor);
-            }
+        //    // build a distance map from anchor point
+        //    // using euclidian distance, not grid distance for ease
+        //    disMap.Clear();
+        //    foreach (var pt in mSoilMap.ptMap)
+        //    {
+        //        disMap[pt.Key] = pt.Value.DistanceTo(mAnchor);
+        //    }
 
-            // grow root until given radius is reached
-            double curR = 0;
-            double aveR = 0;
+        //    // grow root until given radius is reached
+        //    double curR = 0;
+        //    double aveR = 0;
 
-            int branchNum;
-            switch (mRootType)
-            {
-                case "single":
-                    branchNum = 1;
-                    break;
-                case "multi":
-                    branchNum = 2;
-                    break;
-                default:
-                    branchNum = 1;
-                    break;
-            }
+        //    int branchNum;
+        //    switch (mRootType)
+        //    {
+        //        case "single":
+        //            branchNum = 1;
+        //            break;
+        //        case "multi":
+        //            branchNum = 2;
+        //            break;
+        //        default:
+        //            branchNum = 1;
+        //            break;
+        //    }
 
-            // TODO: change to "while"?
-            for (int i = 0; i < 5000; i++)
-            {
-                if (frontKey.Count == 0 || curR >= radius)
-                    break;
+        //    // TODO: change to "while"?
+        //    for (int i = 0; i < 5000; i++)
+        //    {
+        //        if (frontKey.Count == 0 || curR >= radius)
+        //            break;
 
-                // pop the first element
-                var rndIdx = Utils.balRnd.Next(0, frontKey.Count()) % frontKey.Count;
-                var startPt = frontKey.ElementAt(rndIdx);
-                frontKey.Remove(startPt);
-                nextFrontKey.Clear();
+        //        // pop the first element
+        //        var rndIdx = Utils.balRnd.Next(0, frontKey.Count()) % frontKey.Count;
+        //        var startPt = frontKey.ElementAt(rndIdx);
+        //        frontKey.Remove(startPt);
+        //        nextFrontKey.Clear();
 
-                // use this element as starting point, grow roots
-                int branchCnt = 0;
-                for (int j = 0; j < 20; j++)
-                {
-                    if (branchCnt >= branchNum)
-                        break;
+        //        // use this element as starting point, grow roots
+        //        int branchCnt = 0;
+        //        for (int j = 0; j < 20; j++)
+        //        {
+        //            if (branchCnt >= branchNum)
+        //                break;
 
-                    // the GetNextPointAndDistance guarantee grow downwards
-                    var (dis, nextPt) = mSoilMap.GetNextPointAndDistance(in startPt);
-                    if (nextFrontKey.Add(nextPt))
-                    {
-                        rootCrv.Add(new Line(mSoilMap.GetPoint(startPt), mSoilMap.GetPoint(nextPt)));
-                        curR = disMap[nextPt] > curR ? disMap[nextPt] : curR;
+        //            // the GetNextPointAndDistance guarantee grow downwards
+        //            var (dis, nextPt) = mSoilMap.GetNextPointAndDistance(in startPt);
+        //            if (nextFrontKey.Add(nextPt))
+        //            {
+        //                rootCrv.Add(new Line(mSoilMap.GetPoint(startPt), mSoilMap.GetPoint(nextPt)));
+        //                curR = disMap[nextPt] > curR ? disMap[nextPt] : curR;
 
-                        branchCnt += 1;
-                    }
-                }
+        //                branchCnt += 1;
+        //            }
+        //        }
 
-                frontKey.UnionWith(nextFrontKey);
-                var disLst = frontKey.Select(x => disMap[x]).ToList();
-                disLst.Sort();
-                aveR = disLst[(disLst.Count() - 1) / 2];
-            }
-        }
+        //        frontKey.UnionWith(nextFrontKey);
+        //        var disLst = frontKey.Select(x => disMap[x]).ToList();
+        //        disLst.Sort();
+        //        aveR = disLst[(disLst.Count() - 1) / 2];
+        //    }
+        //}
 
         // public variables
         public List<Line> rootCrv = new List<Line>();
