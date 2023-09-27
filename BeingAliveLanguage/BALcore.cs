@@ -1689,118 +1689,127 @@ namespace BeingAliveLanguage
             }
         }
 
-        private void AddSectionalTriPt(in Polyline poly)
+        // obsolete
+        //private void AddSectionalTriPt(in Polyline poly)
+        //{
+        //    // tolerance for angle in the grid map
+        //    double tol = 5; // considering the fact of the scaling, this should be adqueate
+
+        //    // if triangle contains a 90deg corner, it is a side-triangle, ignore it.
+        //    for (int i = 0; i < 3; i++)
+        //    {
+        //        var v0 = poly[1] - poly[0];
+        //        var v1 = poly[2] - poly[1];
+        //        var v2 = poly[0] - poly[2];
+
+        //        double triTol = 1e-3;
+        //        if (Math.Abs(Vector3d.Multiply(v0, v1)) < triTol ||
+        //            Math.Abs(Vector3d.Multiply(v1, v2)) < triTol ||
+        //            Math.Abs(Vector3d.Multiply(v2, v0)) < triTol)
+        //            return;
+        //    }
+
+        //    // use kdTree for duplication removal
+        //    // use concurrentDict for neighbour storage 
+        //    for (int i = 0; i < 3; i++)
+        //    {
+        //        var pt = poly[i];
+        //        var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+        //        var strLoc = Utils.PtString(pt);
+        //        if (kdMap.Add(kdKey, strLoc))
+        //        {
+        //            ptMap.TryAdd(strLoc, pt);
+        //            topoMap.TryAdd(strLoc, new List<Tuple<float, string>> {
+        //                new Tuple<float, string>(-1, ""),
+        //                new Tuple<float, string>(-1, ""),
+        //                new Tuple<float, string>(-1, ""),
+        //                new Tuple<float, string>(-1, ""),
+        //                new Tuple<float, string>(-1, ""),
+        //                new Tuple<float, string>(-1, ""),
+        //            });
+        //        }
+
+        //        List<Point3d> surLst = new List<Point3d> { poly[(i + 1) % 3], poly[(i + 2) % 3] };
+        //        foreach (var pNext in surLst)
+        //        {
+        //            var vP = pNext - pt;
+        //            var ang = Utils.ToDegree(Vector3d.VectorAngle(mPln.XAxis, vP, mPln.ZAxis));
+
+        //            if (Math.Abs(ang - 60) < tol)
+        //                AddNeighbour(strLoc, 0, pt, pNext);
+        //            else if (Math.Abs(ang - 120) < tol)
+        //                AddNeighbour(strLoc, 1, pt, pNext);
+        //            else if (Math.Abs(ang - 180) < tol)
+        //                AddNeighbour(strLoc, 2, pt, pNext);
+        //            else if (Math.Abs(ang - 240) < tol)
+        //                AddNeighbour(strLoc, 3, pt, pNext);
+        //            else if (Math.Abs(ang - 300) < tol)
+        //                AddNeighbour(strLoc, 4, pt, pNext);
+        //            else if (Math.Abs(ang) < tol || Math.Abs(ang - 360) < tol)
+        //                AddNeighbour(strLoc, 5, pt, pNext);
+        //            else
+        //                throw new ArgumentException($"Error: point {strLoc} has no neighbour!");
+        //        }
+        //    }
+        //}
+
+        // obsolete
+        //public void BuildMap(in ConcurrentBag<Polyline> polyBag)
+        //{
+        //    // for sectional version, we need to get neighbouring relations.
+        //    // cannot use parallel, need sequential.
+        //    if (this.mapMode == "sectional")
+        //    {
+        //        var polyLst = polyBag.ToList();
+        //        foreach (var tri in polyLst)
+        //        {
+        //            // 1. add all pts 
+        //            this.AddSectionalTriPt(in tri);
+        //            // 2. create topology mapping
+        //            //this.CreateSectionalTriTopoMap(in tri);
+        //        }
+
+        //        // check topoMap is successfully built
+        //        foreach (var m in topoMap)
+        //        {
+        //            var sumIdx = m.Value.Select(x => x.Item1).Sum();
+        //            if (sumIdx == -6)
+        //                throw new ArgumentException("Error: Topo map is not built successfully. Check if the plane is aligned with the triangles.");
+        //        }
+
+
+        //    }
+        //    // for planar version, adding to the kdTree can be parallel.
+        //    else if (this.mapMode == "planar")
+        //    {
+        //        var ptBag = new ConcurrentBag<Point3d>();
+        //        Parallel.ForEach(polyBag, pl =>
+        //        {
+        //            foreach (var p in pl)
+        //                ptBag.Add(p);
+        //        });
+        //        BuildMap(ptBag);
+        //    }
+
+        //    // ! compute unitLen
+        //    polyBag.TryPeek(out Polyline tmp);
+        //    unitLen = polyBag.Select(x => x.Length).Average() / (tmp.Count - 1);
+        //}
+
+        public void BuildMap(
+            in ConcurrentBag<Point3d> ptLst,
+            in ConcurrentBag<Polyline> polyLst)
         {
-            // tolerance for angle in the grid map
-            double tol = 5; // considering the fact of the scaling, this should be adqueate
-
-            // if triangle contains a 90deg corner, it is a side-triangle, ignore it.
-            for (int i = 0; i < 3; i++)
+            var ptBag = new ConcurrentBag<Point3d>();
+            Parallel.ForEach(polyLst, pl =>
             {
-                var v0 = poly[1] - poly[0];
-                var v1 = poly[2] - poly[1];
-                var v2 = poly[0] - poly[2];
+                foreach (var p in pl)
+                    ptBag.Add(p);
+            });
 
-                double triTol = 1e-3;
-                if (Math.Abs(Vector3d.Multiply(v0, v1)) < triTol ||
-                    Math.Abs(Vector3d.Multiply(v1, v2)) < triTol ||
-                    Math.Abs(Vector3d.Multiply(v2, v0)) < triTol)
-                    return;
-            }
+            var ptCollection = ptBag.Concat(ptLst);
 
-            // use kdTree for duplication removal
-            // use concurrentDict for neighbour storage 
-            for (int i = 0; i < 3; i++)
-            {
-                var pt = poly[i];
-                var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
-                var strLoc = Utils.PtString(pt);
-                if (kdMap.Add(kdKey, strLoc))
-                {
-                    ptMap.TryAdd(strLoc, pt);
-                    topoMap.TryAdd(strLoc, new List<Tuple<float, string>> {
-                        new Tuple<float, string>(-1, ""),
-                        new Tuple<float, string>(-1, ""),
-                        new Tuple<float, string>(-1, ""),
-                        new Tuple<float, string>(-1, ""),
-                        new Tuple<float, string>(-1, ""),
-                        new Tuple<float, string>(-1, ""),
-                    });
-                }
-
-                List<Point3d> surLst = new List<Point3d> { poly[(i + 1) % 3], poly[(i + 2) % 3] };
-                foreach (var pNext in surLst)
-                {
-                    var vP = pNext - pt;
-                    var ang = Utils.ToDegree(Vector3d.VectorAngle(mPln.XAxis, vP, mPln.ZAxis));
-
-                    if (Math.Abs(ang - 60) < tol)
-                        AddNeighbour(strLoc, 0, pt, pNext);
-                    else if (Math.Abs(ang - 120) < tol)
-                        AddNeighbour(strLoc, 1, pt, pNext);
-                    else if (Math.Abs(ang - 180) < tol)
-                        AddNeighbour(strLoc, 2, pt, pNext);
-                    else if (Math.Abs(ang - 240) < tol)
-                        AddNeighbour(strLoc, 3, pt, pNext);
-                    else if (Math.Abs(ang - 300) < tol)
-                        AddNeighbour(strLoc, 4, pt, pNext);
-                    else if (Math.Abs(ang) < tol || Math.Abs(ang - 360) < tol)
-                        AddNeighbour(strLoc, 5, pt, pNext);
-                    else
-                        throw new ArgumentException($"Error: point {strLoc} has no neighbour!");
-                }
-            }
-        }
-
-        public void AddGeo(in ConcurrentBag<Polyline> polyIn) { }
-
-        public void AddGeo(in ConcurrentBag<Point3d> ptIn) { }
-
-        public void BuildMap(in ConcurrentBag<Polyline> polyBag)
-        {
-            // for sectional version, we need to get neighbouring relations.
-            // cannot use parallel, need sequential.
-            if (this.mapMode == "sectional")
-            {
-                var polyLst = polyBag.ToList();
-                foreach (var tri in polyLst)
-                {
-                    // 1. add all pts 
-                    this.AddSectionalTriPt(in tri);
-                    // 2. create topology mapping
-                    //this.CreateSectionalTriTopoMap(in tri);
-                }
-
-                // check topoMap is successfully built
-                foreach (var m in topoMap)
-                {
-                    var sumIdx = m.Value.Select(x => x.Item1).Sum();
-                    if (sumIdx == -6)
-                        throw new ArgumentException("Error: Topo map is not built successfully. Check if the plane is aligned with the triangles.");
-                }
-
-
-            }
-            // for planar version, adding to the kdTree can be parallel.
-            else if (this.mapMode == "planar")
-            {
-                var ptBag = new ConcurrentBag<Point3d>();
-                Parallel.ForEach(polyBag, pl =>
-                {
-                    foreach (var p in pl)
-                        ptBag.Add(p);
-                });
-                BuildMap(ptBag);
-            }
-
-            // ! compute unitLen
-            polyBag.TryPeek(out Polyline tmp);
-            unitLen = polyBag.Select(x => x.Length).Average() / (tmp.Count - 1);
-        }
-
-        public void BuildMap(in ConcurrentBag<Point3d> ptLst)
-        {
-            Parallel.ForEach(ptLst, pt =>
+            Parallel.ForEach(ptCollection, pt =>
             {
                 // for general cases, just build map and remove duplicated points
                 var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
@@ -1812,8 +1821,8 @@ namespace BeingAliveLanguage
             });
 
             // average around 100 random selected pt to its nearest point as unitLen
-            var tmpN = (int)Math.Round(Math.Min(ptLst.Count() * 0.4, 100));
-            var pt10 = ptLst.OrderBy(x => Guid.NewGuid()).Take(tmpN).ToList();
+            var tmpN = (int)Math.Round(Math.Min(ptCollection.Count() * 0.4, 100));
+            var pt10 = ptCollection.OrderBy(x => Guid.NewGuid()).Take(tmpN).ToList();
             unitLen = pt10.Select(x =>
             {
                 // find the 2 nearest point and measure distance (0 and a p-p dist).
@@ -2200,75 +2209,75 @@ namespace BeingAliveLanguage
 
         // rootTyle: 0 - single, 1 - multi(branching)
         // deprecated: archived function, only for record purpose
-        //public void GrowRoot(double radius, int rDen = 2)
-        //{
-        //    // init starting ptKey
-        //    var anchorOnMap = mSoilMap.GetNearestPointsStr(mAnchor, 1)[0];
-        //    if (anchorOnMap != null)
-        //        frontKey.Add(anchorOnMap);
+        public void GrowRoot(double radius, int rDen = 2)
+        {
+            // init starting ptKey
+            var anchorOnMap = mSoilMap.GetNearestPointsStr(mAnchor, 1)[0];
+            if (anchorOnMap != null)
+                frontKey.Add(anchorOnMap);
 
-        //    // build a distance map from anchor point
-        //    // using euclidian distance, not grid distance for ease
-        //    disMap.Clear();
-        //    foreach (var pt in mSoilMap.ptMap)
-        //    {
-        //        disMap[pt.Key] = pt.Value.DistanceTo(mAnchor);
-        //    }
+            // build a distance map from anchor point
+            // using euclidian distance, not grid distance for ease
+            disMap.Clear();
+            foreach (var pt in mSoilMap.ptMap)
+            {
+                disMap[pt.Key] = pt.Value.DistanceTo(mAnchor);
+            }
 
-        //    // grow root until given radius is reached
-        //    double curR = 0;
-        //    double aveR = 0;
+            // grow root until given radius is reached
+            double curR = 0;
+            double aveR = 0;
 
-        //    int branchNum;
-        //    switch (mRootType)
-        //    {
-        //        case "single":
-        //            branchNum = 1;
-        //            break;
-        //        case "multi":
-        //            branchNum = 2;
-        //            break;
-        //        default:
-        //            branchNum = 1;
-        //            break;
-        //    }
+            int branchNum;
+            switch (mRootType)
+            {
+                case "single":
+                    branchNum = 1;
+                    break;
+                case "multi":
+                    branchNum = 2;
+                    break;
+                default:
+                    branchNum = 1;
+                    break;
+            }
 
-        //    // TODO: change to "while"?
-        //    for (int i = 0; i < 5000; i++)
-        //    {
-        //        if (frontKey.Count == 0 || curR >= radius)
-        //            break;
+            // TODO: change to "while"?
+            for (int i = 0; i < 5000; i++)
+            {
+                if (frontKey.Count == 0 || curR >= radius)
+                    break;
 
-        //        // pop the first element
-        //        var rndIdx = Utils.balRnd.Next(0, frontKey.Count()) % frontKey.Count;
-        //        var startPt = frontKey.ElementAt(rndIdx);
-        //        frontKey.Remove(startPt);
-        //        nextFrontKey.Clear();
+                // pop the first element
+                var rndIdx = Utils.balRnd.Next(0, frontKey.Count()) % frontKey.Count;
+                var startPt = frontKey.ElementAt(rndIdx);
+                frontKey.Remove(startPt);
+                nextFrontKey.Clear();
 
-        //        // use this element as starting point, grow roots
-        //        int branchCnt = 0;
-        //        for (int j = 0; j < 20; j++)
-        //        {
-        //            if (branchCnt >= branchNum)
-        //                break;
+                // use this element as starting point, grow roots
+                int branchCnt = 0;
+                for (int j = 0; j < 20; j++)
+                {
+                    if (branchCnt >= branchNum)
+                        break;
 
-        //            // the GetNextPointAndDistance guarantee grow downwards
-        //            var (dis, nextPt) = mSoilMap.GetNextPointAndDistance(in startPt);
-        //            if (nextFrontKey.Add(nextPt))
-        //            {
-        //                rootCrv.Add(new Line(mSoilMap.GetPoint(startPt), mSoilMap.GetPoint(nextPt)));
-        //                curR = disMap[nextPt] > curR ? disMap[nextPt] : curR;
+                    // the GetNextPointAndDistance guarantee grow downwards
+                    var (dis, nextPt) = mSoilMap.GetNextPointAndDistance(in startPt);
+                    if (nextFrontKey.Add(nextPt))
+                    {
+                        rootCrv.Add(new Line(mSoilMap.GetPoint(startPt), mSoilMap.GetPoint(nextPt)));
+                        curR = disMap[nextPt] > curR ? disMap[nextPt] : curR;
 
-        //                branchCnt += 1;
-        //            }
-        //        }
+                        branchCnt += 1;
+                    }
+                }
 
-        //        frontKey.UnionWith(nextFrontKey);
-        //        var disLst = frontKey.Select(x => disMap[x]).ToList();
-        //        disLst.Sort();
-        //        aveR = disLst[(disLst.Count() - 1) / 2];
-        //    }
-        //}
+                frontKey.UnionWith(nextFrontKey);
+                var disLst = frontKey.Select(x => disMap[x]).ToList();
+                disLst.Sort();
+                aveR = disLst[(disLst.Count() - 1) / 2];
+            }
+        }
 
         // public variables
         public List<Line> rootCrv = new List<Line>();

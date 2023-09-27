@@ -66,48 +66,78 @@ namespace BeingAliveLanguage
             var conPoly = new ConcurrentBag<Polyline>();
             SoilMap sMap = new SoilMap(pln, mapMode);
 
-            // TODO: find better ways to convert IGH_GOO to polyline
-            if (inputGeo[0].CastTo<Point3d>(out Point3d pt))
+            // detecting the goo type and add it to the corresponding container
+            Parallel.ForEach(inputGeo, goo =>
             {
-                Parallel.ForEach(inputGeo, goo =>
-                {
-                    goo.CastTo<Point3d>(out Point3d p);
+                if (goo.CastTo<Point3d>(out Point3d p))
                     conPt.Add(p);
-                });
 
-                sMap.BuildMap(conPt);
-            }
-            else if (inputGeo[0].CastTo<Polyline>(out Polyline pl))
-            {
-                Parallel.ForEach(inputGeo, goo =>
-                {
-                    goo.CastTo<Polyline>(out Polyline p);
-                    conPoly.Add(p);
-                });
+                else if (goo.CastTo<Polyline>(out Polyline pl))
+                    conPoly.Add(pl);
 
-                sMap.BuildMap(conPoly);
-            }
-            else if (inputGeo[0].CastTo<Curve>(out Curve crv))
-            {
-                Parallel.ForEach(inputGeo, goo =>
+
+                else if (goo.CastTo<Curve>(out Curve crv))
                 {
-                    goo.CastTo<Curve>(out Curve c);
-                    if (c.TryGetPolyline(out Polyline ply))
-                    {
+                    if (crv.TryGetPolyline(out Polyline ply))
                         conPoly.Add(ply);
+                    else
+                    {
+                        double[] tmpT = crv.DivideByCount(20, true);
+                        foreach (var t in tmpT)
+                        {
+                            conPt.Add(crv.PointAt(t));
+                        }
                     }
-                });
-                sMap.BuildMap(conPoly);
-            }
-            else if (inputGeo[0].CastTo<Rectangle3d>(out Rectangle3d rec))
-            {
-                Parallel.ForEach(inputGeo, goo =>
-                {
-                    goo.CastTo<Rectangle3d>(out Rectangle3d c);
+                }
+
+                else if (goo.CastTo<Rectangle3d>(out Rectangle3d c))
                     conPoly.Add(c.ToPolyline());
-                });
-                sMap.BuildMap(conPoly);
-            }
+            });
+
+            sMap.BuildMap(conPt, conPoly);
+
+            //// TODO: find better ways to convert IGH_GOO to polyline
+            //if (inputGeo[0].CastTo<Point3d>(out Point3d pt))
+            //{
+            //    Parallel.ForEach(inputGeo, goo =>
+            //    {
+            //        goo.CastTo<Point3d>(out Point3d p);
+            //        conPt.Add(p);
+            //    });
+
+            //    sMap.BuildMap(conPt);
+            //}
+            //else if (inputGeo[0].CastTo<Polyline>(out Polyline pl))
+            //{
+            //    Parallel.ForEach(inputGeo, goo =>
+            //    {
+            //        goo.CastTo<Polyline>(out Polyline p);
+            //        conPoly.Add(p);
+            //    });
+
+            //    sMap.BuildMap(conPoly);
+            //}
+            //else if (inputGeo[0].CastTo<Curve>(out Curve crv))
+            //{
+            //    Parallel.ForEach(inputGeo, goo =>
+            //    {
+            //        goo.CastTo<Curve>(out Curve c);
+            //        if (c.TryGetPolyline(out Polyline ply))
+            //        {
+            //            conPoly.Add(ply);
+            //        }
+            //    });
+            //    sMap.BuildMap(conPoly);
+            //}
+            //else if (inputGeo[0].CastTo<Rectangle3d>(out Rectangle3d rec))
+            //{
+            //    Parallel.ForEach(inputGeo, goo =>
+            //    {
+            //        goo.CastTo<Rectangle3d>(out Rectangle3d c);
+            //        conPoly.Add(c.ToPolyline());
+            //    });
+            //    sMap.BuildMap(conPoly);
+            //}
 
             sMap.BuildBound();
 
@@ -229,7 +259,8 @@ namespace BeingAliveLanguage
             int den = 2;
             int seed = -1;
 
-            if (!DA.GetData("SoilMap", ref sMap) || sMap.mapMode != "sectional")
+            //if (!DA.GetData("SoilMap", ref sMap) || sMap.mapMode != "sectional")
+            if (!DA.GetData("SoilMap", ref sMap))
             { return; }
             if (!DA.GetData("Anchor", ref anchor))
             { return; }
