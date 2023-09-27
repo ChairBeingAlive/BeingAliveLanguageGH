@@ -2129,7 +2129,6 @@ namespace BeingAliveLanguage
 
       //! get a bunch of closest points and sort it based on the angle with "down vector"
       var pts = mSoilMap.GetNearestPoints(mRootNode.pos, rDen + 10).ToArray();
-
       var ptLoc = new List<Point3d>();
       var ptAng = new List<double>();
       foreach (var p in pts)
@@ -2165,7 +2164,7 @@ namespace BeingAliveLanguage
           pickedPt.Add(distinctPt[distinctPt.Count - (i / 2 + 1)]);
       }
 
-      // add the first rDen points 
+      //! add the first rDen points and create initial root branches
       for (int i = 0; i < rDen; i++)
       {
         var x = new MapNode(pickedPt[i]);
@@ -2176,7 +2175,7 @@ namespace BeingAliveLanguage
         rootCrv.Add(new Line(mRootNode.pos, x.pos));
       }
 
-      // ! BFS starts
+      // ! BFS starts and recursively grow roots
       while (bfsQ.Count > 0)
       {
         var curNode = bfsQ.Dequeue();
@@ -2205,10 +2204,11 @@ namespace BeingAliveLanguage
           }
         });
       }
+
     }
 
     // rootTyle: 0 - single, 1 - multi(branching)
-    // deprecated: archived function, only for record purpose
+    // ? deprecated: archived function, only for record purpose
     public void GrowRoot(double radius, int rDen = 2)
     {
       // init starting ptKey
