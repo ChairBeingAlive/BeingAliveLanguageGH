@@ -82,21 +82,16 @@ namespace BeingAliveLanguage
   {
     public SoilBase sBase;
     public Rectangle3d sBnd;
-    public double distDen; // control the gradiently changed density. Only for inner OM.
-    public double omDen;
-    //public double uL;
-    //public BaseGridState gridState;
-    //public Transform trans;
+    //public double distDen; // control the gradiently changed density. Only for inner OM.
+    public double dOM;
 
-    public OrganicMatterProperty(in SoilBase sBase, double dDen, double dOM)
+    //public OrganicMatterProperty(in SoilBase sBase, double distDen, double dOM)
+    public OrganicMatterProperty(in SoilBase sBase,  double dOM)
     {
       this.sBase = sBase;
       this.sBnd = sBase.bnd;
-      this.distDen = dDen;
-      this.omDen = dOM;
-      //this.uL = unitL;
-      //this.gridState = gState;
-      //this.trans = trans;
+      //this.distDen = distDen;
+      this.dOM = dOM;
     }
   }
 
@@ -389,7 +384,7 @@ namespace BeingAliveLanguage
       refPln.Translate(refPt - rec.Plane.Origin);
 
       double hTri = 1.0;
-      double sTri = 1.0;
+      double rTri = 1.0;
       int nHorizontal = 1;
       int nVertical = 1;
 
@@ -400,29 +395,29 @@ namespace BeingAliveLanguage
       if (gridState == BaseGridState.ScaledVertical || gridState == BaseGridState.NonScaledVertical)
       {
         hTri = recH / resolution; // height of base triangle
-        sTri = hTri * 2 * Math.Sqrt(3.0) / 3; // side length of base triangle
+        rTri = hTri * 2 * Math.Sqrt(3.0) / 3; // side length of base triangle
 
-        nHorizontal = (int)(recW / sTri * 2);
+        nHorizontal = (int)(recW / rTri * 2);
         nVertical = resolution;
       }
       //else if (resMode == "horizontal")
       else
       {
-        sTri = recW / resolution;
-        hTri = sTri / 2.0 * Math.Sqrt(3.0);
+        rTri = recW / resolution;
+        hTri = rTri / 2.0 * Math.Sqrt(3.0);
 
         nHorizontal = resolution * 2;
         nVertical = (int)(recH / hTri);
       }
 
       // up-triangle's three position vector from bottom left corner
-      var vTop = createVec(refPln, sTri / 2, hTri);
-      var vForward = createVec(refPln, sTri, 0);
+      var vTop = createVec(refPln, rTri / 2, hTri);
+      var vForward = createVec(refPln, rTri, 0);
       List<Vector3d> triUp = new List<Vector3d> { createVec(refPln, 0, 0), vForward, vTop };
 
       // down-triangle's three position vector from top left corner
       var vTopLeft = createVec(refPln, 0, hTri);
-      var vTopRight = createVec(refPln, sTri, hTri);
+      var vTopRight = createVec(refPln, rTri, hTri);
       List<Vector3d> triDown = new List<Vector3d> { vTopLeft, vForward / 2, vTopRight };
 
       // collection of the two types
@@ -433,7 +428,7 @@ namespace BeingAliveLanguage
       for (int i = 0; i < nVertical; i++)
       {
         var pt = Point3d.Add(refPt, vTopLeft * i);
-        pt = Point3d.Add(pt, -0.5 * sTri * refPln.XAxis); // compensate for the alignment
+        pt = Point3d.Add(pt, -0.5 * rTri * refPln.XAxis); // compensate for the alignment
         gridMap.Add(CreateTriLst(in pt, in refPln, vForward, nHorizontal + 1, i % 2, in triType));
       }
 
@@ -443,12 +438,12 @@ namespace BeingAliveLanguage
       if (trans.IsZero)
       {
         if (gridState == BaseGridState.NonScaledVertical || gridState == BaseGridState.NonScaledHorizontal)
-          return (sTri, gridMap, trans); // main grid
+          return (rTri, gridMap, trans); // main grid
 
         //  otherwise, scale the base grid 
         else if (gridState == BaseGridState.ScaledVertical)
         {
-          scalingTrans = Transform.Scale(refPln, recW / (sTri * nHorizontal * 0.5), 1, 1);
+          scalingTrans = Transform.Scale(refPln, recW / (rTri * nHorizontal * 0.5), 1, 1);
         }
         else if (gridState == BaseGridState.ScaledHorizontal)
         {
@@ -458,7 +453,7 @@ namespace BeingAliveLanguage
       else // OM grid
       {
         if (gridState != BaseGridState.ScaledVertical)
-          return (sTri, gridMap, trans); // not (vertial div + scaled), do nothing
+          return (rTri, gridMap, trans); // not (vertial div + scaled), do nothing
         else
           scalingTrans = trans; // for OM grid, use the given transformation
       }
@@ -472,7 +467,7 @@ namespace BeingAliveLanguage
         }
       }
 
-      return (sTri, gridMap, scalingTrans);
+      return (rTri, gridMap, scalingTrans);
     }
 
 
@@ -734,9 +729,9 @@ namespace BeingAliveLanguage
     }
 
 
-    // exponential fit {{0, 0}, {0.4, 0.1}, {0.5, 0.15}, {1, 1}}, customized for the organic matter purpose.
+    // custom fit {{0, 1}, {0.5, 0.15}, {0.6, 0.1}, {1, 0}}, customized for the organic matter purpose.
     // only works for [0-1] range.
-    private static readonly Func<double, double> CustomExpFit = x => 0.0210324 * Math.Exp(3.8621 * x);
+    private static readonly Func<double, double> CustomFit = x => 0.0210324 * Math.Exp(3.8621 * (1-x));
 
     // create organic matter around a triangle
     public static readonly Func<Polyline, Polyline, double, List<Line>> createOM = (polyout, polyin, divN) =>
@@ -789,26 +784,37 @@ namespace BeingAliveLanguage
       var triCore = tri.Select(x => OffsetTri(x.Duplicate(), coreRatio)).ToList();
 
       // compute density based on distance to the soil surface, reparametrized to [0, 1]
-      List<double> denLst = new List<double>();
+      List<double> distToSrf = new List<double>();
       foreach (var t in tri)
       {
         bnd.Plane.ClosestParameter(t.CenterPoint(), out double x, out double y);
-        denLst.Add((bnd.Height - y) / bnd.Height);
+        distToSrf.Add((bnd.Height - y) / bnd.Height);
       }
 
       // remap density
-      var dMin = denLst.Min();
-      var dMax = denLst.Max();
+      var dMin = distToSrf.Min();
+      var dMax = distToSrf.Max();
 
       var triLen = tri.Select(x => x.Length).ToList();
-      var distDen = denLst.Select(x => CustomExpFit((x - dMin) / (dMax - dMin))).ToList();
+
+      // fitting: result in (0, 1), the higher the position, the larger the value
+      var distDen = distToSrf.Select(x => CustomFit((x - dMin) / (dMax - dMin))).ToList(); // [0.02, 1.004]
 
       // generate lines
       List<List<Line>> res = new List<List<Line>>();
       for (int i = 0; i < tri.Count; i++)
       {
         // for each triangle, divide pts based on the density param, and create OM lines
-        int divN = (int)Math.Round(tri[i].Length / distDen[i] * dOM / 10) * 3;
+        double triLenRatio = tri[i].Length / (sBase.unitL * 3); // 0.25, 0.5, 1
+        int szScalingFactor = 1;
+        if (Math.Abs(triLenRatio - 1) < 0.1)
+          szScalingFactor = 4;
+        else if (Math.Abs(triLenRatio - 0.5) < 0.1)
+          szScalingFactor = 2;
+        else if (Math.Abs(triLenRatio - 0.25) < 0.1)
+          szScalingFactor = 1;
+
+        int divN = 3 * (int)Math.Round(10 * distDen[i] * dOM) * szScalingFactor;
         if (divN == 0)
           continue;
 
@@ -816,44 +822,41 @@ namespace BeingAliveLanguage
         res.Add(omLn);
       }
 
-      return (res, new OrganicMatterProperty(sBase, distDen.Min(), dOM));
-
-    }
-
-    //! Main Func: (overload) Generate the top layer organic matter, using params from existing OM 
-    public static List<List<Line>> GenOrganicMatterTop(in OrganicMatterProperty omP, int type, int layer)
-    {
-      var height = 0.25 * omP.sBase.unitL * 0.5 * Math.Sqrt(3) * Math.Pow(2, type);
-
-      // create the top OM's boundary based on the soil boundary.
-      int horizontalDivNdbl = (int)Math.Floor(omP.sBnd.Corner(1).DistanceTo(omP.sBnd.Corner(0)) / omP.sBase.unitL * 2);
-      var intWid = (horizontalDivNdbl / 2 + (horizontalDivNdbl % 2) * 0.5) * omP.sBase.unitL;
-
-      var cornerB = omP.sBnd.Corner(3) + intWid * omP.sBnd.Plane.XAxis * 1.001 + omP.sBnd.Plane.YAxis * height * layer;
-      Rectangle3d topBnd = new Rectangle3d(omP.sBnd.Plane, omP.sBnd.Corner(3), cornerB);
-
-      // ! For soil surface OM, always use vertical resolution
-      var omGridState = (omP.sBase.gridState == BaseGridState.ScaledVertical) ? BaseGridState.ScaledVertical : BaseGridState.NonScaledVertical;
-      var (_, omTri, _) = MakeTriMap(ref topBnd, layer, omGridState, omP.sBase.trans);
-
-      var flattenTri = omTri.SelectMany(x => x).ToList();
-      var coreTri = flattenTri.Select(x => OffsetTri(x.ToPolyline().Duplicate(), 0.4));
-
-      // generate division number and om lines
-      //int divN = (int)Math.Round(flattenTri[1].ToPolyline().Length / omP.distDen * omP.omDen / 10) * 3;
-      int divN = (int)Utils.remap(omP.omDen, 0.0, 1.0, 1, 30) * 3;
-      var res = coreTri.Zip(flattenTri, (i, o) => createOM(i, o.ToPolyline(), divN)).ToList();
-
-      return res;
+      return (res, new OrganicMatterProperty(sBase, dOM));
     }
 
     //! Main Func: Generate the top layer organic matter
     public static List<List<Line>> GenOrganicMatterTop(in SoilBase sBase, int type, double dOM, int layer)
     {
-      var dmRemap = Utils.remap(dOM, 0.0, 1.0, 0.001, 0.2);
-      //var omP = new OrganicMatterProperty(sBase.bnd, dmRemap, dOM, sBase.unitL, sBase.gridState, sBase.trans);
-      var omP = new OrganicMatterProperty(sBase, dmRemap, dOM);
+      var omP = new OrganicMatterProperty(sBase, dOM);
       return GenOrganicMatterTop(omP, type, layer);
+    }
+
+    //! Main Func: (overload) Generate the top layer organic matter, using params from existing OM 
+    public static List<List<Line>> GenOrganicMatterTop(in OrganicMatterProperty omProp, int type, int layer)
+    {
+      int szScalingFactor = (int)Math.Pow(2, type);
+      var height = 0.25 * omProp.sBase.unitL * 0.5 * Math.Sqrt(3) * szScalingFactor;
+
+      // create the top OM's boundary based on the soil boundary.
+      int horizontalDivNdbl = (int)Math.Floor(omProp.sBnd.Corner(1).DistanceTo(omProp.sBnd.Corner(0)) / omProp.sBase.unitL * 2);
+      var intWid = (horizontalDivNdbl / 2 + (horizontalDivNdbl % 2) * 0.5) * omProp.sBase.unitL;
+
+      var cornerB = omProp.sBnd.Corner(3) + intWid * omProp.sBnd.Plane.XAxis * 1.001 + omProp.sBnd.Plane.YAxis * height * layer;
+      Rectangle3d topBnd = new Rectangle3d(omProp.sBnd.Plane, omProp.sBnd.Corner(3), cornerB);
+
+      // ! For soil surface OM, always use vertical resolution
+      var omGridState = (omProp.sBase.gridState == BaseGridState.ScaledVertical) ? BaseGridState.ScaledVertical : BaseGridState.NonScaledVertical;
+      var (_, omTri, _) = MakeTriMap(ref topBnd, layer, omGridState, omProp.sBase.trans);
+
+      var flattenTri = omTri.SelectMany(x => x).ToList();
+      var coreTri = flattenTri.Select(x => OffsetTri(x.ToPolyline().Duplicate(), 0.4));
+
+      // generate division number and om lines
+      int divN = 3 * (int)Math.Round(omProp.dOM * 10) * szScalingFactor;
+      var res = coreTri.Zip(flattenTri, (i, o) => createOM(i, o.ToPolyline(), divN)).ToList();
+
+      return res;
     }
 
     //! Main Func: Generate the urban soil organic matter
