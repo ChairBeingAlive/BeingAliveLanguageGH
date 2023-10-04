@@ -12,6 +12,15 @@ using Rhino.Geometry.Intersect;
 
 namespace BeingAliveLanguage
 {
+  // for passing the soil base grid state
+  public enum BaseGridState
+  {
+    NonScaledVertical, // default
+    NonScaledHorizontal,
+    ScaledVertical,
+    ScaledHorizontal
+  }
+
   /// <summary>
   /// The base information of initialized soil, used for soil/root computing.
   /// </summary>
@@ -19,15 +28,19 @@ namespace BeingAliveLanguage
   {
     public List<Polyline> soilT;
     public double unitL;
-    public Rhino.Geometry.Plane pln;
+    public Plane pln;
     public Rectangle3d bnd;
+    public BaseGridState gridState;
+    public Transform trans;
 
-    public SoilBase(Rectangle3d bound, Rhino.Geometry.Plane plane, List<Polyline> poly, double uL)
+    public SoilBase(Rectangle3d bound, Plane plane, List<Polyline> poly, double uL, BaseGridState isScaled = BaseGridState.NonScaledVertical, Transform trans = new Transform())
     {
       this.bnd = bound;
       this.pln = plane;
       this.soilT = poly;
       this.unitL = uL;
+      this.gridState = isScaled;
+      this.trans = trans;
     }
   }
 
@@ -67,17 +80,23 @@ namespace BeingAliveLanguage
   /// </summary>
   public struct OrganicMatterProperty
   {
-    public Rectangle3d bnd;
+    public SoilBase sBase;
+    public Rectangle3d sBnd;
     public double distDen; // control the gradiently changed density. Only for inner OM.
     public double omDen;
-    public double uL;
+    //public double uL;
+    //public BaseGridState gridState;
+    //public Transform trans;
 
-    public OrganicMatterProperty(in Rectangle3d bound, double dDen, double dOM, double unitL)
+    public OrganicMatterProperty(in SoilBase sBase, double dDen, double dOM)
     {
-      bnd = bound;
-      distDen = dDen;
-      omDen = dOM;
-      uL = unitL;
+      this.sBase = sBase;
+      this.sBnd = sBase.bnd;
+      this.distDen = dDen;
+      this.omDen = dOM;
+      //this.uL = unitL;
+      //this.gridState = gState;
+      //this.trans = trans;
     }
   }
 
@@ -355,9 +374,11 @@ namespace BeingAliveLanguage
       return triLst;
     }
 
+    /// <summary>
     /// MainFunc: make a triMap from given rectangle boundary.
+    /// constructTrans: if true, return the transformation to scale the base grid to the given rectangle. -- when constructing main soil grid, set to true. When constructing OM grid, set to false.
     /// </summary>
-    public static (double, List<List<PolylineCurve>>) MakeTriMap(ref Rectangle3d rec, int resolution, string resMode = "vertical", bool gridScale = false)
+    public static (double, List<List<PolylineCurve>>, Transform) MakeTriMap(ref Rectangle3d rec, int resolution, BaseGridState gridState = BaseGridState.NonScaledVertical, Transform trans = default)
     {
       // basic param
       var pln = rec.Plane;
@@ -372,13 +393,11 @@ namespace BeingAliveLanguage
       int nHorizontal = 1;
       int nVertical = 1;
 
-      // make sure recW > recH
-      //double recH = rec.Width < rec.Height ? rec.Width : rec.Height;
-      //double recW = rec.Width < rec.Height ? rec.Height : rec.Width;
       double recH = rec.Height;
       double recW = rec.Width;
 
-      if (resMode == "vertical")
+      //if (resMode == "vertical")
+      if (gridState == BaseGridState.ScaledVertical || gridState == BaseGridState.NonScaledVertical)
       {
         hTri = recH / resolution; // height of base triangle
         sTri = hTri * 2 * Math.Sqrt(3.0) / 3; // side length of base triangle
@@ -386,7 +405,8 @@ namespace BeingAliveLanguage
         nHorizontal = (int)(recW / sTri * 2);
         nVertical = resolution;
       }
-      else if (resMode == "horizontal")
+      //else if (resMode == "horizontal")
+      else
       {
         sTri = recW / resolution;
         hTri = sTri / 2.0 * Math.Sqrt(3.0);
@@ -417,35 +437,42 @@ namespace BeingAliveLanguage
         gridMap.Add(CreateTriLst(in pt, in refPln, vForward, nHorizontal + 1, i % 2, in triType));
       }
 
-      // scale if needed
-
-      if (gridScale)
+      // ! As trans will have non-zero value for OM grid, we use this criteria to determine whether the func is used for OM grid or soil grid
+      var scalingTrans = new Transform();
+      // main grid
+      if (trans.IsZero)
       {
-        Transform sca = new Transform();
-        // build transformation
-        if (resMode == "vertical")
-        {
-          // scale horizontal
-          sca = Transform.Scale(refPln, recW / (sTri * nHorizontal * 0.5), 1, 1);
-        }
-        else if (resMode == "horizontal")
-        {
-          // scle vertical
-          sca = Transform.Scale(refPln, 1, recH / (hTri * nVertical), 1);
-        }
+        if (gridState == BaseGridState.NonScaledVertical || gridState == BaseGridState.NonScaledHorizontal)
+          return (sTri, gridMap, trans); // main grid
 
-
-        // scale the triangles
-        foreach (var lst in gridMap)
+        //  otherwise, scale the base grid 
+        else if (gridState == BaseGridState.ScaledVertical)
         {
-          foreach (var tri in lst)
-          {
-            tri.Transform(sca);
-          }
+          scalingTrans = Transform.Scale(refPln, recW / (sTri * nHorizontal * 0.5), 1, 1);
+        }
+        else if (gridState == BaseGridState.ScaledHorizontal)
+        {
+          scalingTrans = Transform.Scale(refPln, 1, recH / (hTri * nVertical), 1);
+        }
+      }
+      else // OM grid
+      {
+        if (gridState != BaseGridState.ScaledVertical)
+          return (sTri, gridMap, trans); // not (vertial div + scaled), do nothing
+        else
+          scalingTrans = trans; // for OM grid, use the given transformation
+      }
+
+      // scale the triangles
+      foreach (var lst in gridMap)
+      {
+        foreach (var tri in lst)
+        {
+          tri.Transform(scalingTrans);
         }
       }
 
-      return (sTri, gridMap);
+      return (sTri, gridMap, scalingTrans);
     }
 
 
@@ -755,25 +782,26 @@ namespace BeingAliveLanguage
 
 
     // generate organic matter for soil inner
-    public static (List<List<Line>>, OrganicMatterProperty) GenOrganicMatterInner(in Rectangle3d bnd, in SoilProperty sInfo, in List<Polyline> tri, double dOM)
+    public static (List<List<Line>>, OrganicMatterProperty) GenOrganicMatterInner(in SoilBase sBase, in SoilProperty sInfo, in List<Polyline> tri, double dOM)
     {
+      var bnd = sBase.bnd;
       var coreRatio = 1 - sInfo.saturation;
       var triCore = tri.Select(x => OffsetTri(x.Duplicate(), coreRatio)).ToList();
 
-      // compute density based on distance to the soil surface
+      // compute density based on distance to the soil surface, reparametrized to [0, 1]
       List<double> denLst = new List<double>();
       foreach (var t in tri)
       {
         bnd.Plane.ClosestParameter(t.CenterPoint(), out double x, out double y);
-        denLst.Add(bnd.Height - y);
+        denLst.Add((bnd.Height - y) / bnd.Height);
       }
 
       // remap density
       var dMin = denLst.Min();
       var dMax = denLst.Max();
 
-      var distDen = denLst.Select(x => CustomExpFit((x - dMin) / (dMax - dMin))).ToList();
       var triLen = tri.Select(x => x.Length).ToList();
+      var distDen = denLst.Select(x => CustomExpFit((x - dMin) / (dMax - dMin))).ToList();
 
       // generate lines
       List<List<Line>> res = new List<List<Line>>();
@@ -788,23 +816,25 @@ namespace BeingAliveLanguage
         res.Add(omLn);
       }
 
-      return (res, new OrganicMatterProperty(bnd, distDen.Min(), dOM, triLen.Max() / 3));
+      return (res, new OrganicMatterProperty(sBase, distDen.Min(), dOM));
 
     }
 
-    //! Main Func: (overload) Generate the top layer organic matter, using params from inner OM
+    //! Main Func: (overload) Generate the top layer organic matter, using params from existing OM 
     public static List<List<Line>> GenOrganicMatterTop(in OrganicMatterProperty omP, int type, int layer)
     {
-      var height = omP.uL * 0.5 * Math.Sqrt(3) * 0.25 * Math.Pow(2, type);
+      var height = 0.25 * omP.sBase.unitL * 0.5 * Math.Sqrt(3) * Math.Pow(2, type);
 
       // create the top OM's boundary based on the soil boundary.
-      int horizontalDivNdbl = (int)Math.Floor(omP.bnd.Corner(1).DistanceTo(omP.bnd.Corner(0)) / omP.uL * 2);
-      var intWid = (horizontalDivNdbl / 2 + (horizontalDivNdbl % 2) * 0.5) * omP.uL;
+      int horizontalDivNdbl = (int)Math.Floor(omP.sBnd.Corner(1).DistanceTo(omP.sBnd.Corner(0)) / omP.sBase.unitL * 2);
+      var intWid = (horizontalDivNdbl / 2 + (horizontalDivNdbl % 2) * 0.5) * omP.sBase.unitL;
 
-      var cornerB = omP.bnd.Corner(3) + intWid * omP.bnd.Plane.XAxis * 1.001 + omP.bnd.Plane.YAxis * height * layer;
-      Rectangle3d topBnd = new Rectangle3d(omP.bnd.Plane, omP.bnd.Corner(3), cornerB);
+      var cornerB = omP.sBnd.Corner(3) + intWid * omP.sBnd.Plane.XAxis * 1.001 + omP.sBnd.Plane.YAxis * height * layer;
+      Rectangle3d topBnd = new Rectangle3d(omP.sBnd.Plane, omP.sBnd.Corner(3), cornerB);
 
-      var (_, omTri) = MakeTriMap(ref topBnd, layer);
+      // ! For soil surface OM, always use vertical resolution
+      var omGridState = (omP.sBase.gridState == BaseGridState.ScaledVertical) ? BaseGridState.ScaledVertical : BaseGridState.NonScaledVertical;
+      var (_, omTri, _) = MakeTriMap(ref topBnd, layer, omGridState, omP.sBase.trans);
 
       var flattenTri = omTri.SelectMany(x => x).ToList();
       var coreTri = flattenTri.Select(x => OffsetTri(x.ToPolyline().Duplicate(), 0.4));
@@ -821,7 +851,8 @@ namespace BeingAliveLanguage
     public static List<List<Line>> GenOrganicMatterTop(in SoilBase sBase, int type, double dOM, int layer)
     {
       var dmRemap = Utils.remap(dOM, 0.0, 1.0, 0.001, 0.2);
-      var omP = new OrganicMatterProperty(sBase.bnd, dmRemap, dOM, sBase.unitL);
+      //var omP = new OrganicMatterProperty(sBase.bnd, dmRemap, dOM, sBase.unitL, sBase.gridState, sBase.trans);
+      var omP = new OrganicMatterProperty(sBase, dmRemap, dOM);
       return GenOrganicMatterTop(omP, type, layer);
     }
 

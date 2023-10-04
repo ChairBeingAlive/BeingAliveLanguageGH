@@ -213,7 +213,7 @@ namespace BeingAliveLanguage
             { return; }
 
             // call the actural function
-            var (uL, res) = BalCore.MakeTriMap(ref rec, rsl);
+            var (uL, res, _) = BalCore.MakeTriMap(ref rec, rsl);
             rec.ToNurbsCurve().TryGetPlane(out Plane curPln);
 
             var triArray = new List<Polyline>();
