@@ -42,7 +42,7 @@ namespace BeingAliveLanguage
             { return; }
 
 
-            var sText = BalCore.SoilText(soilInfo);
+            var sText = Utils.SoilText(soilInfo);
 
             // assign output
             DA.SetData(0, sText);

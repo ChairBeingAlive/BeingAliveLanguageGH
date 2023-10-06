@@ -142,7 +142,7 @@ namespace BeingAliveLanguage
 
             // compute offseted curves 
             var (triCore, triWP, triFC, triCW, embedWater, curWater) =
-                BalCore.OffsetWater(triCrv, soilInfo, rWater, denEmbedWater, denAvailWater);
+                Utils.OffsetWater(triCrv, soilInfo, rWater, denEmbedWater, denAvailWater);
 
 
             // assign output
@@ -213,7 +213,7 @@ namespace BeingAliveLanguage
             { return; }
 
             // call the actural function
-            var (uL, res, _) = BalCore.MakeTriMap(ref rec, rsl);
+            var (uL, res, _) = Utils.MakeTriMap(ref rec, rsl);
             rec.ToNurbsCurve().TryGetPlane(out Plane curPln);
 
             var triArray = new List<Polyline>();

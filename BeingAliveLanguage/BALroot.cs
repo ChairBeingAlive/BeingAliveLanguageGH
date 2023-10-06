@@ -281,7 +281,6 @@ namespace BeingAliveLanguage
 
       DA.SetDataList(0, root.rootCrv);
     }
-
   }
 
   /// <summary>
@@ -527,7 +526,7 @@ namespace BeingAliveLanguage
         }
 
         // 1. find the nearest triangles
-        BalCore.CreateCentreMap(soilT, out Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap);
+        Utils.CreateCentreMap(soilT, out Dictionary<string, ValueTuple<Point3d, Polyline>> cenMap);
         var kdMap = new KdTree<double, Point3d>(2, new KdTree.Math.DoubleMath(), AddDuplicateBehavior.Skip);
 
         var toLocal = Transform.ChangeBasis(Plane.WorldXY, sMap.mPln);
@@ -586,9 +585,9 @@ namespace BeingAliveLanguage
         }
 
         var triOuter = filteredCen.Select(x => cenMap[x].Item2).ToList();
-        var triInner = triOuter.Select(x => BalCore.OffsetTri(x.Duplicate(), 1 - sInfo.saturation));
+        var triInner = triOuter.Select(x => Utils.OffsetTri(x.Duplicate(), 1 - sInfo.saturation));
 
-        var omRes = triOuter.Zip(triInner, (triO, triI) => BalCore.createOM(triO, triI, 7)).ToList();
+        var omRes = triOuter.Zip(triInner, (triO, triI) => Utils.createOM(triO, triI, 7)).ToList();
 
         for (int i = 0; i < omRes.Count; i++)
         {

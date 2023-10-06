@@ -60,7 +60,7 @@ namespace BeingAliveLanguage
         return;
       }
 
-      var soilProperty = BalCore.SoilType(rSand, rSilt, rClay);
+      var soilProperty = Utils.SoilType(rSand, rSilt, rClay);
 
       DA.SetData("Soil Info", soilProperty);
     }
@@ -118,7 +118,7 @@ namespace BeingAliveLanguage
         gridState = gridScaled ? BaseGridState.ScaledHorizontal : BaseGridState.NonScaledHorizontal;
 
       // call the actural function
-      var (uL, res, trans) = BalCore.MakeTriMap(ref rec, rsl, gridState);
+      var (uL, res, trans) = Utils.MakeTriMap(ref rec, rsl, gridState);
 
       var triArray = new List<Polyline>();
       for (int i = 0; i < res.Count; i++)
@@ -232,10 +232,6 @@ namespace BeingAliveLanguage
       DA.SetDataList(2, soil.mClayT);
 
       DA.SetDataList(3, soil.Collect());
-
-      // debug
-      //var res = BeingAliveLanguageRC.Utils.Addition(10, 23.5);
-      //DA.SetData(4, res);
     }
   }
 
@@ -441,8 +437,8 @@ namespace BeingAliveLanguage
       var offsetAllT = allT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
 
       // ! step5: create organic matter
-      var omLn = BalCore.GenOrganicMatterUrban(sBase, allT, offsetAllT, rOM);
-      var biocharFilling = BalCore.GenOrganicMatterBiochar(sBase, offsetBiocharT);
+      var omLn = Utils.GenOrganicMatterUrban(sBase, allT, offsetAllT, rOM);
+      var biocharFilling = Utils.GenOrganicMatterBiochar(sBase, offsetBiocharT);
 
 
 
@@ -456,9 +452,9 @@ namespace BeingAliveLanguage
       }
 
 
-      var omStone = BalCore.GenOrganicMatterUrban(sBase, originStoneT, offsetStoneT, rOM);
-      var omClay = BalCore.GenOrganicMatterUrban(sBase, urbanS.clayT, offsetClayT, rOM);
-      var omSand = BalCore.GenOrganicMatterUrban(sBase, urbanS.sandT, offsetSandT, rOM);
+      var omStone = Utils.GenOrganicMatterUrban(sBase, originStoneT, offsetStoneT, rOM);
+      var omClay = Utils.GenOrganicMatterUrban(sBase, urbanS.clayT, offsetClayT, rOM);
+      var omSand = Utils.GenOrganicMatterUrban(sBase, urbanS.sandT, offsetSandT, rOM);
 
       List<Line> allOM = new List<Line>();
       double tmpOmDist = sBase.unitL / 7.0;
@@ -561,7 +557,7 @@ namespace BeingAliveLanguage
 
       // compute offseted curves 
       var (triCore, triWP, triFC, triCW, embedWater, curWater) =
-          BalCore.OffsetWater(triCrv, soilInfo, rWater, denEmbedWater, denAvailWater);
+          Utils.OffsetWater(triCrv, soilInfo, rWater, denEmbedWater, denAvailWater);
 
 
       // assign output
@@ -643,7 +639,7 @@ namespace BeingAliveLanguage
 
       // compute
       var crvT = soilT.Select(x => Utils.CvtCrvToPoly(x)).ToList();
-      var (omLn, omProp) = BalCore.GenOrganicMatterInner(sBase, soilInfo, crvT, dOM);
+      var (omLn, omProp) = Utils.GenOrganicMatterInner(sBase, soilInfo, crvT, dOM);
 
       GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
       // output data
@@ -727,7 +723,7 @@ namespace BeingAliveLanguage
       }
 
       // compute
-      var omLn = BalCore.GenOrganicMatterTop(sBase, sz, dOM, numLayer);
+      var omLn = Utils.GenOrganicMatterTop(sBase, sz, dOM, numLayer);
 
       GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
       // output data
@@ -839,7 +835,7 @@ namespace BeingAliveLanguage
       }
 
       // compute
-      var omLn = BalCore.GenOrganicMatterTop(omProp, sz, numLayer);
+      var omLn = Utils.GenOrganicMatterTop(omProp, sz, numLayer);
 
       GH_Structure<GH_Line> outLn = new GH_Structure<GH_Line>();
       // output data
