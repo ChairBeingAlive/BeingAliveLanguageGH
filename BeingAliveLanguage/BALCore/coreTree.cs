@@ -1,8 +1,8 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
-using Rhino.Geometry;
+﻿using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BeingAliveLanguage
 {

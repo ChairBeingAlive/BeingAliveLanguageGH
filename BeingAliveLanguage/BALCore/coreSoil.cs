@@ -1,12 +1,8 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
+﻿using KdTree;
 using Rhino.Geometry;
-using KdTree;
-using System.Collections.Concurrent;
-using MathNet.Numerics.Distributions;
-using System.Threading.Tasks;
-using Rhino.Geometry.Intersect;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BeingAliveLanguage
 {
@@ -89,7 +85,8 @@ namespace BeingAliveLanguage
             * 100% will cause all clay/silt triangle accumulated to the edge if sand ratio > 90%
            */
           int numPoissonSand = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
-          BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
+          //BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
+          cppUtils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
 
           // part 2
           var remainingTriCen = triCen.Except(outSandCen).ToList();
@@ -138,7 +135,8 @@ namespace BeingAliveLanguage
       {
         // part 1
         int numPoissonSilt = Convert.ToInt32(numSilt * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
-        BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out outSiltCen);
+        //BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out outSiltCen);
+        cppUtils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out outSiltCen);
 
         // part 2
         var curRemainTriCen = preSiltCen.Except(outSiltCen).ToList();
@@ -247,7 +245,8 @@ namespace BeingAliveLanguage
         // sand
         //todo: add OSX variation
         var numSand = (int)Math.Round(postSandT.Count * rSand);
-        BeingAliveLanguageRC.Utils.SampleElim(triCen, sBase.bnd.Area, numSand, out List<Point3d> outSandCen);
+        //BeingAliveLanguageRC.Utils.SampleElim(triCen, sBase.bnd.Area, numSand, out List<Point3d> outSandCen);
+        cppUtils.SampleElim(triCen, sBase.bnd.Area, numSand, out List<Point3d> outSandCen);
         sandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
 
         //var ptCen = SamplingUtils.uniformSampling(ref this.sBase, (int)(numSand * 1.2));
@@ -376,7 +375,8 @@ namespace BeingAliveLanguage
       var stoneCen = new List<Point3d>();
 
       // scale the bnd a bit to allow clay appears on borders
-      BeingAliveLanguageRC.Utils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, -1, 0.93);
+      //BeingAliveLanguageRC.Utils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, -1, 0.93);
+      cppUtils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, -1, 0.93);
 
       // ! separate the stoneCen into several clusters according to the number of stone types, and collect the initial triangle
       // we use a new struct "StoneCluster" to store info related to the final stones
@@ -410,8 +410,8 @@ namespace BeingAliveLanguage
       for (int i = 0; i < ratioLst.Count; i++)
       {
         var curLst = new List<Point3d>();
-        BeingAliveLanguageRC.Utils.SampleElim(tmpStoneCen, sBase.bnd.Area, stoneCntLst[i], out curLst);
-        //var curLst = tmpStoneCen.OrderBy(_ => Utils.balRnd.Next()).Take(stoneCntLst[i]).ToList();
+        //BeingAliveLanguageRC.Utils.SampleElim(tmpStoneCen, sBase.bnd.Area, stoneCntLst[i], out curLst);
+        cppUtils.SampleElim(tmpStoneCen, sBase.bnd.Area, stoneCntLst[i], out curLst);
 
         // record centre triangle
         foreach (var pt in curLst)

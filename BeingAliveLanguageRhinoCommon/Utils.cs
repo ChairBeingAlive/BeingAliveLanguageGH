@@ -1,9 +1,7 @@
-﻿using Eto.Forms;
-using Rhino.Geometry;
+﻿using Rhino.Geometry;
 using Rhino.Runtime;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace BeingAliveLanguageRC
 {
@@ -32,15 +30,14 @@ namespace BeingAliveLanguageRC
       var outPcpp = new Rhino.Runtime.InteropWrappers.SimpleArrayPoint3d();
 
       // ! disable when developing nonCPP-required functions, so that MS's hotReload can work
-      //cppBAL.BAL_possionDiskElimSample(inPcpp.ConstPointer(), area, num, outPcpp.NonConstPointer());
+      cppBAL.BAL_possionDiskElimSample(inPcpp.ConstPointer(), area, num, outPcpp.NonConstPointer());
 
       // assign to the output
       outPt = new List<Point3d>(outPcpp.ToArray());
     }
 
     // Poisson Elimination Sampling overload, given rectangle bound
-    public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt,
-        int seed = -1, double bndScale = 1.0, int initPtRange = 8)
+    public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, int seed = -1, double bndScale = 1.0, int initPtRange = 8)
     {
       var rnd = seed >= 0 ? new Random(seed) : new Random(Guid.NewGuid().GetHashCode());
 

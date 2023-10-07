@@ -2,9 +2,6 @@
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BeingAliveLanguage
 {
@@ -15,17 +12,23 @@ namespace BeingAliveLanguage
     public static List<Vector3d> vec = new List<Vector3d>();
     public static List<Curve> crv = new List<Curve>();
 
-
+    public static void Clear()
+    {
+      num.Clear();
+      pt.Clear();
+      vec.Clear();
+      crv.Clear();
+    }
   }
 
   public class BALdebug : GH_Component
   {
     public BALdebug()
-        : base("balDebug", "balDebug", "debugging component, default hidden.", "BAL", "99::debug")
+        : base("balDebug", "balDebugComponent", "debugging component, default hidden.", "BAL", "99::debug")
     {
     }
 
-    public override GH_Exposure Exposure => GH_Exposure.hidden;
+    public override GH_Exposure Exposure => GH_Exposure.primary;
     public override Guid ComponentGuid => new Guid("d24bc4b1-646b-4642-b684-d053f489e5e1");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

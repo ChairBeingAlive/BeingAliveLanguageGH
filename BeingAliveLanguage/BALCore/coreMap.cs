@@ -1,37 +1,48 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
-using Rhino.Geometry;
+﻿using Grasshopper.GUI;
 using KdTree;
-using System.Collections.Concurrent;
 using MathNet.Numerics.Distributions;
+using Rhino.Geometry;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-using Rhino.Geometry.Intersect;
 
 namespace BeingAliveLanguage
 {
-  class MapNode
+  class RootNode
   {
     public Point3d pos;
-    public List<MapNode> nextNode = new List<MapNode>();
+    public List<RootNode> nextNode = new List<RootNode>();
     public Vector3d dir = new Vector3d();
 
-    public double normalizedDist = 0.0; // need to be normalized
-    public int steps = 0;
+    public int curStep = 0;
+    public int lifeSpan = -1; // unlimited; if > 0, then grow to 0.
+    public int mBranchLevel = 0;
+    public RootNodeType nType = RootNodeType.Stem;
 
-    public MapNode(in Point3d pt)
+    public RootNode(in Point3d pt)
     {
       this.pos = pt;
     }
 
-    public void addChildNode(in MapNode node, in double mapUnitLen)
+    public void addChildNode(in RootNode node, int lifeSpan = -1, RootNodeType nT = RootNodeType.Stem)
     {
       // pos, distance, direction
-      node.normalizedDist += pos.DistanceTo(node.pos) / mapUnitLen;
-      node.steps = steps + 1;
-      node.dir = node.pos - pos;
+      node.curStep = this.curStep + 1;
+      node.dir = node.pos - this.pos;
+      node.dir.Unitize();
+      node.lifeSpan = this.lifeSpan - 1;
 
-      nextNode.Add(node);
+      if (nType == RootNodeType.Side && nT == RootNodeType.Stem)
+      {
+        throw new InvalidOperationException("root node [side] cannot have root node [stem] as a child.");
+      }
+      else
+      {
+        node.nType = nT;
+        nextNode.Add(node);
+      }
     }
   }
 
@@ -327,7 +338,7 @@ namespace BeingAliveLanguage
     Tuple<double, double, double, double> mBndParam = new Tuple<double, double, double, double>(0, 0, 0, 0);
 
     public double unitLen = float.MaxValue;
-    readonly KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
+    public readonly KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
     readonly ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
     public ConcurrentDictionary<string, Point3d> ptMap;
     readonly Normal distNorm = new Normal();

@@ -1,8 +1,7 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
+﻿using Grasshopper.Kernel;
 using Rhino.Geometry;
-using Grasshopper.Kernel;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace BeingAliveLanguage
@@ -14,6 +13,13 @@ namespace BeingAliveLanguage
     NonScaledHorizontal,
     ScaledVertical,
     ScaledHorizontal
+  }
+
+  // root nodeType, for sectional root growth
+  public enum RootNodeType
+  {
+    Stem,
+    Side,
   }
 
   /// <summary>
