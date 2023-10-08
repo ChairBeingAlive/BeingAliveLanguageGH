@@ -1,17 +1,15 @@
-﻿using Grasshopper;
+﻿using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using KdTree;
 using Rhino.Geometry;
 using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using System.Windows.Forms;
-using GH_IO.Serialization;
-using System.Threading.Tasks;
 using System.Collections.Concurrent;
-using KdTree;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
@@ -160,7 +158,7 @@ namespace BeingAliveLanguage
       pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
       pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
       pManager.AddIntegerParameter("Steps", "S", "Root growing steps.", GH_ParamAccess.item);
-      pManager.AddIntegerParameter("Density", "d", "Root Density ([1-9], controls the density of the roots)", GH_ParamAccess.item, 2);
+      pManager.AddIntegerParameter("BranchN", "n", "Root branching number (>= 2, initial branching number from the root anchor.)", GH_ParamAccess.item, 2);
       pManager[3].Optional = true;
       pManager.AddIntegerParameter("seed", "s", "Int seed to randomize the generated root pattern.", GH_ParamAccess.item, -1);
       pManager[4].Optional = true;
@@ -202,7 +200,6 @@ namespace BeingAliveLanguage
         formMode = reader.GetString("formMode");
 
       Message = reader.GetString("formMode").ToUpper();
-
       return base.Read(reader);
     }
 
@@ -212,7 +209,7 @@ namespace BeingAliveLanguage
       var anchor = new Point3d();
       //double radius = 10.0;
       int steps = 10;
-      int den = 2;
+      int branchN = 2;
       int seed = -1;
 
       //if (!DA.GetData("SoilMap", ref sMap) || sMap.mapMode != "sectional")
@@ -222,7 +219,7 @@ namespace BeingAliveLanguage
       { return; }
       if (!DA.GetData("Steps", ref steps))
       { return; }
-      DA.GetData("Density", ref den);
+      DA.GetData("BranchN", ref branchN);
       DA.GetData("seed", ref seed);
 
 
@@ -236,9 +233,9 @@ namespace BeingAliveLanguage
       DA.GetData("Env DetectionRange", ref envRange);
       DA.GetData("EnvAffector Toggle", ref envToggle);
 
-      if (den < 1 || den > 9)
+      if (branchN < 2)
       {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Density not in the allowed range.");
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Root should have branch number >= 2.");
         return;
       }
 
@@ -275,9 +272,9 @@ namespace BeingAliveLanguage
         }
       }
 
-      var root = new RootSectional(sMap, anchor, formMode, steps, den, seed, envToggle, envRange, envAtt, envRep);
+      var root = new RootSectional(sMap, anchor, formMode, steps, branchN, seed, envToggle, envRange, envAtt, envRep);
       //root.GrowRoot(radius, den);
-      root.Grow(steps, den);
+      root.Grow(steps, branchN);
 
       DA.SetDataList(0, root.rootCrv);
     }

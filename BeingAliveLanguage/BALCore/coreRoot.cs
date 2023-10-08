@@ -83,6 +83,10 @@ namespace BeingAliveLanguage
     /// </param>
     public void Grow(int rSteps, int branchNum = 2)
     {
+      var multiplierD = 1.1;
+      var multiplierG = 0.7;
+      var multiplierP = 0.5;
+
       var anchorOnMap = mSoilMap.GetNearestPoint(mAnchor);
       if (anchorOnMap != null)
       {
@@ -114,7 +118,8 @@ namespace BeingAliveLanguage
       for (int i = 0; i < branchNum; i++)
       {
         var x = new RootNode(anchorOnMap + 2 * initVecLst[i] * mSoilMap.unitLen);
-        mRootNode.addChildNode(x);
+        mRootNode.AddChildNode(x);
+
         UpdateScoreMapFrom(x);
         bfsQ.Enqueue(x);
 
@@ -145,9 +150,9 @@ namespace BeingAliveLanguage
         {
           UpdateScoreMapFrom(x);
 
-          UpdateDistMapToNode(x);
-          UpdateGravityToNode(x);
-          UpdatePerturbationToNode(x);
+          UpdateDistMapToNode(x, multiplierD);
+          UpdateGravityToNode(x, multiplierG);
+          UpdatePerturbationToNode(x, multiplierP);
 
           x.dir.Unitize();
 
@@ -156,8 +161,8 @@ namespace BeingAliveLanguage
 
           // debug
 #if DEBUG
-          //DebugStore.pt.Add(x.pos);
-          //DebugStore.vec.Add(x.dir);
+          DebugStore.pt.Add(x.pos);
+          DebugStore.vec.Add(x.dir);
 #endif
 
           //  collecting crv with actual drawings
@@ -170,85 +175,32 @@ namespace BeingAliveLanguage
     public List<RootNode> GetExtendingNode(in RootNode curNode)
     {
       var resLst = new List<RootNode>();
-
-      var nextDir = curNode.dir;
-      //! both stem and side root node can grow along current dir
-      /// for side node, node has the properties:
-      ///  - a life span 
-      ///  - no perterbation
-
-      nextDir.Unitize();
-      nextDir *= mSoilMap.unitLen * (curNode.nType == RootNodeType.Stem ? mRnd.Next(80, 170) / 100.0 : 1);
-      //nextDir *= mSoilMap.unitLen * mRnd.Next(80, 120) / 100.0;
+      int branchingStepInterval = 3;
+      double branchRad = Utils.ToRadian(45);
 
       // grow stem-like roots: stem/side
+      curNode.dir *= mSoilMap.unitLen * (curNode.nType == RootNodeType.Stem ? mRnd.Next(80, 170) / 100.0 : 1);
       GrowRoot(curNode, ref resLst, curNode.nType, false);
 
-      int branchingStepInterval = 4;
-
-      // if rType == "multi", or the current is stem node for "signle" type, do the following
-      if (curNode.mBranchLevel < mMaxBranchLevel
-        && curNode.curStep >= branchingStepInterval
-        && curNode.lifeSpan != 0) // only stem rootNode can add side rootNode
+      // grow side roots, with rotated direction 
+      if (curNode.mBranchLevel >= 1)
       {
-        nextDir.Unitize();
-        nextDir *= mSoilMap.unitLen; // for side node, no perterbation
-
-        if (curNode.curStep % branchingStepInterval != 0)
-          return resLst;
-
-        if ((curNode.curStep / branchingStepInterval) % 2 == 0)
+        var x = 1;
+      }
+      if (curNode.mBranchLevel < mMaxBranchLevel
+        && curNode.stepCounting % branchingStepInterval == 0) // only stem rootNode can add side rootNode
+      {
+        if ((curNode.stepCounting / branchingStepInterval) % 2 == 1)
         {
-          nextDir.Rotate(Utils.ToRadian(30), mSoilMap.mPln.Normal);
+          curNode.dir.Rotate(branchRad, mSoilMap.mPln.Normal);
           GrowRoot(curNode, ref resLst, RootNodeType.Side, true);
         }
-        else if ((curNode.curStep / branchingStepInterval) % 2 == 1)
+        else if ((curNode.stepCounting / branchingStepInterval) % 2 == 0)
         {
-          nextDir.Rotate(Utils.ToRadian(-30), mSoilMap.mPln.Normal);
+          curNode.dir.Rotate(-branchRad, mSoilMap.mPln.Normal);
           GrowRoot(curNode, ref resLst, RootNodeType.Side, true);
         }
       }
-
-      #region old multi
-      //}
-      //else if (rType == "multi")
-      //{
-      //  // direction variation + small turbulation
-      //  var initDir = curNode.dir;
-      //  var turbDir = Vector3d.Zero;
-
-      //  var nextDir = curNode.dir;
-      //  var nextDir2 = curNode.dir;
-
-      //  var rnd = new Random((int)Math.Round(curNode.pos.DistanceToSquared(mSoilMap.mPln.Origin)));
-
-      //  nextDir.Unitize();
-      //  if (curNode.curStep < mSteps * 0.5) // gravity effect at the initial phases
-      //    initDir += mDownDir * 0.4;
-      //  else
-      //    initDir += mDownDir * 0.2;
-
-      //  initDir.Unitize();
-      //  if (curNode.curStep > 2) // turbulation
-      //  {
-      //    turbDir = (mRnd.Next(-50, 50) / 100.0) * mSoilMap.mPln.XAxis;
-      //    nextDir = initDir + turbDir;
-      //  }
-
-      //  // direction scale and extension
-      //  GrowSingleRoot(curNode, nextDir, ref resLst);
-
-      //  // ! density control: percentage control based on density param
-      //  //double denParam = curNode.steps < mSteps * 0.2 ? 0.1 : 0.03;
-      //  //if (mRnd.NextDouble() < mDensity * denParam)
-      //  //{
-      //  //  nextDir2 = initDir - turbDir;
-
-      //  //  // direction scale and extension
-      //  //  GrowSingleRoot(curNode, nextDir2, ref resLst);
-      //  //}
-      //}
-      #endregion
 
       return resLst;
     }
@@ -267,17 +219,18 @@ namespace BeingAliveLanguage
       if (!(curNode.pos.DistanceToSquared(newNode.pos) >= 0.01 && RootDensityCheck(newNode.pos)))
         return;
 
-      curNode.addChildNode(newNode, -1, nType);
+      curNode.AddChildNode(newNode, nType);
 
-      int sideNodeLifeSpan = 6; // need to be smaller than branching interval, otherwise, roots will multiply
+      int sideNodeLifeSpan = 4;
       if (isBranching)
       {
-        newNode.mBranchLevel += 1;
+        newNode.mBranchLevel = curNode.mBranchLevel + 1;
         newNode.lifeSpan = sideNodeLifeSpan;
+        newNode.stepCounting = 1;
       }
       else
       {
-        newNode.lifeSpan -= 1;
+        newNode.lifeSpan = curNode.lifeSpan - 1;
       }
 
       resLst.Add(newNode);
@@ -299,7 +252,7 @@ namespace BeingAliveLanguage
       }
     }
 
-    protected void UpdateDistMapToNode(in RootNode node)
+    protected void UpdateDistMapToNode(in RootNode node, double multiplierD)
     {
       //return;
       if (node.curStep <= 2)
@@ -314,25 +267,25 @@ namespace BeingAliveLanguage
         sumVec += scoreMap[pt] * (mSoilMap.ptMap[pt] - node.pos) / mSoilMap.unitLen; // weighted normalized vector 
       }
       sumVec.Unitize();
-      node.dir += -sumVec * 1.1;
+      node.dir += -sumVec * multiplierD;
 
     }
 
-    protected void UpdateGravityToNode(in RootNode node)
+    protected void UpdateGravityToNode(in RootNode node, double multiplierG)
     {
       // ! gravity dir: add factor to the growth, the more it grows, the more it is affected by gravity
       double curGrowStepRatio = node.curStep / (double)mSteps;
       //double gravityFactor = Utils.remap(curGrowStepRatio, 0.0, 1.0, 0.1, 0.2);
       double gravityFactor = 0.05731 * Math.Exp(3.22225 * curGrowStepRatio);
 
-      node.dir += mDownDir * gravityFactor * 0.7;
+      node.dir += mDownDir * gravityFactor * multiplierG;
     }
 
-    protected void UpdatePerturbationToNode(in RootNode node)
+    protected void UpdatePerturbationToNode(in RootNode node, double multiplierP)
     {
       //! small disturbation
       double turbSign = node.dir * mSoilMap.mPln.XAxis >= 0 ? -1 : 1;
-      node.dir += turbSign * (mRnd.NextDouble() * 0.5) * mSoilMap.mPln.XAxis;
+      node.dir += turbSign * multiplierP * mRnd.NextDouble() * mSoilMap.mPln.XAxis;
     }
 
     // public variables

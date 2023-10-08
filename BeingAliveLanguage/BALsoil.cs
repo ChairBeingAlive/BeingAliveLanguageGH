@@ -1,17 +1,13 @@
-using Grasshopper;
+using GH_IO.Serialization;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using System;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
-
-using GH_IO.Serialization;
-using Rhino.Geometry.Collections;
 
 namespace BeingAliveLanguage
 {

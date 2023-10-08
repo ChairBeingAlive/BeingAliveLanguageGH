@@ -19,30 +19,35 @@ namespace BeingAliveLanguage
     public int curStep = 0;
     public int lifeSpan = -1; // unlimited; if > 0, then grow to 0.
     public int mBranchLevel = 0;
+    public int stepCounting = 0;
+
     public RootNodeType nType = RootNodeType.Stem;
 
     public RootNode(in Point3d pt)
     {
       this.pos = pt;
+      this.stepCounting = 0;
     }
 
-    public void addChildNode(in RootNode node, int lifeSpan = -1, RootNodeType nT = RootNodeType.Stem)
+    public void AddChildNode(in RootNode node, RootNodeType nT = RootNodeType.Stem)
     {
       // pos, distance, direction
       node.curStep = this.curStep + 1;
+      node.stepCounting = this.stepCounting + 1;
+      node.lifeSpan = this.lifeSpan - 1;
+      node.mBranchLevel = this.mBranchLevel;
+
       node.dir = node.pos - this.pos;
       node.dir.Unitize();
-      node.lifeSpan = this.lifeSpan - 1;
+
 
       if (nType == RootNodeType.Side && nT == RootNodeType.Stem)
       {
         throw new InvalidOperationException("root node [side] cannot have root node [stem] as a child.");
       }
-      else
-      {
-        node.nType = nT;
-        nextNode.Add(node);
-      }
+
+      node.nType = nT;
+      nextNode.Add(node);
     }
   }
 
