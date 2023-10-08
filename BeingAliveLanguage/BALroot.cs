@@ -98,39 +98,6 @@ namespace BeingAliveLanguage
       DA.SetData(0, sMap);
 
     }
-
-    //protected override void BeforeSolveInstance()
-    //{
-    //    Message = mapMode.ToUpper();
-    //}
-
-    //public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
-    //{
-    //    base.AppendAdditionalMenuItems(menu);
-
-    //    Menu_AppendSeparator(menu);
-    //    Menu_AppendItem(menu, "Map Mode:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
-    //    Menu_AppendItem(menu, " Sectional", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "sectional"), true, CheckMode("sectional"));
-    //    Menu_AppendItem(menu, " Planar", (sender, e) => Menu.SelectMode(this, sender, e, ref mapMode, "planar"), true, CheckMode("planar"));
-    //}
-
-    //private bool CheckMode(string _modeCheck) => mapMode == _modeCheck;
-
-    //public override bool Write(GH_IWriter writer)
-    //{
-    //    if (mapMode != "")
-    //        writer.SetString("mapMode", mapMode);
-    //    return base.Write(writer);
-    //}
-    //public override bool Read(GH_IReader reader)
-    //{
-    //    if (reader.ItemExists("mapMode"))
-    //        mapMode = reader.GetString("mapMode");
-
-    //    Message = reader.GetString("mapMode").ToUpper();
-
-    //    return base.Read(reader);
-    //}
   }
 
   /// <summary>
@@ -148,7 +115,7 @@ namespace BeingAliveLanguage
     {
     }
 
-    string formMode = "multi";  // s-single, m-multi
+    string formMode = "single";  // none, single, multi
     public override GH_Exposure Exposure => GH_Exposure.secondary;
     public override Guid ComponentGuid => new Guid("E2D1F590-4BE8-4AAD-812E-4BF682F786A4");
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
@@ -181,9 +148,10 @@ namespace BeingAliveLanguage
       base.AppendAdditionalMenuItems(menu);
 
       Menu_AppendSeparator(menu);
-      Menu_AppendItem(menu, "Root Type:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
-      Menu_AppendItem(menu, " Single Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "single"), true, CheckMode("single"));
-      Menu_AppendItem(menu, " Multi  Form", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "multi"), true, CheckMode("multi"));
+      Menu_AppendItem(menu, "Topological Branching:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+      Menu_AppendItem(menu, " None", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "none"), true, CheckMode("none"));
+      Menu_AppendItem(menu, " Level 1", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "single"), true, CheckMode("single"));
+      Menu_AppendItem(menu, " Level 2", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "multi"), true, CheckMode("multi"));
     }
 
     private bool CheckMode(string _modeCheck) => formMode == _modeCheck;
@@ -272,8 +240,11 @@ namespace BeingAliveLanguage
         }
       }
 
-      var root = new RootSectional(sMap, anchor, formMode, steps, branchN, seed, envToggle, envRange, envAtt, envRep);
-      //root.GrowRoot(radius, den);
+      var root = new RootSectional(
+        sMap, anchor,
+        formMode, steps, branchN, seed,
+        envToggle, envRange, envAtt, envRep);
+
       root.Grow(steps, branchN);
 
       DA.SetDataList(0, root.rootCrv);
