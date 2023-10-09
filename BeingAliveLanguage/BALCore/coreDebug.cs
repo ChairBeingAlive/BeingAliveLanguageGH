@@ -28,7 +28,7 @@ namespace BeingAliveLanguage
     {
     }
 
-    public override GH_Exposure Exposure => GH_Exposure.primary;
+    public override GH_Exposure Exposure => GH_Exposure.hidden;
     public override Guid ComponentGuid => new Guid("d24bc4b1-646b-4642-b684-d053f489e5e1");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

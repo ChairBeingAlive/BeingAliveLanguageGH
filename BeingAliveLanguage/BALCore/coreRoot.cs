@@ -19,37 +19,47 @@ namespace BeingAliveLanguage
 
     }
 
-    public RootSectional(in SoilMap map, in Point3d anchor,
-        string rootType, in int steps = 1, in int branchNum = 2, in int seed = -1,
-        in bool envToggle = false, in double envRange = 0.0,
-        in List<Curve> envAtt = null, in List<Curve> envRep = null)
+    public RootSectional(in SoilMap map,
+      in RootProp rProps, in EnvProp eProps = null, in int seed = -1)
+
+    //in Point3d anchor,
+    //  string rootType, in int steps = 1, in int branchNum = 2, in int seed = -1,
+    //  in EnvProp envP = null)
+    //in bool envToggle = false, in double envRange = 0.0,
+    //in List<Curve> envAtt = null, in List<Curve> envRep = null)
     {
       mSoilMap = map;
-      mAnchor = anchor;
-      mRootType = rootType;
-      mSeed = seed;
-      mSteps = steps;
-      mBranchNum = branchNum;
-      mRootNode = new RootNode(anchor);
 
-      if (rootType == "none")
+      mRootProps = rProps;
+      mEnvProps = eProps;
+
+      //mAnchor = anchor;
+      //mSteps = steps;
+      //mBranchNum = branchNum;
+      mRootNode = new RootNode(mRootProps.anchor);
+
+      if (mRootProps.rootType == "none")
         mMaxBranchLevel = 0;
-      else if (rootType == "single")
+      else if (mRootProps.rootType == "single")
         mMaxBranchLevel = 1;
-      else if (rootType == "multi")
+      else if (mRootProps.rootType == "multi")
         mMaxBranchLevel = 2;
 
+      // env param
+      this.mEnvProps = eProps;
+
+      // init random class and down vec
+      mSeed = seed;
       mRnd = mSeed >= 0 ? new Random(mSeed) : Utils.balRnd;
       mDownDir = -mSoilMap.mPln.YAxis;
 
       // init scoreMap
       Parallel.ForEach(mSoilMap.kdMap, pt => { scoreMap.TryAdd(pt.Value, 0); });
 
-      // env param
-      this.envToggle = envToggle;
-      this.envDist = envRange;
-      this.envAtt = envAtt;
-      this.envRep = envRep;
+      //this.envToggle = envToggle;
+      //this.envDist = envRange;
+      //this.envAtt = envAtt;
+      //this.envRep = envRep;
 
 #if DEBUG
       // debug
@@ -69,25 +79,18 @@ namespace BeingAliveLanguage
       return true;
     }
 
-
     private static readonly Func<double, double> RootGrowFit = x => 0.05731 * Math.Exp(3.22225 * x);
 
     /// <summary>
     /// Main function to grow sectional roots.
     /// </summary>
-    /// <param name="rSteps">
-    /// growing steps
-    /// </param>
-    /// <param name="branchNum">
-    /// Density Control
-    /// </param>
-    public void Grow(int rSteps, int branchNum = 2)
+    public void Grow()
     {
-      var multiplierD = 1.1;
-      var multiplierG = 0.7;
-      var multiplierP = 0.5;
+      var multiplierD = 0.8; // distance control
+      var multiplierG = 0.5; // gravity
+      var multiplierP = 0.3; // perturbation
 
-      var anchorOnMap = mSoilMap.GetNearestPoint(mAnchor);
+      var anchorOnMap = mSoilMap.GetNearestPoint(mRootProps.anchor);
       if (anchorOnMap != null)
       {
         mRootNode = new RootNode(anchorOnMap);
@@ -98,15 +101,18 @@ namespace BeingAliveLanguage
       bfsQ.Clear();
       mSoilEnv.Clear();
 
+      // container
+      rootCrvMain.Clear();
+      rootCrvRest.Clear();
+
       #region initial RootCrv strategy: average angle division
       var initVecLst = new List<Vector3d>();
-      var unitAng = Math.PI / (branchNum);
-      rootCrv.Clear();
+      var unitAng = Math.PI / (mRootProps.branchN);
 
       // use halfUnitAngle on the two side near soil surface. For construction, rotate 0.5 *unitAng up first for convenience
       var initVec = mSoilMap.mPln.XAxis;
       initVec.Rotate(0.5 * unitAng, mSoilMap.mPln.ZAxis);
-      for (int i = 0; i < branchNum; i++)
+      for (int i = 0; i < mRootProps.branchN; i++)
       {
         var tV = initVec;
         tV.Rotate(-unitAng * (i + 1), mSoilMap.mPln.ZAxis);
@@ -115,7 +121,7 @@ namespace BeingAliveLanguage
 
       // add the first rDen points and create initial root branches
       // for the first Iteration, no need to repect soil separates rule.
-      for (int i = 0; i < branchNum; i++)
+      for (int i = 0; i < mRootProps.branchN; i++)
       {
         var x = new RootNode(anchorOnMap + 2 * initVecLst[i] * mSoilMap.unitLen);
         mRootNode.AddChildNode(x);
@@ -123,8 +129,8 @@ namespace BeingAliveLanguage
         UpdateScoreMapFrom(x);
         bfsQ.Enqueue(x);
 
-        //  collecting initial crv
-        rootCrv.Add(new Line(mRootNode.pos, x.pos));
+        // ! collecting initial root crv
+        rootCrvMain.Add(new Line(mRootNode.pos, x.pos));
       }
       #endregion
 
@@ -134,7 +140,7 @@ namespace BeingAliveLanguage
         var curNode = bfsQ.Dequeue();
 
         //  ! stopping criteria
-        if (curNode.curStep >= rSteps || curNode.lifeSpan == 0)
+        if (curNode.curStep >= mRootProps.totalSteps || curNode.lifeSpan == 0)
           continue; // skip this node, start new item in the queue
 
         // if touch the top surface, reverse Y direction
@@ -167,7 +173,12 @@ namespace BeingAliveLanguage
 
           //  collecting crv with actual drawings
           mSoilEnv[Utils.PtString(x.pos)] += 1; // record # the location is used
-          rootCrv.Add(new Line(curNode.pos, x.pos));
+
+          // ! collecting root crv, separate main and non-main roots
+          if (x.mBranchLevel > 0)
+            rootCrvRest.Add(new Line(curNode.pos, x.pos));
+          else
+            rootCrvMain.Add(new Line(curNode.pos, x.pos));
         });
       }
     }
@@ -210,7 +221,8 @@ namespace BeingAliveLanguage
     {
       var endPt = Utils.ExtendDirByAffector(
           curNode.pos, curNode.dir, mSoilMap,
-          envToggle, envDist, envAtt, envRep);
+          mEnvProps.envToggle, mEnvProps.envRange, mEnvProps.envAttractor, mEnvProps.envRepeller);
+      //envToggle, envDist, envAtt, envRep);
 
       //tricks to add randomness
       var tmpPos = mSoilMap.GetNearestPoint(endPt);
@@ -274,7 +286,7 @@ namespace BeingAliveLanguage
     protected void UpdateGravityToNode(in RootNode node, double multiplierG)
     {
       // ! gravity dir: add factor to the growth, the more it grows, the more it is affected by gravity
-      double curGrowStepRatio = node.curStep / (double)mSteps;
+      double curGrowStepRatio = node.curStep / (double)mRootProps.totalSteps;
       //double gravityFactor = Utils.remap(curGrowStepRatio, 0.0, 1.0, 0.1, 0.2);
       double gravityFactor = 0.05731 * Math.Exp(3.22225 * curGrowStepRatio);
 
@@ -284,36 +296,39 @@ namespace BeingAliveLanguage
     protected void UpdatePerturbationToNode(in RootNode node, double multiplierP)
     {
       //! small disturbation
+      Vector3d perpDir = Vector3d.CrossProduct(mSoilMap.mPln.ZAxis, node.dir);
       double turbSign = node.dir * mSoilMap.mPln.XAxis >= 0 ? -1 : 1;
-      node.dir += turbSign * multiplierP * mRnd.NextDouble() * mSoilMap.mPln.XAxis;
+      node.dir += turbSign * multiplierP * mRnd.NextDouble() * perpDir;
     }
 
     // public variables
-    public List<Line> rootCrv = new List<Line>();
+    public List<Line> rootCrvMain = new List<Line>();
+    public List<Line> rootCrvRest = new List<Line>();
 
     // internal variables
-    HashSet<string> frontKey = new HashSet<string>();
-    HashSet<string> nextFrontKey = new HashSet<string>();
-    ConcurrentDictionary<string, double> disMap = new ConcurrentDictionary<string, double>();
     ConcurrentDictionary<string, double> scoreMap = new ConcurrentDictionary<string, double>();
-    Point3d mAnchor = new Point3d();
-    RootNode mRootNode = null;
     SoilMap mSoilMap = new SoilMap();
+    RootNode mRootNode = null;
     Queue<RootNode> bfsQ = new Queue<RootNode>();
+
     Dictionary<string, int> mSoilEnv = new Dictionary<string, int>();
+    //Point3d mAnchor = new Point3d();
+
+    //int mSteps = 0;
+    //int mBranchNum = 2;
 
     int mSeed = -1;
-    int mSteps = 0;
-    int mBranchNum = 1;
     Random mRnd;
     Vector3d mDownDir;
     int mMaxBranchLevel = 1;
 
-    string mRootType = "single";
-    bool envToggle = false;
-    double envDist = 0.0;
-    List<Curve> envAtt = null;
-    List<Curve> envRep = null;
+    //bool envToggle = false;
+    //double envDist = 0.0;
+    //List<Curve> envAtt = null;
+    //List<Curve> envRep = null;
+
+    EnvProp mEnvProps = new EnvProp();
+    RootProp mRootProps = new RootProp();
 
   }
 

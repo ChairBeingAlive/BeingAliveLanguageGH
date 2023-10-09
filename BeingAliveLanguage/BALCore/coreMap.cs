@@ -62,7 +62,8 @@ namespace BeingAliveLanguage
       this.distNorm = new Normal(3.5, 0.5);
     }
 
-    public SoilMap(in Plane pl, in string mapMode)
+    //public SoilMap(in Plane pl, in string mapMode)
+    public SoilMap(in Plane pl)
     {
       // kd-tree map
       this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
@@ -75,7 +76,7 @@ namespace BeingAliveLanguage
 
       this.mPln = pl;
       this.distNorm = new Normal(3.5, 0.5);
-      this.mapMode = mapMode;
+      //this.mapMode = mapMode;
     }
 
     private void AddNeighbour(string strLoc, int idx, in Point3d refP, in Point3d P)
@@ -347,7 +348,7 @@ namespace BeingAliveLanguage
     readonly ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
     public ConcurrentDictionary<string, Point3d> ptMap;
     readonly Normal distNorm = new Normal();
-    public string mapMode = "sectional";
+    //public string mapMode = "sectional";
 
   }
 }

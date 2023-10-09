@@ -292,6 +292,154 @@ namespace BeingAliveLanguage
     public override Guid ComponentGuid => new Guid("A0E63559-41E8-4353-B78E-510E3FCEB577");
   }
 
+  public class BALRootSectional_OBSOLETE : GH_Component
+  {
+    /// <summary>
+    /// Initializes a new instance of the MyComponent1 class.
+    /// </summary>
+    public BALRootSectional_OBSOLETE()
+      : base("Root_Sectional", "balRoot_S",
+          "Draw root in sectional soil map.",
+          "BAL", "02::root")
+    {
+    }
+
+    string formMode = "single";  // none, single, multi
+    public override GH_Exposure Exposure => GH_Exposure.hidden;
+    public override Guid ComponentGuid => new Guid("E2D1F590-4BE8-4AAD-812E-4BF682F786A4");
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
+
+    protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+    {
+      pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+      pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
+      pManager.AddIntegerParameter("Steps", "S", "Root growing steps.", GH_ParamAccess.item);
+      pManager.AddIntegerParameter("BranchN", "n", "Root branching number (>= 2, initial branching number from the root anchor.)", GH_ParamAccess.item, 2);
+      pManager[3].Optional = true;
+      pManager.AddIntegerParameter("seed", "s", "Int seed to randomize the generated root pattern.", GH_ParamAccess.item, -1);
+      pManager[4].Optional = true;
+
+      pManager.AddCurveParameter("Env Attractor", "envA", "Environmental attracting area (water, resource, etc.).", GH_ParamAccess.list);
+      pManager[5].Optional = true;
+      pManager.AddCurveParameter("Env Repeller", "envR", "Environmental repelling area (dryness, poison, etc.).", GH_ParamAccess.list);
+      pManager[6].Optional = true;
+      pManager.AddNumberParameter("Env DetectionRange", "envD", "The range (to unit length of the grid) that a root can detect surrounding environment.", GH_ParamAccess.item, 5);
+      pManager.AddBooleanParameter("EnvAffector Toggle", "envToggle", "Toggle the affects caused by environmental factors.", GH_ParamAccess.item, false);
+    }
+
+    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+    {
+      pManager.AddGenericParameter("RootSectional", "root", "The sectional root drawing.", GH_ParamAccess.list);
+    }
+
+    public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+    {
+      base.AppendAdditionalMenuItems(menu);
+
+      Menu_AppendSeparator(menu);
+      Menu_AppendItem(menu, "Topological Branching:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+      Menu_AppendItem(menu, " None", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "none"), true, CheckMode("none"));
+      Menu_AppendItem(menu, " Level 1", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "single"), true, CheckMode("single"));
+      Menu_AppendItem(menu, " Level 2", (sender, e) => Menu.SelectMode(this, sender, e, ref formMode, "multi"), true, CheckMode("multi"));
+    }
+
+    private bool CheckMode(string _modeCheck) => formMode == _modeCheck;
+
+    public override bool Write(GH_IWriter writer)
+    {
+      if (formMode != "")
+        writer.SetString("formMode", formMode);
+      return base.Write(writer);
+    }
+    public override bool Read(GH_IReader reader)
+    {
+      if (reader.ItemExists("formMode"))
+        formMode = reader.GetString("formMode");
+
+      Message = reader.GetString("formMode").ToUpper();
+      return base.Read(reader);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
+      var sMap = new SoilMap();
+      var anchor = new Point3d();
+      //double radius = 10.0;
+      int steps = 10;
+      int branchN = 2;
+      int seed = -1;
+
+      //if (!DA.GetData("SoilMap", ref sMap) || sMap.mapMode != "sectional")
+      if (!DA.GetData("SoilMap", ref sMap))
+      { return; }
+      if (!DA.GetData("Anchor", ref anchor))
+      { return; }
+      if (!DA.GetData("Steps", ref steps))
+      { return; }
+      DA.GetData("BranchN", ref branchN);
+      DA.GetData("seed", ref seed);
+
+
+      // optional param
+      List<Curve> envAtt = new List<Curve>();
+      List<Curve> envRep = new List<Curve>();
+      double envRange = 5;
+      bool envToggle = false;
+      DA.GetDataList("Env Attractor", envAtt);
+      DA.GetDataList("Env Repeller", envRep);
+      DA.GetData("Env DetectionRange", ref envRange);
+      DA.GetData("EnvAffector Toggle", ref envToggle);
+
+      if (branchN < 2)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Root should have branch number >= 2.");
+        return;
+      }
+
+      if (envToggle)
+      {
+        if (envAtt.Count != 0)
+        {
+          foreach (var crv in envAtt)
+          {
+            if (crv == null)
+            { continue; }
+
+            if (!crv.IsClosed)
+            {
+              AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Attractors contain non-closed curve.");
+              return;
+            }
+          }
+        }
+
+        if (envRep.Count != 0)
+        {
+          foreach (var crv in envRep)
+          {
+            if (crv == null)
+            { continue; }
+
+            if (!crv.IsClosed)
+            {
+              AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Repellers contain non-closed curve.");
+              return;
+            }
+          }
+        }
+      }
+
+      var rootProps = new RootProp(anchor, formMode, steps, branchN);
+      var envProps = new EnvProp(envToggle, envRange, envAtt, envRep);
+
+      var root = new RootSectional(sMap, rootProps, envProps, seed);
+
+      root.Grow();
+
+      DA.SetDataList(0, root.rootCrvMain);
+    }
+  }
+
   public class BALsoilDiagramGeneral_2_OBSOLETE : GH_Component
   {
     public BALsoilDiagramGeneral_2_OBSOLETE()

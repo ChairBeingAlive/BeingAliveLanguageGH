@@ -1,8 +1,10 @@
-﻿using Grasshopper.Kernel;
+﻿using Eto.Forms;
+using Grasshopper.Kernel;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace BeingAliveLanguage
 {
@@ -21,6 +23,48 @@ namespace BeingAliveLanguage
     Stem,
     Side,
   }
+
+  struct RootProp
+  {
+    public Point3d anchor;
+    public string rootType;
+    public int branchN;
+    public int totalSteps;
+
+    public RootProp(Point3d anchorP, string rootT, in int steps = 1, in int branchNum = 2)
+    {
+      anchor = anchorP;
+      rootType = rootT;
+      totalSteps = steps;
+      branchN = branchNum;
+    }
+  }
+
+  class EnvProp
+  {
+    public bool envToggle;
+    public double envRange;
+    public List<Curve> envAttractor;
+    public List<Curve> envRepeller;
+
+    public EnvProp()
+    {
+      envToggle = false;
+      envRange = 0;
+      envAttractor = new List<Curve>();
+      envRepeller = new List<Curve>();
+    }
+
+    public EnvProp(bool toggle, double range, in List<Curve> attr = null, in List<Curve> repel = null)
+    {
+      envToggle = toggle;
+      envRange = range;
+      envAttractor = attr;
+      envRepeller = repel;
+    }
+  }
+
+
 
   /// <summary>
   /// The base information of initialized soil, used for soil/root computing.

@@ -30,7 +30,7 @@ namespace BeingAliveLanguage
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootMap;
     public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
 
-    public string mapMode = "sectional";
+    //public string mapMode = "sectional";
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
     {
@@ -62,7 +62,8 @@ namespace BeingAliveLanguage
 
       var conPt = new ConcurrentBag<Point3d>();
       var conPoly = new ConcurrentBag<Polyline>();
-      SoilMap sMap = new SoilMap(pln, mapMode);
+      //SoilMap sMap = new SoilMap(pln, mapMode);
+      SoilMap sMap = new SoilMap(pln);
 
       // detecting the goo type and add it to the corresponding container
       Parallel.ForEach(inputGeo, goo =>
@@ -117,7 +118,7 @@ namespace BeingAliveLanguage
 
     string formMode = "single";  // none, single, multi
     public override GH_Exposure Exposure => GH_Exposure.secondary;
-    public override Guid ComponentGuid => new Guid("E2D1F590-4BE8-4AAD-812E-4BF682F786A4");
+    public override Guid ComponentGuid => new Guid("8772b28f-5853-4460-9aa0-1b711b1b3662");
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -140,7 +141,8 @@ namespace BeingAliveLanguage
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
     {
-      pManager.AddGenericParameter("RootSectional", "root", "The sectional root drawing.", GH_ParamAccess.list);
+      pManager.AddGenericParameter("RootSec-Primary", "root-main", "The sectional root drawing for primary roots.", GH_ParamAccess.list);
+      pManager.AddGenericParameter("RootSec-Secondary", "root-rest", "The sectional root drawing for secondary roots.", GH_ParamAccess.list);
     }
 
     public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
@@ -240,14 +242,15 @@ namespace BeingAliveLanguage
         }
       }
 
-      var root = new RootSectional(
-        sMap, anchor,
-        formMode, steps, branchN, seed,
-        envToggle, envRange, envAtt, envRep);
+      var rootProps = new RootProp(anchor, formMode, steps, branchN);
+      var envProps = new EnvProp(envToggle, envRange, envAtt, envRep);
 
-      root.Grow(steps, branchN);
+      var root = new RootSectional(sMap, rootProps, envProps, seed);
 
-      DA.SetDataList(0, root.rootCrv);
+      root.Grow();
+
+      DA.SetDataList(0, root.rootCrvMain);
+      DA.SetDataList(1, root.rootCrvRest);
     }
   }
 
@@ -313,11 +316,11 @@ namespace BeingAliveLanguage
 
       if (!DA.GetData(0, ref sMap))
       { return; }
-      if (sMap.mapMode != "planar")
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Soil map type is not 'planar'.");
-        return;
-      }
+      //if (sMap.mapMode != "planar")
+      //{
+      //  AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Soil map type is not 'planar'.");
+      //  return;
+      //}
 
       var anchor = new Point3d();
       if (!DA.GetData(1, ref anchor))
@@ -613,10 +616,10 @@ namespace BeingAliveLanguage
       if (!DA.GetData<SoilMap>("SoilMap", ref sMap))
       { return; }
 
-      if (sMap.mapMode != "sectional")
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A tree root need a sectional soil map to grow upon.");
-      }
+      //if (sMap.mapMode != "sectional")
+      //{
+      //  AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A tree root need a sectional soil map to grow upon.");
+      //}
 
       if (sMap.mPln != tInfo.pln)
       {
