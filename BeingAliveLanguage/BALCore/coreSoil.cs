@@ -243,11 +243,11 @@ namespace BeingAliveLanguage
         Utils.CreateCentreMap(postSandT, out cenMap);
 
         // sand
-        //todo: add OSX variation
         var numSand = (int)Math.Round(postSandT.Count * rSand);
         //BeingAliveLanguageRC.Utils.SampleElim(triCen, sBase.bnd.Area, numSand, out List<Point3d> outSandCen);
         cppUtils.SampleElim(triCen, sBase.bnd.Area, numSand, out List<Point3d> outSandCen);
         sandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
+        sandT = postSandT.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
 
         //var ptCen = SamplingUtils.uniformSampling(ref this.sBase, (int)(numSand * 1.2));
         //tmpPt = ptCen;

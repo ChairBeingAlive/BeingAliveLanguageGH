@@ -262,7 +262,12 @@ namespace BeingAliveLanguage
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
-      AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "The MacOS version component does not allow the adjustment of randomness levels in the soil generation process.");
+      if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The MacOS version component does not allow the adjustment of randomness levels in the soil generation process.");
+
+        return;
+      }
       // get data
       var sBase = new SoilBase();
       var sInfo = new SoilProperty();
@@ -323,7 +328,7 @@ namespace BeingAliveLanguage
       pManager.AddNumberParameter("Sand Ratio", "rSand", "The ratio of sand in the soil.", GH_ParamAccess.item, 1);
       pManager.AddNumberParameter("Clay Ratio", "rClay", "The ratio of clay in the soil.", GH_ParamAccess.item, 0);
       pManager.AddNumberParameter("Biochar Ratio", "rBiochar", "The ratio of biochar in the soil.", GH_ParamAccess.item, 0);
-      pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.list);
+      pManager.AddNumberParameter("Stone Ratio", "rStone", "The ratio of stone in the soil.", GH_ParamAccess.list, 0);
       pManager.AddNumberParameter("Relative Stone Size", "szStone", "The relative stone size [1, 5], representing stones dia. from 5mm to 50mm in reality.", GH_ParamAccess.list, 3);
       pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item, 0);
       // TODO: if we should separate organic matter out
@@ -435,8 +440,6 @@ namespace BeingAliveLanguage
       // ! step5: create organic matter
       var omLn = Utils.GenOrganicMatterUrban(sBase, allT, offsetAllT, rOM);
       var biocharFilling = Utils.GenOrganicMatterBiochar(sBase, offsetBiocharT);
-
-
 
       List<Polyline> offsetStoneT = new List<Polyline>();
       List<Polyline> originStoneT = new List<Polyline>();
