@@ -66,7 +66,7 @@
 	</PropertyGroup>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Exec Command="if not exist &quot;$(SolutionDir)bin&quot; mkdir &quot;$(SolutionDir)bin&quot;&#xD;&#xA;Copy /y &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\bin\$(Configuration)\$(ProjectName).gha&quot;&#xD;&#xA;Copy /y &quot;$(TargetDir)\*.dll&quot; &quot;$(SolutionDir)bin\$(Configuration)\*.dll&quot;&#xD;&#xA;Erase &quot;$(TargetPath)&quot;" />
+		<Exec Command="if not exist &quot;$(SolutionDir)bin&quot; mkdir &quot;$(SolutionDir)bin&quot;&#xD;&#xA;Copy /y &quot;$(TargetPath)&quot; &quot;$(SolutionDir)\bin\$(ProjectName).gha&quot;&#xD;&#xA;Copy /y &quot;$(TargetDir)\*.dll&quot; &quot;$(SolutionDir)bin\*.dll&quot;&#xD;&#xA;Erase &quot;$(TargetPath)&quot;" />
 	</Target>
 
 </Project>

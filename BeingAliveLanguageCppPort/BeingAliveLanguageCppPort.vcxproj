@@ -91,7 +91,7 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>robocopy $(TargetDir) $(SolutionDir)BeingAliveLanguage\bin *CppPort.dll
+      <Command>robocopy $(TargetDir) $(SolutionDir)bin *CppPort.dll
 if %errorlevel% leq 1 exit 0 else exit %errorlevel%</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
