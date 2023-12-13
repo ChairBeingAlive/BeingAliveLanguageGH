@@ -333,6 +333,8 @@ namespace BeingAliveLanguage
       pManager.AddNumberParameter("Organic Matter Ratio", "rOM", "The ratio of organic matter in the soil.", GH_ParamAccess.item, 0);
       // TODO: if we should separate organic matter out
       pManager[6].Optional = true; // rock can be optionally provided
+      pManager.AddIntegerParameter("Seed", "s", "Int seed to generate soil pattern.", GH_ParamAccess.item, -1);
+      pManager.AddNumberParameter("Offset Ratio", "rOff", "Temp solution for offset ratio based on water storage ability.", GH_ParamAccess.item, 0.5);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -343,10 +345,8 @@ namespace BeingAliveLanguage
       pManager.AddCurveParameter("Biochar Tri", "biocharT", "Biochar triangles.", GH_ParamAccess.list);
       pManager.AddCurveParameter("Stone Poly", "stonePoly", "Stone polygons.", GH_ParamAccess.tree);
       //pManager.AddCurveParameter("All Polygon", "allPoly", "Collection of all polygons.", GH_ParamAccess.list);
-      pManager.AddLineParameter("Organic Matther", "OM", "Collection of organic matters.", GH_ParamAccess.list);
-
-      //pManager.AddPointParameter("StoneCentre", "stoneCen", "Centres of the stone.", GH_ParamAccess.list);
-      //pManager.AddCurveParameter("StoneCol", "stoneCollection", "Collections of the stone poly.", GH_ParamAccess.tree);
+      pManager.AddLineParameter("Organic Matter", "OM", "Collection of organic matters.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Non-offset Tri", "allT", "Collection of all polygons.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -357,8 +357,10 @@ namespace BeingAliveLanguage
       double rClay = 0;
       double rBiochar = 0;
       double rOM = 0;
+      int rSeed = -1;
       var rStone = new List<double>();
       var szStone = new List<double>();
+      double rOffset = 0.5;
       List<Curve> rock = new List<Curve>();
 
       if (!DA.GetData(0, ref sBase))
@@ -373,7 +375,11 @@ namespace BeingAliveLanguage
       { return; }
       if (!DA.GetDataList(5, szStone))
       { return; }
-      if (!DA.GetData(6, ref rOM))
+      if (!DA.GetData("Organic Matter Ratio", ref rOM))
+      { return; }
+      if (!DA.GetData("Seed", ref rSeed))
+      { return; }
+      if (!DA.GetData("Offset Ratio", ref rOffset))
       { return; }
 
       if (rClay == 0 && rStone.Sum() == 0)
@@ -418,7 +424,8 @@ namespace BeingAliveLanguage
 
       // ! step4: offset polylines
       var cPln = sBase.pln;
-      var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 10, 0.97, 0.91);
+      //var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 5, 0.97, 0.91);
+      //rOffset = 0.6;
 
       var offsetSandT = urbanS.sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
       var offsetClayT = urbanS.clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
@@ -431,7 +438,6 @@ namespace BeingAliveLanguage
       for (int i = 0; i < urbanS.stonePoly.Count; i++)
       {
         var path = new GH_Path(i);
-        //offsetStonePoly.AppendRange(urbanS.stonePoly[i].Select(x => new GH_Curve(x.ToPolylineCurve())), path);
         offsetStonePoly.AppendRange(urbanS.stonePoly[i].Select(x => new GH_Curve(ClipperUtils.OffsetPolygon(cPln, x, rOffset).ToPolylineCurve())), path);
       }
 
@@ -475,6 +481,7 @@ namespace BeingAliveLanguage
       //DA.SetDataTree(idx++, );
       //DA.SetDataList(idx++, omLn);
       DA.SetDataList(idx++, allOM);
+      DA.SetDataList(idx++, allT);
       //DA.SetDataList(idx++, urbanS.tmpT);
 
 

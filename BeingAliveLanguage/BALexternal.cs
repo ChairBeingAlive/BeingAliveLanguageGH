@@ -1,8 +1,8 @@
 ﻿using Clipper2Lib;
 using Rhino.Geometry;
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Collections.Generic;
 //using ClipperLib;
 
 namespace BeingAliveLanguage
@@ -34,11 +34,12 @@ namespace BeingAliveLanguage
 
 
       // ! 3. offset
-      var cen = polyIn.Aggregate(new Point3d(), (x, y) => x + y) / polyIn.Count;
-      var aveR = polyIn.Select(x => x.DistanceTo(cen)).ToList().Sum() / polyIn.Count;
-      var dis = -(1 - ratio) * aveR;
-      //var dis = -1;
-      var res = Clipper.InflatePaths(polyPath, dis, JoinType.Miter, EndType.Polygon, Math.Abs(dis) * 5);
+      var refinedPolyln = polyIn.Take(polyIn.Count() - 1).ToList();
+      var cen = refinedPolyln.Aggregate(new Point3d(), (x, y) => x + y) / refinedPolyln.Count;
+      var aveR = refinedPolyln.Select(x => x.DistanceTo(cen)).ToList().Sum() / refinedPolyln.Count;
+      var dis = -(1 - ratio) * aveR * 0.5;
+
+      var res = Clipper.InflatePaths(polyPath, dis, JoinType.Miter, EndType.Polygon, Math.Abs(dis) * 10);
       var resOut = res[0].ToList();
 
       // ! 4. convert back, add last point

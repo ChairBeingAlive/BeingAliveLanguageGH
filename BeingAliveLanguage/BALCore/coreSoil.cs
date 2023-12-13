@@ -3,6 +3,7 @@ using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace BeingAliveLanguage
 {
@@ -228,8 +229,10 @@ namespace BeingAliveLanguage
     /// <summary>
     /// main func divide triMap into subdivisions based on the urban ratio
     /// </summary>
-    public void Build()
+    public void Build(int seed = -1)
     {
+      mSeed = seed;
+
       #region Sand    
       //List<Polyline> sandT = new List<Polyline>();
       sandT.Clear();
@@ -376,7 +379,8 @@ namespace BeingAliveLanguage
 
       // scale the bnd a bit to allow clay appears on borders
       //BeingAliveLanguageRC.Utils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, -1, 0.93);
-      cppUtils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, -1, 0.93);
+      // TODO: integrate seed number
+      cppUtils.SampleElim(sBase.bnd, stoneCntLst.Sum(), out genCen, out stoneCen, mSeed, 0.98);
 
       // ! separate the stoneCen into several clusters according to the number of stone types, and collect the initial triangle
       // we use a new struct "StoneCluster" to store info related to the final stones
@@ -533,6 +537,10 @@ namespace BeingAliveLanguage
     public void CollectAll(out List<Polyline> allT)
     {
       allT = new List<Polyline>();
+      allT.AddRange(stonePoly.SelectMany(d=>d));
+      allT.AddRange(sandT);
+      allT.AddRange(clayT);
+      allT.AddRange(biocharT);
     }
 
     SoilBase sBase;
@@ -541,6 +549,7 @@ namespace BeingAliveLanguage
     readonly List<double> szStone;
     public List<Polyline> sandT, clayT, biocharT;
     public List<List<Polyline>> stonePoly;
+    int mSeed = -1;
 
     public List<Polyline> tmpT;
 
