@@ -3,8 +3,8 @@ if (Test-Path "manifest.yml")
   Remove-Item manifest.yml
 }
 
-Copy-Item -Path "..\..\bin\Release\*.dll" -Destination ".\" -Recurse
-Copy-Item -Path "..\..\bin\Release\*.gha" -Destination ".\" -Recurse
+Copy-Item -Path "..\..\bin\*.dll" -Destination ".\" -Recurse
+Copy-Item -Path "..\..\bin\*.gha" -Destination ".\" -Recurse
 
 &'C:\Program Files\Rhino 7\System\Yak.exe' spec
 

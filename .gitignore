@@ -14,3 +14,7 @@ x64
 BeingAliveLanguageCppPort/Debug
 BeingAliveLanguageCppPort/Release
 devApp/obj
+_release/_releasePrepare/manifest.yml
+*.dll
+*.lib
+_release/_releasePrepare/BeingAliveLanguage.gha
