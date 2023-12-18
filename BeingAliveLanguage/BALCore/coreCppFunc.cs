@@ -12,6 +12,7 @@ namespace BeingAliveLanguage
       BeingAliveLanguageRC.Utils.SampleElim(inPt, area, num, out outPt);
     }
 
+
     public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, int seed = -1, double bndScale = 1.0, int initPtRange = 8)
     {
 

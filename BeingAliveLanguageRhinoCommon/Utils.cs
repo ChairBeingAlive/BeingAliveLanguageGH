@@ -37,6 +37,7 @@ namespace BeingAliveLanguageRC
     }
 
     // Poisson Elimination Sampling overload, given rectangle bound
+    // the use of sample seed here is only for generating the initial points, elimination process is still random
     public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, int seed = -1, double bndScale = 1.0, int initPtRange = 8)
     {
       var rnd = seed >= 0 ? new Random(seed) : new Random(Guid.NewGuid().GetHashCode());

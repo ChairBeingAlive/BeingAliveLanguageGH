@@ -419,7 +419,7 @@ namespace BeingAliveLanguage
       // ! step3: conduct subdividing
       // call the actural function
       var urbanS = new SoilUrban(sBase, rSand, rClay, rBiochar, rStone, szStone);
-      urbanS.Build();
+      urbanS.Build(rSeed);
       urbanS.CollectAll(out List<Polyline> allT);
 
       // ! step4: offset polylines
