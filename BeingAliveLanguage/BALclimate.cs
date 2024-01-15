@@ -8,6 +8,8 @@ using Rhino.Geometry;
 using Grasshopper;
 using Grasshopper.Kernel.Data;
 using GH_IO.Types;
+using Rhino.UI.Controls;
+
 
 namespace BeingAliveLanguage
 {
@@ -116,7 +118,7 @@ namespace BeingAliveLanguage
           "BAL", "04::climate")
     {
     }
-    protected override Bitmap Icon => Properties.Resources.balEvapotranspiration;
+    protected override Bitmap Icon => Properties.Resources.balGaussen;
     public override Guid ComponentGuid => new Guid("3C5480D5-32B6-4EAD-A945-4F81D109EBEA");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
@@ -124,10 +126,10 @@ namespace BeingAliveLanguage
       pManager.AddPlaneParameter("Plane", "pln", "The plane to draw the diagram.", GH_ParamAccess.item, Plane.WorldXY);
       pManager[0].Optional = true;
 
-      pManager.AddNumberParameter("Precipitation", "Prec", "Precipitation of given location in 12 months.", GH_ParamAccess.list);
+      pManager.AddNumberParameter("Precipitation", "Prec", "Precipitation (mm) of given location in 12 months.", GH_ParamAccess.list);
       pManager[1].Optional = true;
 
-      pManager.AddNumberParameter("Temperature", "Temp", "Temperature of given location in 12 months.", GH_ParamAccess.list);
+      pManager.AddNumberParameter("Temperature", "Temp", "Temperature (°C) of given location in 12 months.", GH_ParamAccess.list);
       pManager[2].Optional = true;
 
       pManager.AddNumberParameter("Scale", "s", "Scale of the diagram.", GH_ParamAccess.item, 1.0);
@@ -165,19 +167,17 @@ namespace BeingAliveLanguage
         return;
       }
 
+      double unitLen = 10;
       // ! frame
-      var horAxis = new Line(pln.Origin, pln.XAxis * 10 * scale);
-      var verAxis1 = new Line(pln.Origin, pln.YAxis * 10 * scale);
-      var verAxis2 = new Line(horAxis.To, pln.YAxis * 10 * scale);
+      var horAxis = new Line(pln.Origin, pln.XAxis * unitLen * scale);
+      var verAxis1 = new Line(pln.Origin, pln.YAxis * unitLen * scale);
+      var verAxis2 = new Line(horAxis.To, pln.YAxis * unitLen * scale);
 
       var monthPtParam = horAxis.ToNurbsCurve().DivideByCount(11, true, out Point3d[] monthPt);
       var monthAxis = monthPt.ToArray().Select(x => new Line(x, -pln.YAxis * 0.2 * scale)).ToList();
 
       var frameLn = new List<Line> { horAxis, verAxis1, verAxis2 }.Concat(monthAxis).ToList();
       DA.SetDataList("Frame", frameLn.Concat(monthAxis));
-
-      // ! curve
-
 
       // ! label
       // month label
@@ -186,30 +186,84 @@ namespace BeingAliveLanguage
       var monText = new List<string> { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
       // parcipitation, temp label
-      var parcLocPt = (verAxis1.From + verAxis1.To) * 0.5 - horAxis.Direction * 0.15 * scale;
+      var parcLocPt = (verAxis1.From + verAxis1.To) * 0.5 - pln.XAxis * 1.5 * scale;
       var parcLoc = new Plane(parcLocPt, pln.YAxis, -pln.XAxis);
       var parcText = "Precipitation (mm)";
 
-      var tempLocPt = (verAxis2.From + verAxis2.To) * 0.5 + horAxis.Direction * 0.15 * scale;
+      var tempLocPt = (verAxis2.From + verAxis2.To) * 0.5 + pln.XAxis * 1.5 * scale;
       var tempLoc = new Plane(tempLocPt, -pln.YAxis, pln.XAxis);
       var tempText = "Temperature (°C)";
 
 
+      int locIdx = 0;
       DataTree<Plane> labelLoc = new DataTree<Plane>();
-      labelLoc.AddRange(monLoc, new GH_Path(0));
-      labelLoc.Add(parcLoc, new GH_Path(1));
-      labelLoc.Add(tempLoc, new GH_Path(2));
+      labelLoc.AddRange(monLoc, new GH_Path(locIdx++));
+      labelLoc.Add(parcLoc, new GH_Path(locIdx++));
+      labelLoc.Add(tempLoc, new GH_Path(locIdx++));
 
 
+      int labelIdx = 0;
       DataTree<string> labelTxt = new DataTree<string>();
-      labelTxt.AddRange(monText, new GH_Path(0));
-      labelTxt.Add(parcText, new GH_Path(1));
-      labelTxt.Add(tempText, new GH_Path(2));
+      labelTxt.AddRange(monText, new GH_Path(labelIdx++));
+      labelTxt.Add(parcText, new GH_Path(labelIdx++));
+      labelTxt.Add(tempText, new GH_Path(labelIdx++));
 
+      // ! curve
+      double diagramVertL = unitLen * scale * 0.1;
+      double diagramVertH = unitLen * scale * 0.9;
+      // automatically determin between three temperature range:
+      // low: -30, -20, -10, 0, 10 
+      // high:  30, 40, 50
+      int maxTemp = (tempLst.Max() > 30 ? tempLst.Max() > 40 ? 50 : 40 : 30);
+      int minTemp = (tempLst.Min() < 00 ? tempLst.Min() < -10 ? -30 : -10 : 10);
+
+      // label loc, text
+      int tempNum = 5;
+      List<double> tempLabelInterval = Enumerable.Range(0, tempNum).Select(x => minTemp + (double)x * (maxTemp - minTemp) / (tempNum - 1)).ToList();
+      List<Point3d> tempLabelLoc = tempLabelInterval.Select(x =>
+      verAxis2.From
+      + pln.XAxis * 0.5 * scale
+      + pln.YAxis * Utils.remap(x, minTemp, maxTemp, diagramVertL, diagramVertH)).ToList();
+
+      labelLoc.AddRange(tempLabelLoc.Select(x => new Plane(x, pln.XAxis, pln.YAxis)).ToList(), new GH_Path(locIdx++));
+      labelTxt.AddRange(tempLabelInterval.Select(x => x.ToString()), new GH_Path(labelIdx++));
+
+      // actual curve.
+      List<double> tempHeight = tempLst.Select(x => Utils.remap(x, minTemp, maxTemp, diagramVertL, diagramVertH)).ToList();
+
+      var tempCrvPt = monthPt.Select(x => x + pln.YAxis * tempHeight[monthPt.ToList().IndexOf(x)]).ToList();
+      var tempCrv = new Polyline(tempCrvPt).ToNurbsCurve();
+
+      // automatically determin between three precipitation range:
+      // high: 100, 300, 500 
+      // low:  0
+      double maxPrec = (precLst.Max() > 100 ? precLst.Max() > 300 ? 500 : 300 : 100);
+      List<double> precHeight = precLst.Select(x => Utils.remap(x, 0, maxPrec, diagramVertL, diagramVertH)).ToList();
+
+      // label loc, text
+      int precNum = 5;
+      List<double> precLabelInterval = Enumerable.Range(0, precNum).Select(x => (double)x * maxPrec / (precNum - 1)).ToList();
+      List<Point3d> precLabelLoc = precLabelInterval.Select(x =>
+      verAxis1.From
+      - pln.XAxis * 0.5 * scale
+      + pln.YAxis * Utils.remap(x, 0, maxPrec, diagramVertL, diagramVertH)).ToList();
+
+      labelLoc.AddRange(precLabelLoc.Select(x => new Plane(x, pln.XAxis, pln.YAxis)).ToList(), new GH_Path(locIdx++));
+      labelTxt.AddRange(precLabelInterval.Select(x => x.ToString()), new GH_Path(labelIdx++));
+
+
+      // actual curve.
+      var percCrvPt = monthPt.Select(x => x + pln.YAxis * precHeight[monthPt.ToList().IndexOf(x)]).ToList();
+      var precCrv = new Polyline(percCrvPt).ToNurbsCurve();
+
+      DA.SetData("TempCrv", tempCrv);
+      DA.SetData("PrecCrv", precCrv);
+
+
+
+      // set label
       DA.SetDataTree(3, labelLoc);
       DA.SetDataTree(4, labelTxt);
-      //DA.SetData(5, parcLoc);
-
 
     }
   }
