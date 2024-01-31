@@ -110,9 +110,9 @@ namespace BeingAliveLanguage
     }
   }
 
-  public class BALGaussian : GH_Component
+  public class BALGaussen : GH_Component
   {
-    public BALGaussian()
+    public BALGaussen()
       : base("Climate_GaussenDiagram", "balClimate_Gaussen",
           "Automatically draw the Bagnouls-Gaussen diagram with given climate data.",
           "BAL", "04::climate")
@@ -209,39 +209,18 @@ namespace BeingAliveLanguage
       labelTxt.Add(tempText, new GH_Path(labelIdx++));
 
       // ! curve
+      // 0.1 - 0.9 ratio of the total height of the diagram.
       double diagramVertL = unitLen * scale * 0.1;
       double diagramVertH = unitLen * scale * 0.9;
-      // automatically determin between three temperature range:
-      // low: -30, -20, -10, 0, 10 
-      // high:  30, 40, 50
-      int maxTemp = (tempLst.Max() > 30 ? tempLst.Max() > 40 ? 50 : 40 : 30);
-      int minTemp = (tempLst.Min() < 00 ? tempLst.Min() < -10 ? -30 : -10 : 10);
-
-      // label loc, text
-      int tempNum = 5;
-      List<double> tempLabelInterval = Enumerable.Range(0, tempNum).Select(x => minTemp + (double)x * (maxTemp - minTemp) / (tempNum - 1)).ToList();
-      List<Point3d> tempLabelLoc = tempLabelInterval.Select(x =>
-      verAxis2.From
-      + pln.XAxis * 0.5 * scale
-      + pln.YAxis * Utils.remap(x, minTemp, maxTemp, diagramVertL, diagramVertH)).ToList();
-
-      labelLoc.AddRange(tempLabelLoc.Select(x => new Plane(x, pln.XAxis, pln.YAxis)).ToList(), new GH_Path(locIdx++));
-      labelTxt.AddRange(tempLabelInterval.Select(x => x.ToString()), new GH_Path(labelIdx++));
-
-      // actual curve.
-      List<double> tempHeight = tempLst.Select(x => Utils.remap(x, minTemp, maxTemp, diagramVertL, diagramVertH)).ToList();
-
-      var tempCrvPt = monthPt.Select(x => x + pln.YAxis * tempHeight[monthPt.ToList().IndexOf(x)]).ToList();
-      var tempCrv = new Polyline(tempCrvPt).ToNurbsCurve();
 
       // automatically determin between three precipitation range:
       // high: 100, 300, 500 
       // low:  0
-      double maxPrec = (precLst.Max() > 100 ? precLst.Max() > 300 ? 500 : 300 : 100);
+      double maxPrec = (precLst.Max() > 100 ? precLst.Max() > 200 ? precLst.Max() > 300 ? 500 : 300 : 200 : 100);
       List<double> precHeight = precLst.Select(x => Utils.remap(x, 0, maxPrec, diagramVertL, diagramVertH)).ToList();
 
       // label loc, text
-      int precNum = 5;
+      int precNum = 11;
       List<double> precLabelInterval = Enumerable.Range(0, precNum).Select(x => (double)x * maxPrec / (precNum - 1)).ToList();
       List<Point3d> precLabelLoc = precLabelInterval.Select(x =>
       verAxis1.From
@@ -251,20 +230,59 @@ namespace BeingAliveLanguage
       labelLoc.AddRange(precLabelLoc.Select(x => new Plane(x, pln.XAxis, pln.YAxis)).ToList(), new GH_Path(locIdx++));
       labelTxt.AddRange(precLabelInterval.Select(x => x.ToString()), new GH_Path(labelIdx++));
 
-
       // actual curve.
       var percCrvPt = monthPt.Select(x => x + pln.YAxis * precHeight[monthPt.ToList().IndexOf(x)]).ToList();
       var precCrv = new Polyline(percCrvPt).ToNurbsCurve();
+
+      // automatically determin between three temperature range:
+      // low: -30, -20, -10, 0, 10 
+      // high:  30, 40, 50
+
+      int maxTemp = (tempLst.Max() > 30 ? tempLst.Max() > 40 ? 50 : 40 : 30);
+      int minTemp = (tempLst.Min() < 20 ? tempLst.Min() < 10 ? tempLst.Min() < 0 ? tempLst.Min() < -10 ? -20 : -10 : 0 : 10 : 20);
+
+      List<double> tempLabelInterval = new List<double>();
+      foreach (var px in precLabelInterval)
+      {
+        if (px * 0.5 < maxTemp)
+        {
+          tempLabelInterval.Add(px * 0.5);
+        }
+      }
+
+      var tempLabelLoc = precLabelLoc.Take(tempLabelInterval.Count).Select(x =>
+      x - verAxis1.From + verAxis2.From
+      + pln.XAxis * scale).ToList();
+
+      var tempHeightUpperLimit = precHeight[tempLabelInterval.Count - 1];
+      List<double> tempHeight = tempLst.Select(x => 0.5 * Utils.remap(x, minTemp, tempLabelInterval.Max(), diagramVertL, tempHeightUpperLimit)).ToList();
+
+      // label loc, text
+      // for temperature label rule: 1P = 2C  -- we need to find the corresponding precipitation for the max temperature.
+      //int tempNum = 5;
+      //List<double> tempLabelInterval = Enumerable.Range(0, tempNum).Select(x => minTemp + (double)x * (maxTemp - minTemp) / (tempNum - 1)).ToList();
+      //List<Point3d> tempLabelLoc = tempLabelInterval.Select(x =>
+      //verAxis2.From
+      //+ pln.XAxis * 0.5 * scale
+      //+ pln.YAxis * Utils.remap(x, minTemp, maxTemp, diagramVertL, diagramVertH)).ToList();
+
+      labelLoc.AddRange(tempLabelLoc.Select(x => new Plane(x, pln.XAxis, pln.YAxis)).ToList(), new GH_Path(locIdx++));
+      labelTxt.AddRange(tempLabelInterval.Select(x => x.ToString()), new GH_Path(labelIdx++));
+
+      // actual curve.
+      //List<double> tempHeight = tempLst.Select(x => Utils.remap(x, minTemp, maxTemp, diagramVertL, diagramVertH)).ToList();
+
+      var tempCrvPt = monthPt.Select(x => x + pln.YAxis * tempHeight[monthPt.ToList().IndexOf(x)]).ToList();
+      var tempCrv = new Polyline(tempCrvPt).ToNurbsCurve();
+
 
       DA.SetData("TempCrv", tempCrv);
       DA.SetData("PrecCrv", precCrv);
 
 
-
       // set label
       DA.SetDataTree(3, labelLoc);
       DA.SetDataTree(4, labelTxt);
-
     }
   }
 }
