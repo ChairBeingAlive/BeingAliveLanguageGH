@@ -308,7 +308,6 @@ namespace BeingAliveLanguage
     }
   }
 
-
   public class BALsoilDiagramUrban : GH_Component
   {
     public BALsoilDiagramUrban()
@@ -503,7 +502,6 @@ namespace BeingAliveLanguage
     public override Guid ComponentGuid => new Guid("4f0a934c-dd27-447c-a67b-a478940c2d6e");
   }
 
-
   public class BALsoilWaterOffset : GH_Component
   {
     public BALsoilWaterOffset()
@@ -594,7 +592,6 @@ namespace BeingAliveLanguage
 
     }
   }
-
 
   public class BALsoilOrganicMatterInner : GH_Component
   {
@@ -893,5 +890,112 @@ namespace BeingAliveLanguage
 
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsTopDep;
     public override Guid ComponentGuid => new Guid("fde1d789-19ea-41aa-8330-0176f4289d1e");
+  }
+
+  public class BALsoilCompaction : GH_Component
+  {
+    public BALsoilCompaction() : base("Soil Compaction", "balSoilComp",
+             "Generate soil compaction based on given intensity and area.",
+                    "BAL", "01::soil")
+    {
+    }
+    public override Guid ComponentGuid => new Guid("31d4d750-45be-444c-9255-7f68e5aa05ac");
+    //protected override System.Drawing.Bitmap Icon => Properties.Resources.balEvapotranspiration;
+    protected override System.Drawing.Bitmap Icon => null;
+    public override GH_Exposure Exposure => GH_Exposure.tertiary;
+
+    protected override void RegisterInputParams(GH_InputParamManager pManager)
+    {
+      pManager.AddGenericParameter("Soil Base", "soilBase", "Soil base triangle map.", GH_ParamAccess.item);
+      pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles, representing soil separates without any water.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Compact Area", "compactA", "Compaction area near the soil surface. Using lines or curves for the input.", GH_ParamAccess.item);
+      pManager.AddNumberParameter("Max Depth", "maxD", "Compaction Depth, unit associated with Rhino's unit.", GH_ParamAccess.item);
+      pManager.AddNumberParameter("Strength", "strength", "Compaction strength, [0, 1].", GH_ParamAccess.item, 0.5);
+      pManager[pManager.ParamCount - 1].Optional = true;
+    }
+
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+    {
+      pManager.AddCurveParameter("Soil Core Compacted", "soilCoreCompacted", "Soil core triangles after compaction, representing soil separates without any water.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Affected Boundary", "affectedBound", "Boundary of the affected soil after compaction.", GH_ParamAccess.item);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
+      // ! get the inputs
+      var sBase = new SoilBase();
+      if (!DA.GetData("Soil Base", ref sBase))
+      { return; }
+
+      List<Curve> coreTriCrv = new List<Curve>();
+      if (!DA.GetDataList("Soil Core", coreTriCrv))
+      { return; }
+
+      List<Polyline> coreTri = new List<Polyline>();
+      coreTriCrv.ForEach(x =>
+      {
+        x.TryGetPolyline(out Polyline poly);
+        coreTri.Add(poly);
+      });
+
+      Curve compactCrv = null;
+      if (!DA.GetData("Compact Area", ref compactCrv))
+      { return; }
+
+      double maxDepth = 0;
+      if (!DA.GetData("Max Depth", ref maxDepth))
+      { return; }
+
+      double strength = 0.5;
+      if (!DA.GetData("Strength", ref strength))
+      { return; }
+      if (strength < 0 || strength > 1)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Strength out of range [0, 1].");
+        return;
+      }
+
+      var p0 = compactCrv.PointAtStart;
+      var p1 = compactCrv.PointAtEnd;
+      var pMid = compactCrv.PointAtNormalizedLength(0.5);
+
+      var p2 = p0 - sBase.pln.YAxis * maxDepth * 0.3;
+      p2.Transform(Transform.Scale(pMid, 2.0));
+
+      var p3 = p1 - sBase.pln.YAxis * maxDepth * 0.3;
+      p3.Transform(Transform.Scale(pMid, 2.0));
+
+      var pM = pMid - sBase.pln.YAxis * maxDepth;
+
+      var compactArea = NurbsCurve.Create(false, 3, new List<Point3d> { p0, p2, pM, p3, p1 });
+
+      compactArea.DivideByCount(100, true, out Point3d[] pts);
+      pts.Append(pts[0]);
+      var compactBnd = new Polyline(pts).ToNurbsCurve();
+
+      List<Polyline> coreTriCmpc = new List<Polyline>();
+      foreach (var tri in coreTri)
+      {
+        var cen = (tri[0] + tri[1] + tri[2]) / 3;
+        if (compactBnd.Contains(cen, sBase.pln, 0.01) == PointContainment.Inside)
+        {
+          // move the tri based on density vector
+
+
+          // give a bit of turbulance
+
+        }
+        else
+        {
+          // don't move the triangle.
+          coreTriCmpc.Add(tri);
+        }
+      }
+
+
+      // ! make the outputs
+      DA.SetDataList("Soil Core Compacted", coreTriCmpc);
+      DA.SetData("Affected Boundary", compactArea);
+    }
   }
 }
