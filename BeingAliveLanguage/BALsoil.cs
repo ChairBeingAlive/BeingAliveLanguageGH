@@ -1,9 +1,11 @@
 using GH_IO.Serialization;
+using Grasshopper.GUI;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -907,6 +909,7 @@ namespace BeingAliveLanguage
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
       pManager.AddGenericParameter("Soil Base", "soilBase", "Soil base triangle map.", GH_ParamAccess.item);
+      pManager.AddCurveParameter("Soil Triangle", "soilTri", "Soil triangles, representing the initial soil separates divsion.", GH_ParamAccess.list);
       pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles, representing soil separates without any water.", GH_ParamAccess.list);
       pManager.AddCurveParameter("Compact Area", "compactA", "Compaction area near the soil surface. Using lines or curves for the input.", GH_ParamAccess.item);
       pManager.AddNumberParameter("Max Depth", "maxD", "Compaction Depth, unit associated with Rhino's unit.", GH_ParamAccess.item);
@@ -927,9 +930,18 @@ namespace BeingAliveLanguage
       if (!DA.GetData("Soil Base", ref sBase))
       { return; }
 
+      List<Curve> soilTriCrv = new List<Curve>();
+      if (!DA.GetDataList("Soil Core", soilTriCrv))
+      { return; }
+
       List<Curve> coreTriCrv = new List<Curve>();
       if (!DA.GetDataList("Soil Core", coreTriCrv))
       { return; }
+      if (soilTriCrv.Count != coreTriCrv.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Soil core triangles and soil triangles need to have the same number.");
+        return;
+      }
 
       List<Polyline> coreTri = new List<Polyline>();
       coreTriCrv.ForEach(x =>
@@ -946,10 +958,10 @@ namespace BeingAliveLanguage
       if (!DA.GetData("Max Depth", ref maxDepth))
       { return; }
 
-      double strength = 0.5;
-      if (!DA.GetData("Strength", ref strength))
+      double globalStrength = 0.5;
+      if (!DA.GetData("Strength", ref globalStrength))
       { return; }
-      if (strength < 0 || strength > 1)
+      if (globalStrength < 0 || globalStrength > 1)
       {
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Strength out of range [0, 1].");
         return;
@@ -968,34 +980,65 @@ namespace BeingAliveLanguage
       var pM = pMid - sBase.pln.YAxis * maxDepth;
 
       var compactArea = NurbsCurve.Create(false, 3, new List<Point3d> { p0, p2, pM, p3, p1 });
+      DA.SetData("Affected Boundary", compactArea);
 
       compactArea.DivideByCount(100, true, out Point3d[] pts);
-      pts.Append(pts[0]);
-      var compactBnd = new Polyline(pts).ToNurbsCurve();
+      var bndPtLst = pts.Append(pts[0]);
+      var compactBnd = new Polyline(bndPtLst).ToNurbsCurve();
+      DA.SetData("Affected Boundary", compactBnd);
 
       List<Polyline> coreTriCmpc = new List<Polyline>();
-      foreach (var tri in coreTri)
+      var triDict = new Dictionary<int, (Vector3d, double, Polyline)>();
+
+      // collect triangles inside the compact area
+      for (int i = 0; i < coreTri.Count; i++)
       {
-        var cen = (tri[0] + tri[1] + tri[2]) / 3;
+        var triCore = coreTri[i];
+        soilTriCrv[i].TryGetPolyline(out Polyline triBnd);
+
+        var cen = (triCore[0] + triCore[1] + triCore[2]) / 3;
         if (compactBnd.Contains(cen, sBase.pln, 0.01) == PointContainment.Inside)
         {
-          // move the tri based on density vector
+          // calculate distance to the compactCrv and convert the dir vector
+          compactCrv.ClosestPoint(cen, out double t);
+          var dirVec = cen - compactCrv.PointAt(t);
 
+          // quickly check lowest pt and use the distance as "movable distance"
+          sBase.pln.ClosestParameter(triCore[0], out double u0, out double v0);
+          sBase.pln.ClosestParameter(triCore[1], out double u1, out double v1);
+          sBase.pln.ClosestParameter(triCore[2], out double u2, out double v2);
+          List<double> paramV = new List<double> { v0, v1, v2 };
+          var minIdx = paramV.IndexOf(paramV.Min());
+          var movableDist = (triBnd[minIdx] - triCore[minIdx]).Length;
 
-          // give a bit of turbulance
-
-        }
-        else
-        {
-          // don't move the triangle.
-          coreTriCmpc.Add(tri);
+          triDict.Add(i, (dirVec, movableDist, triCore));
         }
       }
 
+      if (triDict.Count == 0)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No soil are affected by the compaction.");
+        return;
+      }
+
+      var transDistLst = triDict.Values.Select(x => x.Item1.Length).ToList();
+      var remapMin = transDistLst.Min();
+      var remapMax = Math.Max(maxDepth, transDistLst.Max());
+
+      // make the move
+      coreTriCmpc = coreTri;
+      foreach (var x in triDict)
+      {
+        var dir = x.Value.Item1;
+        dir.Unitize();
+        var localStrength = Utils.remap(x.Value.Item1.Length, remapMin, remapMax, 3, 0);
+        x.Value.Item3.Transform(Transform.Translation(dir * localStrength * localStrength * globalStrength));
+
+        coreTriCmpc[x.Key] = x.Value.Item3;
+      }
 
       // ! make the outputs
       DA.SetDataList("Soil Core Compacted", coreTriCmpc);
-      DA.SetData("Affected Boundary", compactArea);
     }
   }
 }
