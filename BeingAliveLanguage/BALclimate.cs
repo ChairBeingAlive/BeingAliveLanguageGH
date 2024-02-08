@@ -255,7 +255,7 @@ namespace BeingAliveLanguage
       + pln.XAxis * scale).ToList();
 
       var tempHeightUpperLimit = precHeight[tempLabelInterval.Count - 1];
-      List<double> tempHeight = tempLst.Select(x => 0.5 * Utils.remap(x, minTemp, tempLabelInterval.Max(), diagramVertL, tempHeightUpperLimit)).ToList();
+      List<double> tempHeight = tempLst.Select(x => Utils.remap(x, minTemp, tempLabelInterval.Max(), diagramVertL, tempHeightUpperLimit)).ToList();
 
       // label loc, text
       // for temperature label rule: 1P = 2C  -- we need to find the corresponding precipitation for the max temperature.
