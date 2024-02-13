@@ -65,7 +65,6 @@ namespace BeingAliveLanguage
   }
 
 
-
   /// <summary>
   /// The base information of initialized soil, used for soil/root computing.
   /// </summary>

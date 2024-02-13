@@ -1,6 +1,22 @@
 {
   "profiles": {
-    "RhinoDebug": {
+    "Rhino8-NetFM": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Rhino 8\\System\\Rhino.exe",
+      "commandLineArgs": "/netfx",
+      "workingDirectory": "..\\bin\\Debug",
+      "nativeDebugging": false
+    },
+
+    "Rhino8-NetCore": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Rhino 8\\System\\Rhino.exe",
+      "commandLineArgs": "/netcore",
+      "workingDirectory": "..\\bin\\Debug",
+      "nativeDebugging": false
+    },
+
+    "Rhino7": {
       "commandName": "Executable",
       "executablePath": "C:\\Program Files\\Rhino 7\\System\\Rhino.exe",
       "workingDirectory": "..\\bin\\Debug",
