@@ -901,6 +901,8 @@ namespace BeingAliveLanguage
                     "BAL", "01::soil")
     {
     }
+
+    string appMode = "global";  // none, single, multi
     public override Guid ComponentGuid => new Guid("31d4d750-45be-444c-9255-7f68e5aa05ac");
     //protected override System.Drawing.Bitmap Icon => Properties.Resources.balEvapotranspiration;
     protected override System.Drawing.Bitmap Icon => null;
@@ -911,8 +913,11 @@ namespace BeingAliveLanguage
       pManager.AddGenericParameter("Soil Base", "soilBase", "Soil base triangle map.", GH_ParamAccess.item);
       pManager.AddCurveParameter("Soil Triangle", "soilTri", "Soil triangles, representing the initial soil separates divsion.", GH_ParamAccess.list);
       pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles, representing soil separates without any water.", GH_ParamAccess.list);
-      pManager.AddCurveParameter("Compact Area", "compactA", "Compaction area near the soil surface. Using lines or curves for the input.", GH_ParamAccess.item);
-      pManager.AddNumberParameter("Max Depth", "maxD", "Compaction Depth, unit associated with Rhino's unit.", GH_ParamAccess.item);
+      if (appMode == "Local")
+      {
+        pManager.AddCurveParameter("Compact Area", "cpArea", "Compaction area near the soil surface. Using lines or curves for the input.", GH_ParamAccess.item);
+        pManager.AddNumberParameter("Compact Depth", "cpDepth", "Compaction Depth, unit associated with Rhino's unit.", GH_ParamAccess.item);
+      }
       pManager.AddNumberParameter("Strength", "strength", "Compaction strength, [0, 1].", GH_ParamAccess.item, 0.5);
       pManager[pManager.ParamCount - 1].Optional = true;
     }
@@ -954,9 +959,14 @@ namespace BeingAliveLanguage
       if (!DA.GetData("Compact Area", ref compactCrv))
       { return; }
 
-      double maxDepth = 0;
-      if (!DA.GetData("Max Depth", ref maxDepth))
+      double cpDepth = 0;
+      if (!DA.GetData("Compact Depth", ref cpDepth))
       { return; }
+      if (cpDepth <= 0)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Compact Depth needs to be positive.");
+        return;
+      }
 
       double globalStrength = 0.5;
       if (!DA.GetData("Strength", ref globalStrength))
@@ -969,22 +979,23 @@ namespace BeingAliveLanguage
 
       var p0 = compactCrv.PointAtStart;
       var p1 = compactCrv.PointAtEnd;
-      var pMid = compactCrv.PointAtNormalizedLength(0.5);
+      var p0Down = p0 - sBase.pln.YAxis * cpDepth;
+      var p1Down = p1 - sBase.pln.YAxis * cpDepth;
+      var compactBnd = new Polyline(new List<Point3d> { p0, p0Down, p1Down, p1, p0 }).ToNurbsCurve();
+      //var pMid = compactCrv.PointAtNormalizedLength(0.5);
 
-      var p2 = p0 - sBase.pln.YAxis * maxDepth * 0.3;
-      p2.Transform(Transform.Scale(pMid, 2.0));
+      //var p2 = p0 - sBase.pln.YAxis * maxDepth * 0.3;
+      //p2.Transform(Transform.Scale(pMid, 2.0));
 
-      var p3 = p1 - sBase.pln.YAxis * maxDepth * 0.3;
-      p3.Transform(Transform.Scale(pMid, 2.0));
+      //var p3 = p1 - sBase.pln.YAxis * maxDepth * 0.3;
+      //p3.Transform(Transform.Scale(pMid, 2.0));
 
-      var pM = pMid - sBase.pln.YAxis * maxDepth;
+      //var pM = pMid - sBase.pln.YAxis * maxDepth;
 
-      var compactArea = NurbsCurve.Create(false, 3, new List<Point3d> { p0, p2, pM, p3, p1 });
-      DA.SetData("Affected Boundary", compactArea);
-
-      compactArea.DivideByCount(100, true, out Point3d[] pts);
-      var bndPtLst = pts.Append(pts[0]);
-      var compactBnd = new Polyline(bndPtLst).ToNurbsCurve();
+      //var compactArea = NurbsCurve.Create(false, 3, new List<Point3d> { p0, p2, pM, p3, p1 });
+      //compactArea.DivideByCount(100, true, out Point3d[] pts);
+      //var bndPtLst = pts.Append(pts[0]);
+      //var compactBnd = new Polyline(bndPtLst).ToNurbsCurve();
       DA.SetData("Affected Boundary", compactBnd);
 
       List<Polyline> coreTriCmpc = new List<Polyline>();
@@ -1023,7 +1034,7 @@ namespace BeingAliveLanguage
 
       var transDistLst = triDict.Values.Select(x => x.Item1.Length).ToList();
       var remapMin = transDistLst.Min();
-      var remapMax = Math.Max(maxDepth, transDistLst.Max());
+      var remapMax = Math.Max(cpDepth, transDistLst.Max());
 
       // make the move
       coreTriCmpc = coreTri;
@@ -1039,6 +1050,32 @@ namespace BeingAliveLanguage
 
       // ! make the outputs
       DA.SetDataList("Soil Core Compacted", coreTriCmpc);
+    }
+
+    protected override void AppendAdditionalComponentMenuItems(ToolStripDropDown menu)
+    {
+      base.AppendAdditionalComponentMenuItems(menu);
+      Menu_AppendItem(menu, "Mode:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+
+      Menu_AppendItem(menu, "Global", (sender, e) => Menu.SelectMode(this, sender, e, ref appMode, "Global"), true, CheckMode("Global"));
+      Menu_AppendItem(menu, "Local", (sender, e) => Menu.SelectMode(this, sender, e, ref appMode, "Local"), true, CheckMode("Local"));
+    }
+
+    private bool CheckMode(string _modeCheck) => appMode == _modeCheck;
+
+    public override bool Write(GH_IWriter writer)
+    {
+      if (appMode != "")
+        writer.SetString("appMode", appMode);
+      return base.Write(writer);
+    }
+    public override bool Read(GH_IReader reader)
+    {
+      if (reader.ItemExists("appMode"))
+        appMode = reader.GetString("appMode");
+
+      Message = reader.GetString("appMode").ToUpper();
+      return base.Read(reader);
     }
   }
 }
