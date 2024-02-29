@@ -925,6 +925,7 @@ namespace BeingAliveLanguage
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
       pManager.AddCurveParameter("Soil Core Compacted", "soilCoreCompacted", "Soil core triangles after compaction, representing soil separates without any water.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Water Content", "waterContent", "Water content after compaction.", GH_ParamAccess.list);
       pManager.AddCurveParameter("Affected Boundary", "affectedBound", "Boundary of the affected soil after compaction.", GH_ParamAccess.item);
     }
 
@@ -986,6 +987,8 @@ namespace BeingAliveLanguage
       var p0Down = p0 - sBase.pln.YAxis * cpDepth;
       var p1Down = p1 - sBase.pln.YAxis * cpDepth;
       var compactBnd = new Polyline(new List<Point3d> { p0, p0Down, p1Down, p1, p0 }).ToNurbsCurve();
+
+      #region curved region, like real case -- not used
       //var pMid = compactCrv.PointAtNormalizedLength(0.5);
 
       //var p2 = p0 - sBase.pln.YAxis * maxDepth * 0.3;
@@ -1000,6 +1003,8 @@ namespace BeingAliveLanguage
       //compactArea.DivideByCount(100, true, out Point3d[] pts);
       //var bndPtLst = pts.Append(pts[0]);
       //var compactBnd = new Polyline(bndPtLst).ToNurbsCurve();
+      #endregion
+
       DA.SetData("Affected Boundary", compactBnd);
 
       List<Polyline> coreTriCmpc = new List<Polyline>();
@@ -1053,8 +1058,13 @@ namespace BeingAliveLanguage
         coreTriCmpc[x.Key] = x.Value.Item3;
       }
 
+      #region compute water content and redistribute the water area
+
+      #endregion
+
       // ! make the outputs
       DA.SetDataList("Soil Core Compacted", coreTriCmpc);
+      DA.SetDataList("Water Content", null);
       //}
     }
 
