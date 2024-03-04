@@ -4,6 +4,7 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
+using Rhino.Render;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -524,10 +525,6 @@ namespace BeingAliveLanguage
 
       pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio [0, 1] in the soil for visualization purposes.", GH_ParamAccess.item, 0.5);
       pManager[2].Optional = true;
-      //pManager.AddIntegerParameter("Core Water Hatch Density", "dHatchCore", "Hatch density of the embedded water.", GH_ParamAccess.item, 5);
-      //pManager[3].Optional = true;
-      //pManager.AddIntegerParameter("Available Water Hatch Density", "dHatchAvail", "Hatch density of the current water.", GH_ParamAccess.item, 3);
-      //pManager[4].Optional = true;
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -538,9 +535,6 @@ namespace BeingAliveLanguage
       pManager.AddCurveParameter("Saturation", "soilST", "Soil saturation triangles.", GH_ParamAccess.list);
 
       pManager.AddCurveParameter("Current Water Content", "soilCW", "Current water stage.", GH_ParamAccess.list);
-
-      //pManager.AddCurveParameter("Embedded Water Hatch", "waterEmbed", "Hatch of the embedded water of the soil.", GH_ParamAccess.tree);
-      //pManager.AddCurveParameter("Current Water Hatch", "waterCurrent", "Hatch of the current water stage in the soil.", GH_ParamAccess.tree);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -562,7 +556,7 @@ namespace BeingAliveLanguage
 
 
       // compute offseted curves 
-      var (triCore, triWP, triFC, triCW, embedWater, curWater) =
+      var (triCore, triWP, triFC, triCW, _, _) =
           Utils.OffsetWater(triCrv, soilInfo, rWater, denEmbedWater, denAvailWater);
 
 
@@ -904,8 +898,7 @@ namespace BeingAliveLanguage
 
     //string appMode = "global";  // none, single, multi
     public override Guid ComponentGuid => new Guid("31d4d750-45be-444c-9255-7f68e5aa05ac");
-    //protected override System.Drawing.Bitmap Icon => Properties.Resources.balEvapotranspiration;
-    protected override System.Drawing.Bitmap Icon => null;
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilCompact;
     public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
@@ -913,41 +906,55 @@ namespace BeingAliveLanguage
       pManager.AddGenericParameter("Soil Base", "soilBase", "Soil base triangle map.", GH_ParamAccess.item);
       pManager.AddCurveParameter("Soil Triangle", "soilTri", "Soil triangles, representing the initial soil separates divsion.", GH_ParamAccess.list);
       pManager.AddCurveParameter("Soil Core", "soilCore", "Soil core triangles, representing soil separates without any water.", GH_ParamAccess.list);
-      //if (appMode == "Local")
-      //{
+
+      pManager.AddNumberParameter("Current Water ratio", "rCurWater", "The current water ratio [0, 1] in the soil for visualization purposes.", GH_ParamAccess.item);
+      pManager[3].Optional = true;
+
       pManager.AddCurveParameter("Compact Area", "cpArea", "Compaction area near the soil surface. Using lines or curves for the input.", GH_ParamAccess.item);
       pManager.AddNumberParameter("Compact Depth", "cpDepth", "Compaction Depth, unit associated with Rhino's unit.", GH_ParamAccess.item);
-      //}
       pManager.AddNumberParameter("Strength", "strength", "Compaction strength, [0, 1].", GH_ParamAccess.item, 0.5);
       pManager[pManager.ParamCount - 1].Optional = true;
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
-      pManager.AddCurveParameter("Soil Core Compacted", "soilCoreCompacted", "Soil core triangles after compaction, representing soil separates without any water.", GH_ParamAccess.list);
-      pManager.AddCurveParameter("Water Content", "waterContent", "Water content after compaction.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Soil Core Compacted", "soilCoreCmpc", "Soil core separates after compaction.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Soil Current Water Compacted", "soilCWCmpc", "Water content after compaction.", GH_ParamAccess.list);
+
+      pManager.AddCurveParameter("Soil Core Non-Compacted", "soilCoreNonCmpc", "Soil core separates after compaction outside the compaction area.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Soil Current Water Non-Compacted", "soilCWNonCmpc", "Water content after compaction outside the compaction area.", GH_ParamAccess.list);
+
       pManager.AddCurveParameter("Affected Boundary", "affectedBound", "Boundary of the affected soil after compaction.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
+      #region processing input
       // ! get the inputs
       var sBase = new SoilBase();
       if (!DA.GetData("Soil Base", ref sBase))
       { return; }
 
       List<Curve> soilTriCrv = new List<Curve>();
-      if (!DA.GetDataList("Soil Core", soilTriCrv))
+      if (!DA.GetDataList("Soil Triangle", soilTriCrv))
       { return; }
 
       List<Curve> coreTriCrv = new List<Curve>();
       if (!DA.GetDataList("Soil Core", coreTriCrv))
       { return; }
+
       if (soilTriCrv.Count != coreTriCrv.Count)
       {
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Soil core triangles and soil triangles need to have the same number.");
         return;
       }
+
+      List<Polyline> soilTri = new List<Polyline>();
+      soilTriCrv.ForEach(x =>
+      {
+        x.TryGetPolyline(out Polyline poly);
+        soilTri.Add(poly);
+      });
 
       List<Polyline> coreTri = new List<Polyline>();
       coreTriCrv.ForEach(x =>
@@ -955,6 +962,11 @@ namespace BeingAliveLanguage
         x.TryGetPolyline(out Polyline poly);
         coreTri.Add(poly);
       });
+
+      double rWater = 0.0;
+      bool hasWater = false;
+      if (DA.GetData("Current Water ratio", ref rWater))
+      { hasWater = true; }
 
 
       double globalStrength = 0.5;
@@ -966,9 +978,6 @@ namespace BeingAliveLanguage
         return;
       }
 
-
-      //if (appMode == "Local")
-      //{
       Curve compactCrv = null;
       if (!DA.GetData("Compact Area", ref compactCrv))
       { return; }
@@ -981,6 +990,8 @@ namespace BeingAliveLanguage
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Compact Depth needs to be positive.");
         return;
       }
+
+      #endregion
 
       var p0 = compactCrv.PointAtStart;
       var p1 = compactCrv.PointAtEnd;
@@ -1007,14 +1018,14 @@ namespace BeingAliveLanguage
 
       DA.SetData("Affected Boundary", compactBnd);
 
-      List<Polyline> coreTriCmpc = new List<Polyline>();
-      var triDict = new Dictionary<int, (Vector3d, double, Polyline)>();
+      // value structure: (direction, movable distance, coreTri, boundTri)
+      var triDict = new Dictionary<int, (Vector3d, double, Polyline, Polyline)>();
 
       // collect triangles inside the compact area
       for (int i = 0; i < coreTri.Count; i++)
       {
         var triCore = coreTri[i];
-        soilTriCrv[i].TryGetPolyline(out Polyline triBnd);
+        var triBnd = soilTri[i];
 
         var cen = (triCore[0] + triCore[1] + triCore[2]) / 3;
         if (compactBnd.Contains(cen, sBase.pln, 0.01) == PointContainment.Inside)
@@ -1031,7 +1042,7 @@ namespace BeingAliveLanguage
           var minIdx = paramV.IndexOf(paramV.Min());
           var movableDist = (triBnd[minIdx] - triCore[minIdx]).Length;
 
-          triDict.Add(i, (dirVec, movableDist, triCore));
+          triDict.Add(i, (dirVec, movableDist, triCore, triBnd));
         }
       }
 
@@ -1041,30 +1052,66 @@ namespace BeingAliveLanguage
         return;
       }
 
-
       var transDistLst = triDict.Values.Select(x => x.Item1.Length).ToList();
       var remapMin = transDistLst.Min();
       var remapMax = Math.Max(cpDepth, transDistLst.Max());
 
       // make the move
-      coreTriCmpc = coreTri;
+      List<Polyline> coreTriCmpc = new List<Polyline>();
+      List<Polyline> waterTriCmpc = new List<Polyline>();
       foreach (var x in triDict)
       {
         var dir = x.Value.Item1;
         dir.Unitize();
-        var localStrength = Utils.remap(x.Value.Item1.Length, remapMin, remapMax, 3, 0);
-        x.Value.Item3.Transform(Transform.Translation(dir * localStrength * localStrength * globalStrength));
+        // the local strength is based on the distance to the compactCrv and the size of the triangle
+        var transStrength = 3 - Utils.remap(x.Value.Item1.Length, remapMin, remapMax, 0, 3);
+        var curCoreT = new Polyline(x.Value.Item3);
+        curCoreT.Transform(Transform.Translation(dir * transStrength * transStrength * globalStrength));
+        coreTriCmpc.Add(curCoreT);
 
-        coreTriCmpc[x.Key] = x.Value.Item3;
+        // water offset depends on the local compression strength -- more it is compressed, less water it can hold
+        if (hasWater)
+        {
+          var len = coreTri[x.Key].Length;
+          double coreRatio = x.Value.Item3.Length / x.Value.Item4.Length;
+          var scaleStrengh = Utils.remap(transStrength, 0, 3, 0, 1);
+
+          // get the translated bnd triangle
+          var curBndT = new Polyline(curCoreT);
+          curBndT.Transform(Transform.Scale((curBndT[0] + curBndT[1] + curBndT[2]) / 3, 1 / coreRatio));
+
+          //var scaleRatio = 1 - Utils.remap(rWater, 0, globalStrength * scaleStrengh, coreRatio, 1);
+          var scaleRatio = Utils.remap(rWater * Math.Sqrt(1 - scaleStrengh), 0, 1, coreRatio, 1);
+          waterTriCmpc.Add(Utils.OffsetTri(curBndT, scaleRatio));
+        }
       }
 
-      #region compute water content and redistribute the water area
 
-      #endregion
+      //var coreTriNonCmpc = coreTri.Where(x => !triDict.Keys.Contains(coreTri.IndexOf(x))).ToList();
+      var coreTriNonCmpc = new List<Polyline>();
+      var waterTriNonCmpc = new List<Polyline>();
+      foreach (var x in coreTri)
+      {
+        var idx = coreTri.IndexOf(x);
+        if (triDict.Keys.Contains(idx))
+          continue;
+
+        coreTriNonCmpc.Add(x);
+        if (hasWater)
+        {
+          double coreRatio = x.Length / soilTri[idx].Length;
+          var curWaterRatio = Utils.remap(rWater, 0, 1, coreRatio, 1);
+          waterTriNonCmpc.Add(Utils.OffsetTri(soilTri[idx], curWaterRatio));
+        }
+      }
+
 
       // ! make the outputs
       DA.SetDataList("Soil Core Compacted", coreTriCmpc);
-      DA.SetDataList("Water Content", null);
+      DA.SetDataList("Soil Current Water Compacted", waterTriCmpc);
+
+      DA.SetDataList("Soil Core Non-Compacted", coreTriNonCmpc);
+      DA.SetDataList("Soil Current Water Non-Compacted", waterTriNonCmpc);
       //}
     }
 
