@@ -891,7 +891,7 @@ namespace BeingAliveLanguage
   public class BALsoilCompaction : GH_Component
   {
     public BALsoilCompaction() : base("Soil Compaction", "balSoilComp",
-             "Generate soil compaction based on given intensity and area.",
+             "Generate soil compaction diagram based on given compaction area and strength.",
                     "BAL", "01::soil")
     {
     }
