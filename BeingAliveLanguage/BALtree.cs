@@ -207,4 +207,39 @@ namespace BeingAliveLanguage
     }
   }
 
+
+  public class BALtree3D : GH_Component
+  {
+    public BALtree3D()
+    : base("Tree3D", "balTree3D",
+          "Generate the BAL tree model in 3D, using Drenou's model.",
+          "BAL", "03::plant")
+    { }
+
+    //string modeUnitary = "non-unitary";
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree;
+    public override Guid ComponentGuid => new Guid("36c5e013-321b-4064-b007-b17880644ce4");
+
+    protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+    {
+      pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.list, Plane.WorldXY);
+      pManager.AddNumberParameter("Height", "H", "Height of the tree.", GH_ParamAccess.list);
+      pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree.", GH_ParamAccess.list);
+    }
+
+    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+    {
+      pManager.AddCurveParameter("Circumference", "C", "Circumference Ellipses that controls the boundary of the tree.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
+      //pManager.AddCurveParameter("Canopy", "C", "Tree canopy curves.", GH_ParamAccess.tree);
+      //pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
+      //pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
+      //pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.", GH_ParamAccess.tree);
+
+      pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
+      //pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
 }

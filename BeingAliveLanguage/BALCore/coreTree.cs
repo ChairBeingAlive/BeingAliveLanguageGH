@@ -531,4 +531,9 @@ namespace BeingAliveLanguage
     private SoilMap mSoilMap;
   }
 
+  class Tree3D
+  {
+    public Tree3D() { }
+  }
+
 }
