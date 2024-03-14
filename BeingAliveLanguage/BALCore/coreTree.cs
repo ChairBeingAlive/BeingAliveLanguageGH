@@ -1,4 +1,5 @@
-﻿using Rhino.Geometry;
+﻿using MathNet.Numerics.Optimization;
+using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using System;
 using System.Collections.Generic;
@@ -470,7 +471,6 @@ namespace BeingAliveLanguage
       return resCol;
     }
 
-
     // tree core param
     public Plane mPln;
     public double mHeight;
@@ -531,9 +531,170 @@ namespace BeingAliveLanguage
     private SoilMap mSoilMap;
   }
 
+
+  class BranchNode3D
+  {
+    public BranchNode3D() { }
+    public BranchNode3D(int phase, in Point3d node)
+    {
+      mNode = node;
+      mNodePhase = phase;
+    }
+
+    public void AddBranchAlong(Vector3d vec)
+    {
+      var tmpLen = new Line(mNode, mNode + vec).ToNurbsCurve();
+      tmpLen.Domain = new Interval(0.0, 1.0);
+      mBranch.Add(tmpLen);
+    }
+
+    public int mNodePhase = -1;
+    Point3d mNode = new Point3d();
+    public List<Curve> mBranch { get; set; } = new List<Curve>();
+  }
+
   class Tree3D
   {
     public Tree3D() { }
+
+    public Tree3D(Plane pln, double scale)
+    {
+      mPln = pln;
+      mScale = scale;
+
+      //maxStdR = height * 0.5;
+      //minStdR = height * treeSepParam * 0.5;
+      //stepR = (maxStdR - minStdR) / (numLayer - 1);
+    }
+
+    /// <summary>
+    /// The tree drawing function
+    /// We have three stages of the tree:
+    /// phase 1-4: young tree, growing without branching
+    /// phase 5-8: mature tree, growing with branching
+    /// phase 9-11: dying tree, growing with branching
+    /// phase 12: dead tree, no growth
+    /// </summary>
+    public bool Generate(int phase)
+    {
+      // record phase
+      mPhase = phase;
+
+      // main trunk
+      var trunkLen = mPhase < 4 ? mBaseLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mBaseLen) : mBaseLen;
+      var baseNode = new BranchNode3D(0, mPln.Origin);
+      baseNode.AddBranchAlong(trunkLen * mPln.ZAxis);
+      mAllNode.Add(baseNode);
+
+      // ! phase 1-4
+      var brStartRatio = 0.5;
+      var seqNum = 4;
+      var brNodeNum = seqNum * (2 + mPhase);
+      var ratioSeq = Utils.Range(brStartRatio, 1, brNodeNum - 1).ToList();
+      //var verAngleSeq = Utils.Range(10, 80, brNodeNum - 1).ToList();
+      var verAngleIncrement = Utils.ToRadian(70) / (brNodeNum - 1);
+
+      var curDir = mPln.YAxis;
+
+      if (mPhase <= 4)
+      {
+        for (int i = 1; i <= mPhase; i++)
+        {
+          if (i == 1)
+          {
+            var firstPhaseIter = 0;
+            while (firstPhaseIter++ < 2)
+            {
+              var posRatio = brStartRatio + firstPhaseIter * 0.1;
+
+              // branch node point
+              var pt = baseNode.mBranch[0].PointAt(posRatio);
+              var node = new BranchNode3D(i, pt);
+
+              for (int j = 0; j < seqNum; j++)
+              {
+                // length of the branch
+                var len = mBaseLen * (0.1 + 0.5 * (1 - posRatio));
+
+                // rotate 120 degree in XY-plane, and a few degree vertically
+                var horRotRadian = Math.PI * 2 / seqNum;
+                curDir.Rotate(horRotRadian, mPln.ZAxis);
+
+                var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
+                curDir.Rotate(verAngleIncrement, verRotAxis);
+
+                node.AddBranchAlong(curDir * len);
+                mAllNode.Add(node);
+              }
+              curDir.Rotate(Utils.balRnd.NextDouble() * Math.PI, mPln.ZAxis);
+            }
+          }
+          else
+          {
+
+          }
+
+          //var vec = mPln.YAxis;
+          //vec.Rotate(Utils.ToRadian(120 * i), mPln.ZAxis);
+          //var newBranch = new BranchNode3D(curPhase, curNode.mNode + trunkLen * vec);
+          //newBranch.AddBranchAlong(trunkLen * mPln.ZAxis);
+        }
+      }
+
+
+
+      // ! phase 5-8
+
+
+      // ! phase 9-11
+
+
+      // ! phase 12
+
+
+      //var treeTrunk = new Line(mPln.Origin, mPln.Origin + mBaseLen * mPln.YAxis).ToNurbsCurve();
+      //treeTrunk.Domain = new Interval(0.0, 1.0);
+
+      //var treeBot = treeTrunk.PointAtStart;
+      //var treeTop = treeTrunk.PointAtEnd;
+
+      //var startRatio = 0.1;
+      //var seq = Utils.Range(startRatio, 1, numLayer - 1).ToList();
+
+      //List<double> remapT = seq.Select(x => Math.Sqrt(x)).ToList();
+      //List<Curve> trunkCol = remapT.Select(x => new Line(treeBot, mPln.Origin + mHeight * x * mPln.YAxis).ToNurbsCurve() as Curve).ToList();
+
+
+      //foreach (var (t, i) in trunkCol.Select((t, i) => (t, i)))
+      //{
+      //}
+
+      return true;
+    }
+
+    public void GetBranch(ref Dictionary<int, List<Curve>> branchCollection)
+    {
+      branchCollection = new Dictionary<int, List<Curve>>();
+      foreach (var node in mAllNode)
+      {
+        if (branchCollection.ContainsKey(node.mNodePhase))
+          branchCollection[node.mNodePhase].AddRange(node.mBranch);
+        else
+          branchCollection.Add(node.mNodePhase, node.mBranch);
+      }
+    }
+
+    // tree core param
+    public double mBaseLen = 10;
+
+    public Plane mPln { get; set; }
+
+    public int mPhase;
+    public double mScale;
+
+    // curve collection
+    public List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
+    public List<string> mMmsg { get; set; } = new List<string>();
   }
 
 }

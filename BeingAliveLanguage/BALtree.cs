@@ -1,5 +1,7 @@
 ﻿using GH_IO.Serialization;
+using Grasshopper;
 using Grasshopper.Kernel;
+using Grasshopper.Kernel.Data;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
@@ -8,6 +10,9 @@ using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
+  /// <summary>
+  /// 2D version of the tree component.
+  /// </summary>
   public class BALtree : GH_Component
   {
     public BALtree()
@@ -207,7 +212,9 @@ namespace BeingAliveLanguage
     }
   }
 
-
+  /// <summary>
+  /// The 3D version of the tree component.
+  /// </summary>
   public class BALtree3D : GH_Component
   {
     public BALtree3D()
@@ -223,14 +230,14 @@ namespace BeingAliveLanguage
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
     {
       pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.list, Plane.WorldXY);
-      pManager.AddNumberParameter("Height", "H", "Height of the tree.", GH_ParamAccess.list);
-      pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree.", GH_ParamAccess.list);
+      pManager.AddNumberParameter("Scale", "S", "Scale of the tree.", GH_ParamAccess.list);
+      pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree's growth.", GH_ParamAccess.list);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
     {
-      pManager.AddCurveParameter("Circumference", "C", "Circumference Ellipses that controls the boundary of the tree.", GH_ParamAccess.list);
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
+      pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
       //pManager.AddCurveParameter("Canopy", "C", "Tree canopy curves.", GH_ParamAccess.tree);
       //pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
       //pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
@@ -242,4 +249,113 @@ namespace BeingAliveLanguage
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
+      var plnLst = new List<Plane>();
+      if (!DA.GetDataList("Plane", plnLst))
+      { return; }
+
+      var scaleLst = new List<double>();
+      if (!DA.GetDataList("Scale", scaleLst))
+      { return; }
+
+      foreach (var s in scaleLst)
+      {
+        if (s <= 0)
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Scale should be positive.");
+          return;
+        }
+      };
+
+      var phaseLst = new List<int>();
+      if (!DA.GetDataList("Phase", phaseLst))
+      { return; }
+
+      foreach (var p in phaseLst)
+      {
+        if (p < 0)
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase should be non-negative.");
+          return;
+        }
+      };
+
+      //var circ = new List<Curve>();
+      //var canopy = new List<Curve>();
+      //var trunk = new List<Curve>();
+      //var sideB = new List<Curve>();
+      //var topB = new List<Curve>();
+      //var babyB = new List<Curve>();
+      //var tInfoLst = new List<TreeProperty>();
+
+      //! 1. determine horizontal scaling factor of the trees
+      //var tscal = new List<Tuple<double, double>>();
+      var distLst = new List<double>();
+      //var treeCol = new List<Tree>();
+      Dictionary<int, List<Curve>> branchCol = new Dictionary<int, List<Curve>>();
+
+      if (plnLst.Count == 0)
+        return;
+      else if (plnLst.Count >= 1)
+      {
+        if (scaleLst.Count == 1)
+          scaleLst = Enumerable.Repeat(scaleLst[0], plnLst.Count).ToList();
+        else if (scaleLst.Count != plnLst.Count)
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Height # does not match Plane #, please check.");
+        }
+
+        if (phaseLst.Count == 1)
+          phaseLst = Enumerable.Repeat(phaseLst[0], plnLst.Count).ToList();
+        else if (phaseLst.Count != plnLst.Count)
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase # does not match Plane #, please check.");
+        }
+
+        // ! sort root location 
+        plnLst.Sort((pln0, pln1) =>
+        {
+          Vector3d res = pln0.Origin - pln1.Origin;
+          if (Math.Abs(res[0]) > 1e-5)
+            return pln0.OriginX.CompareTo(pln1.OriginX);
+          else if (Math.Abs(res[1]) > 1e-5)
+            return pln0.OriginY.CompareTo(pln1.OriginY);
+          else // align on z axis or overlap, use the same criteria
+            return pln0.OriginZ.CompareTo(pln1.OriginZ);
+        });
+
+        // after list length check:
+        //for (int i = 0; i < plnLst.Count - 1; i++)
+        //{
+        //  var dis = Math.Abs(plnLst[i].Origin.DistanceTo(plnLst[i + 1].Origin));
+        //  distLst.Add(dis);
+        //}
+
+        //! 2. draw the trees, collect tree width
+        foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
+        {
+          var t = new Tree3D(pln, scaleLst[i]);
+          t.Generate(phaseLst[i]);
+          t.GetBranch(ref branchCol);
+          //var res = t.Draw(phaseLst[i]);
+
+          //if (!res.Item1)
+          //{
+          //  AddRuntimeMessage(GH_RuntimeMessageLevel.Error, res.Item2);
+          //  return;
+          //}
+
+          //treeCol.Add(t);
+          //widCol.Add(t.CalWidth());
+        }
+      }
+
+      // collection branches
+      DataTree<Curve> brCrv = new DataTree<Curve>();
+      foreach (var br in branchCol)
+      {
+        brCrv.AddRange(br.Value, new GH_Path(br.Key));
+      }
+      DA.SetDataTree(1, brCrv);
+    }
+  }
 }
