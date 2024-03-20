@@ -4,6 +4,7 @@ using Rhino.Geometry.Intersect;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 
 namespace BeingAliveLanguage
 {
@@ -535,10 +536,11 @@ namespace BeingAliveLanguage
   class BranchNode3D
   {
     public BranchNode3D() { }
-    public BranchNode3D(int phase, in Point3d node)
+    public BranchNode3D(int phase, in Point3d node, bool dieable = true)
     {
       mNode = node;
       mNodePhase = phase;
+      flagDieable = dieable;
     }
 
     public void AddBranchAlong(Vector3d vec)
@@ -548,8 +550,33 @@ namespace BeingAliveLanguage
       mBranch.Add(tmpLen);
     }
 
-    public int mNodePhase = -1;
+    public void GrowToPhase(int phase)
+    {
+      if (phase <= mNodePhase)
+      {
+        // no grow backwards
+        return;
+      }
+      else if (phase - mNodePhase < 3)
+      {
+        mBranch.ForEach(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.1, phase - mNodePhase) * (x.PointAtEnd - x.PointAtStart)));
+      }
+      else if (phase - mNodePhase == 3)
+      {
+        mBranch.ForEach(x => new Line(x.PointAtStart, x.PointAtStart + 0.5 * (x.PointAtEnd - x.PointAtStart)));
+      }
+      else if (phase - mNodePhase > 3)
+      {
+        if (!flagDieable)
+          mBranch.Clear();
+      }
+
+    }
+
     Point3d mNode = new Point3d();
+    public int mNodePhase = -1;
+    public bool flagDieable = true;
+
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
 
@@ -582,92 +609,78 @@ namespace BeingAliveLanguage
 
       // main trunk
       var trunkLen = mPhase < 4 ? mBaseLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mBaseLen) : mBaseLen;
-      var baseNode = new BranchNode3D(0, mPln.Origin);
+      var baseNode = new BranchNode3D(0, mPln.Origin, false);
       baseNode.AddBranchAlong(trunkLen * mPln.ZAxis);
       mAllNode.Add(baseNode);
 
       // ! phase 1-4
-      var brStartRatio = 0.5;
-      var seqNum = 4;
-      var brNodeNum = seqNum * (2 + mPhase);
-      var ratioSeq = Utils.Range(brStartRatio, 1, brNodeNum - 1).ToList();
-      //var verAngleSeq = Utils.Range(10, 80, brNodeNum - 1).ToList();
-      var verAngleIncrement = Utils.ToRadian(70) / (brNodeNum - 1);
+      var brStartRatio = 0.4;
+      var numBranchPerLayer = 6;
 
       var curDir = mPln.YAxis;
 
-      if (mPhase <= 4)
+
+      // ! phase 1-4
+      if (mPhase > 0 && mPhase <= 4)
       {
-        for (int i = 1; i <= mPhase; i++)
+        var totalLayer = 2 * mPhase + 1;
+        var verAngleIncrement = Utils.ToRadian(70) / totalLayer;
+
+        var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
+        var perturbAngle = Utils.balRnd.NextDouble() * verAngleIncrement;
+        curDir.Rotate(verAngleIncrement, verRotAxis);
+
+        for (int i = 1; i <= totalLayer; i++)
         {
-          if (i == 1)
+          int curPhase = (i - 1) / 2;
+
+          for (int n = 0; n < numBranchPerLayer; n++)
           {
-            var firstPhaseIter = 0;
-            while (firstPhaseIter++ < 2)
-            {
-              var posRatio = brStartRatio + firstPhaseIter * 0.1;
+            var posR = Utils.remap(i, 0, totalLayer, brStartRatio, 1);
+            var pt = baseNode.mBranch[0].PointAt(posR);
+            var node = new BranchNode3D(curPhase, pt);
 
-              // branch node point
-              var pt = baseNode.mBranch[0].PointAt(posRatio);
-              var node = new BranchNode3D(i, pt);
+            // length of the branch
+            //var len = mBaseLen * (0.1 + 0.3 * (1 - posR));
+            var len = mBaseLen * 0.2;
 
-              for (int j = 0; j < seqNum; j++)
-              {
-                // length of the branch
-                var len = mBaseLen * (0.1 + 0.5 * (1 - posRatio));
+            // rotate 120 degree in XY-plane, and a few degree vertically
+            var horRotRadian = Math.PI * 2 / numBranchPerLayer;
+            curDir.Rotate(horRotRadian, mPln.ZAxis);
 
-                // rotate 120 degree in XY-plane, and a few degree vertically
-                var horRotRadian = Math.PI * 2 / seqNum;
-                curDir.Rotate(horRotRadian, mPln.ZAxis);
-
-                var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
-                curDir.Rotate(verAngleIncrement, verRotAxis);
-
-                node.AddBranchAlong(curDir * len);
-                mAllNode.Add(node);
-              }
-              curDir.Rotate(Utils.balRnd.NextDouble() * Math.PI, mPln.ZAxis);
-            }
-          }
-          else
-          {
+            node.AddBranchAlong(curDir * len);
+            mAllNode.Add(node);
 
           }
-
-          //var vec = mPln.YAxis;
-          //vec.Rotate(Utils.ToRadian(120 * i), mPln.ZAxis);
-          //var newBranch = new BranchNode3D(curPhase, curNode.mNode + trunkLen * vec);
-          //newBranch.AddBranchAlong(trunkLen * mPln.ZAxis);
+          curDir.Rotate(verAngleIncrement, verRotAxis);
+          curDir.Rotate(Utils.balRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
         }
+      }
+      // ! phase 5-8
+      else if (mPhase > 4 && mPhase <= 8)
+      {
+
+      }
+      // ! phase 9-11
+      else if (mPhase > 8 && mPhase <= 11)
+      {
+
+      }
+      // ! phase 12
+      else if (mPhase == 12)
+      {
+
       }
 
 
+      foreach (var node in mAllNode)
+      {
+        if (node.mNodePhase != mPhase)
+        {
+          node.GrowToPhase(mPhase);
+        }
+      }
 
-      // ! phase 5-8
-
-
-      // ! phase 9-11
-
-
-      // ! phase 12
-
-
-      //var treeTrunk = new Line(mPln.Origin, mPln.Origin + mBaseLen * mPln.YAxis).ToNurbsCurve();
-      //treeTrunk.Domain = new Interval(0.0, 1.0);
-
-      //var treeBot = treeTrunk.PointAtStart;
-      //var treeTop = treeTrunk.PointAtEnd;
-
-      //var startRatio = 0.1;
-      //var seq = Utils.Range(startRatio, 1, numLayer - 1).ToList();
-
-      //List<double> remapT = seq.Select(x => Math.Sqrt(x)).ToList();
-      //List<Curve> trunkCol = remapT.Select(x => new Line(treeBot, mPln.Origin + mHeight * x * mPln.YAxis).ToNurbsCurve() as Curve).ToList();
-
-
-      //foreach (var (t, i) in trunkCol.Select((t, i) => (t, i)))
-      //{
-      //}
 
       return true;
     }
