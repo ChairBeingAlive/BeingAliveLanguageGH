@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Security.Principal;
 
 namespace BeingAliveLanguage
 {
@@ -543,6 +544,13 @@ namespace BeingAliveLanguage
       mNodePhase = phase;
     }
 
+    public BranchNode3D(int phase, in Point3d node, bool permanent = false)
+    {
+      mNode = node;
+      mNodePhase = phase;
+      flagPermanent = permanent;
+    }
+
     public void AddBranchAlong(Vector3d vec)
     {
       var tmpLen = new Line(mNode, mNode + vec).ToNurbsCurve();
@@ -554,7 +562,7 @@ namespace BeingAliveLanguage
     {
       int phaseDiff = phase - mNodePhase;
 
-      if (!mPermanent)
+      if (!flagPermanent)
       {
         if (phaseDiff <= 0)
         {
@@ -580,12 +588,18 @@ namespace BeingAliveLanguage
 
     public void TogglePermanent()
     {
-      mPermanent = !mPermanent;
+      flagPermanent = !flagPermanent;
+    }
+
+    public void ToggleEndNode()
+    {
+      flagEndNode = !flagEndNode;
     }
 
     Point3d mNode = new Point3d();
     public int mNodePhase = -1;
-    bool mPermanent { get; set; } = false;
+    public bool flagPermanent { get; set; } = false;
+    public bool flagEndNode { get; set; } = true;
 
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
@@ -680,38 +694,76 @@ namespace BeingAliveLanguage
         // lock nodes that started from phase 3 to be eternal node
         foreach (var node in mAllNode)
         {
-          if (node.mNodePhase > 2)
+          if (node.mNodePhase > 1)
           {
             node.TogglePermanent();
           }
         }
+
+        // ! phase 5-8
+        if (mPhase > 4 && mPhase <= 8)
+        {
+          for (int curPhase = 5; curPhase <= mPhase; curPhase++)
+          {
+            // for each end node, branch out several new branches
+            var newNodeCollection = new List<BranchNode3D>();
+            foreach (var node in mAllNode)
+            {
+              // ignore lower phase node, and non-end node
+              if (node.mNodePhase < 2 || !node.flagEndNode)
+                continue;
+
+              // auxilary line from Curve -> Line
+              var parentLn = new Line(node.mBranch[0].PointAtStart, node.mBranch[0].PointAtEnd);
+
+              var pt = parentLn.To;
+              var initDir = parentLn.Direction;
+
+              // get a perpendicular vector to the current direction
+              var perpVec = Vector3d.CrossProduct(initDir, mPln.ZAxis);
+              initDir.Rotate(Math.PI * 0.2, perpVec);
+
+              for (int n = 0; n < numBranchPerBranch; n++)
+              {
+                var newNode = new BranchNode3D(curPhase, pt);
+                var newLenth = parentLn.Length * 0.5;
+
+                initDir.Rotate(Math.PI * 2 / numBranchPerBranch, parentLn.Direction);
+
+                initDir.Unitize();
+                newNode.AddBranchAlong(initDir * newLenth);
+                newNodeCollection.Add(newNode);
+
+                // todo: not sure should do here
+                newNode.TogglePermanent();
+              }
+              node.ToggleEndNode();
+            }
+
+            // after the loop, add the new nodes to the allNode collection
+            mAllNode.AddRange(newNodeCollection);
+          }
+        }
+        // ! phase 9-11
+        else if (mPhase > 8 && mPhase <= 11)
+        {
+
+        }
+        // ! phase 12
+        else if (mPhase == 12)
+        {
+
+        }
+
+        foreach (var node in mAllNode)
+        {
+          if (node.mNodePhase != mPhase)
+          {
+            node.GrowToPhase(mPhase);
+          }
+        }
+
       }
-
-      // ! phase 5-8
-      if (mPhase > 4 && mPhase <= 8)
-      {
-
-
-      }
-      // ! phase 9-11
-      else if (mPhase > 8 && mPhase <= 11)
-      {
-
-      }
-      // ! phase 12
-      else if (mPhase == 12)
-      {
-
-      }
-
-      //foreach (var node in mAllNode)
-      //{
-      //  if (node.mNodePhase != mPhase)
-      //  {
-      //    node.GrowToPhase(mPhase);
-      //  }
-      //}
-
 
       return true;
     }
