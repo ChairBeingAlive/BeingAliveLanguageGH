@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics.Optimization;
+﻿using Grasshopper.Kernel.Expressions;
+using MathNet.Numerics.Optimization;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using System;
@@ -536,11 +537,10 @@ namespace BeingAliveLanguage
   class BranchNode3D
   {
     public BranchNode3D() { }
-    public BranchNode3D(int phase, in Point3d node, bool dieable = true)
+    public BranchNode3D(int phase, in Point3d node)
     {
       mNode = node;
       mNodePhase = phase;
-      flagDieable = dieable;
     }
 
     public void AddBranchAlong(Vector3d vec)
@@ -557,25 +557,51 @@ namespace BeingAliveLanguage
         // no grow backwards
         return;
       }
-      else if (phase - mNodePhase < 3)
+
+      int phaseDiff = phase - mNodePhase;
+
+      switch (phaseDiff)
       {
-        mBranch.ForEach(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.1, phase - mNodePhase) * (x.PointAtEnd - x.PointAtStart)));
+        case 1:
+          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.1, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+          break;
+
+        case 2:
+          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.05, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+          break;
+
+        case 3:
+          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(0.95, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+          break;
+
+        case 4:
+          mBranch.Clear();
+          break;
+
+        default:
+          break;
+
+      }
+
+      if (phaseDiff < 3)
+      {
+        mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.2, phase - mNodePhase) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+        //mBranch.ForEach(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.3, phase - mNodePhase) * (x.PointAtEnd - x.PointAtStart)));
       }
       else if (phase - mNodePhase == 3)
       {
-        mBranch.ForEach(x => new Line(x.PointAtStart, x.PointAtStart + 0.5 * (x.PointAtEnd - x.PointAtStart)));
+        mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + 0.5 * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+        //mBranch.ForEach(x => new Line(x.PointAtStart, x.PointAtStart + 0.5 * (x.PointAtEnd - x.PointAtStart)));
       }
       else if (phase - mNodePhase > 3)
       {
-        if (!flagDieable)
-          mBranch.Clear();
+        mBranch.Clear();
       }
 
     }
 
     Point3d mNode = new Point3d();
     public int mNodePhase = -1;
-    public bool flagDieable = true;
 
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
@@ -588,10 +614,6 @@ namespace BeingAliveLanguage
     {
       mPln = pln;
       mScale = scale;
-
-      //maxStdR = height * 0.5;
-      //minStdR = height * treeSepParam * 0.5;
-      //stepR = (maxStdR - minStdR) / (numLayer - 1);
     }
 
     /// <summary>
@@ -609,22 +631,19 @@ namespace BeingAliveLanguage
 
       // main trunk
       var trunkLen = mPhase < 4 ? mBaseLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mBaseLen) : mBaseLen;
-      var baseNode = new BranchNode3D(0, mPln.Origin, false);
-      baseNode.AddBranchAlong(trunkLen * mPln.ZAxis);
-      mAllNode.Add(baseNode);
+      mBaseNode = new BranchNode3D(0, mPln.Origin);
+      mBaseNode.AddBranchAlong(trunkLen * mPln.ZAxis);
+      //mAllNode.Add(baseNode);
 
-      // ! phase 1-4
       var brStartRatio = 0.4;
       var numBranchPerLayer = 6;
-
       var curDir = mPln.YAxis;
-
 
       // ! phase 1-4
       if (mPhase > 0 && mPhase <= 4)
       {
         var totalLayer = 2 * mPhase + 1;
-        var verAngleIncrement = Utils.ToRadian(70) / totalLayer;
+        var verAngleIncrement = Utils.ToRadian(40) / totalLayer;
 
         var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
         var perturbAngle = Utils.balRnd.NextDouble() * verAngleIncrement;
@@ -637,14 +656,14 @@ namespace BeingAliveLanguage
           for (int n = 0; n < numBranchPerLayer; n++)
           {
             var posR = Utils.remap(i, 0, totalLayer, brStartRatio, 1);
-            var pt = baseNode.mBranch[0].PointAt(posR);
+            var pt = mBaseNode.mBranch[0].PointAt(posR);
             var node = new BranchNode3D(curPhase, pt);
 
             // length of the branch
             //var len = mBaseLen * (0.1 + 0.3 * (1 - posR));
             var len = mBaseLen * 0.2;
 
-            // rotate 120 degree in XY-plane, and a few degree vertically
+            // rotate in XY-plane
             var horRotRadian = Math.PI * 2 / numBranchPerLayer;
             curDir.Rotate(horRotRadian, mPln.ZAxis);
 
@@ -652,7 +671,10 @@ namespace BeingAliveLanguage
             mAllNode.Add(node);
 
           }
+          // for the next layer, rotate vertically as the layers goes up
+          verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
           curDir.Rotate(verAngleIncrement, verRotAxis);
+          // also rotate the starting position so that two layers don't overlap
           curDir.Rotate(Utils.balRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
         }
       }
@@ -687,7 +709,7 @@ namespace BeingAliveLanguage
 
     public void GetBranch(ref Dictionary<int, List<Curve>> branchCollection)
     {
-      branchCollection = new Dictionary<int, List<Curve>>();
+      //branchCollection = new Dictionary<int, List<Curve>>();
       foreach (var node in mAllNode)
       {
         if (branchCollection.ContainsKey(node.mNodePhase))
@@ -695,6 +717,12 @@ namespace BeingAliveLanguage
         else
           branchCollection.Add(node.mNodePhase, node.mBranch);
       }
+    }
+
+    public List<Curve> GetTrunk()
+    {
+      return mBaseNode.mBranch;
+
     }
 
     // tree core param
@@ -706,6 +734,7 @@ namespace BeingAliveLanguage
     public double mScale;
 
     // curve collection
+    BranchNode3D mBaseNode;
     public List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
     public List<string> mMmsg { get; set; } = new List<string>();
   }

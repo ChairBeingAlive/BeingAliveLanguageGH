@@ -292,6 +292,7 @@ namespace BeingAliveLanguage
       var distLst = new List<double>();
       //var treeCol = new List<Tree>();
       Dictionary<int, List<Curve>> branchCol = new Dictionary<int, List<Curve>>();
+      Dictionary<int, List<Curve>> trunkCol = new Dictionary<int, List<Curve>>();
 
       if (plnLst.Count == 0)
         return;
@@ -336,6 +337,7 @@ namespace BeingAliveLanguage
           var t = new Tree3D(pln, scaleLst[i]);
           t.Generate(phaseLst[i]);
           t.GetBranch(ref branchCol);
+          trunkCol.Add(i, t.GetTrunk());
           //var res = t.Draw(phaseLst[i]);
 
           //if (!res.Item1)
@@ -349,12 +351,21 @@ namespace BeingAliveLanguage
         }
       }
 
+      // collection trunk
+      DataTree<Curve> trCrv = new DataTree<Curve>();
+      foreach (var tr in trunkCol)
+      {
+        trCrv.AddRange(tr.Value, new GH_Path(tr.Key));
+      }
+
       // collection branches
       DataTree<Curve> brCrv = new DataTree<Curve>();
       foreach (var br in branchCol)
       {
         brCrv.AddRange(br.Value, new GH_Path(br.Key));
       }
+
+      DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);
     }
   }
