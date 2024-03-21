@@ -552,56 +552,40 @@ namespace BeingAliveLanguage
 
     public void GrowToPhase(int phase)
     {
-      if (phase <= mNodePhase)
-      {
-        // no grow backwards
-        return;
-      }
-
       int phaseDiff = phase - mNodePhase;
 
-      switch (phaseDiff)
+      if (!mPermanent)
       {
-        case 1:
-          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.1, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-          break;
+        if (phaseDiff <= 0)
+        {
+          return;
+        }
 
-        case 2:
-          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.05, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-          break;
+        if (phaseDiff < 3)
+        {
+          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.2, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+        }
 
-        case 3:
-          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(0.95, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-          break;
+        if (phaseDiff == 3)
+        {
+          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(0.8, phaseDiff - 2) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+        }
 
-        case 4:
+        if (phaseDiff > 3)
+        {
           mBranch.Clear();
-          break;
-
-        default:
-          break;
-
+        }
       }
+    }
 
-      if (phaseDiff < 3)
-      {
-        mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.2, phase - mNodePhase) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-        //mBranch.ForEach(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.3, phase - mNodePhase) * (x.PointAtEnd - x.PointAtStart)));
-      }
-      else if (phase - mNodePhase == 3)
-      {
-        mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + 0.5 * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-        //mBranch.ForEach(x => new Line(x.PointAtStart, x.PointAtStart + 0.5 * (x.PointAtEnd - x.PointAtStart)));
-      }
-      else if (phase - mNodePhase > 3)
-      {
-        mBranch.Clear();
-      }
-
+    public void TogglePermanent()
+    {
+      mPermanent = !mPermanent;
     }
 
     Point3d mNode = new Point3d();
     public int mNodePhase = -1;
+    bool mPermanent { get; set; } = false;
 
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
@@ -637,50 +621,76 @@ namespace BeingAliveLanguage
 
       var brStartRatio = 0.4;
       var numBranchPerLayer = 6;
+      var numBranchPerBranch = 3;
       var curDir = mPln.YAxis;
 
-      // ! phase 1-4
-      if (mPhase > 0 && mPhase <= 4)
+      // ! phase 1-4: base phase, always needed
+      //if (mPhase > 0 && mPhase <= 4)
+      //{
+      // auxiliary phase variable
+      var phasePeriodOne = mPhase <= 4 ? mPhase : 4;
+
+      var totalLayer = 2 * phasePeriodOne + 1;
+      var verAngleIncrement = Utils.ToRadian(55) / totalLayer;
+
+      var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
+      var perturbAngle = Utils.balRnd.NextDouble() * verAngleIncrement;
+      curDir.Rotate(verAngleIncrement, verRotAxis);
+
+      for (int i = 1; i <= totalLayer; i++)
       {
-        var totalLayer = 2 * mPhase + 1;
-        var verAngleIncrement = Utils.ToRadian(40) / totalLayer;
+        int curPhase = (i - 1) / 2;
 
-        var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
-        var perturbAngle = Utils.balRnd.NextDouble() * verAngleIncrement;
-        curDir.Rotate(verAngleIncrement, verRotAxis);
-
-        for (int i = 1; i <= totalLayer; i++)
+        for (int n = 0; n < numBranchPerLayer; n++)
         {
-          int curPhase = (i - 1) / 2;
+          var posR = Utils.remap(i, 0, totalLayer, brStartRatio, 1);
+          var pt = mBaseNode.mBranch[0].PointAt(posR);
+          var node = new BranchNode3D(curPhase, pt);
 
-          for (int n = 0; n < numBranchPerLayer; n++)
-          {
-            var posR = Utils.remap(i, 0, totalLayer, brStartRatio, 1);
-            var pt = mBaseNode.mBranch[0].PointAt(posR);
-            var node = new BranchNode3D(curPhase, pt);
+          // length of the branch
+          //var len = mBaseLen * (0.1 + 0.3 * (1 - posR));
+          var len = mBaseLen * 0.15;
 
-            // length of the branch
-            //var len = mBaseLen * (0.1 + 0.3 * (1 - posR));
-            var len = mBaseLen * 0.2;
+          // rotate in XY-plane
+          var horRotRadian = Math.PI * 2 / numBranchPerLayer;
+          curDir.Rotate(horRotRadian, mPln.ZAxis);
 
-            // rotate in XY-plane
-            var horRotRadian = Math.PI * 2 / numBranchPerLayer;
-            curDir.Rotate(horRotRadian, mPln.ZAxis);
+          node.AddBranchAlong(curDir * len);
+          mAllNode.Add(node);
 
-            node.AddBranchAlong(curDir * len);
-            mAllNode.Add(node);
+        }
+        // for the next layer, rotate vertically as the layers goes up
+        verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
+        curDir.Rotate(verAngleIncrement, verRotAxis);
+        // also rotate the starting position so that two layers don't overlap
+        curDir.Rotate(Utils.balRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
+      }
+      //}
 
-          }
-          // for the next layer, rotate vertically as the layers goes up
-          verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
-          curDir.Rotate(verAngleIncrement, verRotAxis);
-          // also rotate the starting position so that two layers don't overlap
-          curDir.Rotate(Utils.balRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
+      foreach (var node in mAllNode)
+      {
+        if (node.mNodePhase != mPhase)
+        {
+          node.GrowToPhase(phasePeriodOne);
         }
       }
-      // ! phase 5-8
-      else if (mPhase > 4 && mPhase <= 8)
+
+      if (mPhase > 4)
       {
+        // lock nodes that started from phase 3 to be eternal node
+        foreach (var node in mAllNode)
+        {
+          if (node.mNodePhase > 2)
+          {
+            node.TogglePermanent();
+          }
+        }
+      }
+
+      // ! phase 5-8
+      if (mPhase > 4 && mPhase <= 8)
+      {
+
 
       }
       // ! phase 9-11
@@ -694,14 +704,13 @@ namespace BeingAliveLanguage
 
       }
 
-
-      foreach (var node in mAllNode)
-      {
-        if (node.mNodePhase != mPhase)
-        {
-          node.GrowToPhase(mPhase);
-        }
-      }
+      //foreach (var node in mAllNode)
+      //{
+      //  if (node.mNodePhase != mPhase)
+      //  {
+      //    node.GrowToPhase(mPhase);
+      //  }
+      //}
 
 
       return true;

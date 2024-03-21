@@ -279,14 +279,6 @@ namespace BeingAliveLanguage
         }
       };
 
-      //var circ = new List<Curve>();
-      //var canopy = new List<Curve>();
-      //var trunk = new List<Curve>();
-      //var sideB = new List<Curve>();
-      //var topB = new List<Curve>();
-      //var babyB = new List<Curve>();
-      //var tInfoLst = new List<TreeProperty>();
-
       //! 1. determine horizontal scaling factor of the trees
       //var tscal = new List<Tuple<double, double>>();
       var distLst = new List<double>();
