@@ -1,7 +1,11 @@
-﻿using Grasshopper.Kernel.Expressions;
+﻿using Grasshopper.GUI.SettingsControls;
+using Grasshopper.Kernel.Expressions;
 using MathNet.Numerics.Optimization;
+using MathNet.Numerics.Random;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
+using Rhino.NodeInCode;
+using Rhino.Render;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -538,15 +542,19 @@ namespace BeingAliveLanguage
   class BranchNode3D
   {
     public BranchNode3D() { }
-    public BranchNode3D(int phase, in Point3d node)
+    public BranchNode3D(int id, int phase, in Point3d node)
     {
       mNode = node;
+
+      mID = id;
       mNodePhase = phase;
     }
 
-    public BranchNode3D(int phase, in Point3d node, bool permanent = false)
+    public BranchNode3D(int id, int phase, in Point3d node, bool permanent = false)
     {
       mNode = node;
+
+      mID = id;
       mNodePhase = phase;
       flagPermanent = permanent;
     }
@@ -569,21 +577,44 @@ namespace BeingAliveLanguage
           return;
         }
 
-        if (phaseDiff < 3)
+        if (phaseDiff <= 3)
         {
           mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.2, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
         }
 
-        if (phaseDiff == 3)
-        {
-          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(0.8, phaseDiff - 2) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-        }
+        //if (phaseDiff == 3)
+        //{
+        //  mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(0.8, phaseDiff - 2) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+        //}
 
         if (phaseDiff > 3)
         {
           mBranch.Clear();
         }
       }
+    }
+
+    public int TurnOff(Dictionary<int, HashSet<int>> branchRelation, List<BranchNode3D> allNodes)
+    {
+      int totalAffectedBranch = 0;
+      if (flagShow == false)
+      {
+        return 0;
+      }
+
+      flagShow = false;
+      totalAffectedBranch++;
+
+      // recursively toggle all sub branches
+      if (branchRelation.ContainsKey(mID))
+      {
+        foreach (var idx in branchRelation[mID])
+        {
+          totalAffectedBranch += allNodes[idx].TurnOff(branchRelation, allNodes);
+        }
+      }
+
+      return totalAffectedBranch;
     }
 
     public void TogglePermanent()
@@ -598,8 +629,11 @@ namespace BeingAliveLanguage
 
     Point3d mNode = new Point3d();
     public int mNodePhase = -1;
+
+    public int mID = -1;
     public bool flagPermanent { get; set; } = false;
     public bool flagEndNode { get; set; } = true;
+    public bool flagShow = true;
 
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
@@ -608,10 +642,11 @@ namespace BeingAliveLanguage
   {
     public Tree3D() { }
 
-    public Tree3D(Plane pln, double scale)
+    public Tree3D(Plane pln, double scale, int seed = 0)
     {
       mPln = pln;
       mScale = scale;
+      mRnd = new Random(seed);
     }
 
     /// <summary>
@@ -622,33 +657,63 @@ namespace BeingAliveLanguage
     /// phase 9-11: dying tree, growing with branching
     /// phase 12: dead tree, no growth
     /// </summary>
-    public bool Generate(int phase)
+    public bool Generate(int phase, double angle)
     {
-      // record phase
       mPhase = phase;
+      mAngle = angle;
+      mBranchRelation.Clear();
+
+      GrowPhase1();
+
+      if (mPhase > mStage1)
+      {
+        // lock nodes that started from phase 3 to be eternal node
+        foreach (var node in mAllNode)
+        {
+          node.TogglePermanent();
+        }
+
+        GrowPhase2();
+      }
+
+      if (mPhase > mStage2)
+      {
+        GrowPhase3();
+      }
+
+      if (mPhase > mStage3)
+      {
+        GrowPhase4();
+      }
+
+      return true;
+    }
+
+
+    public void GrowPhase1()
+    {
+      // auxiliary phase variable
+      var auxPhaseS1 = mPhase <= mStage1 ? mPhase : mStage1;
 
       // main trunk
       var trunkLen = mPhase < 4 ? mBaseLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mBaseLen) : mBaseLen;
-      mBaseNode = new BranchNode3D(0, mPln.Origin);
-      mBaseNode.AddBranchAlong(trunkLen * mPln.ZAxis);
-      //mAllNode.Add(baseNode);
+      mBaseNode = new BranchNode3D(0, 0, mPln.Origin);
+      //mBranchRelation.Add(0, new HashSet<int>());
 
-      var brStartRatio = 0.4;
+      mBaseNode.AddBranchAlong(trunkLen * mPln.ZAxis);
+
+      var brStartRatio = 0.3;
       var numBranchPerLayer = 6;
-      var numBranchPerBranch = 3;
       var curDir = mPln.YAxis;
 
       // ! phase 1-4: base phase, always needed
-      //if (mPhase > 0 && mPhase <= 4)
-      //{
-      // auxiliary phase variable
-      var phasePeriodOne = mPhase <= 4 ? mPhase : 4;
 
-      var totalLayer = 2 * phasePeriodOne + 1;
+      var totalLayer = 2 * auxPhaseS1 + 1;
       var verAngleIncrement = Utils.ToRadian(55) / totalLayer;
 
+
       var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
-      var perturbAngle = Utils.balRnd.NextDouble() * verAngleIncrement;
+      //var perturbAngle = mRnd.NextDouble() * verAngleIncrement;
       curDir.Rotate(verAngleIncrement, verRotAxis);
 
       for (int i = 1; i <= totalLayer; i++)
@@ -659,7 +724,8 @@ namespace BeingAliveLanguage
         {
           var posR = Utils.remap(i, 0, totalLayer, brStartRatio, 1);
           var pt = mBaseNode.mBranch[0].PointAt(posR);
-          var node = new BranchNode3D(curPhase, pt);
+          var node = new BranchNode3D(mAllNode.Count, curPhase, pt);
+
 
           // length of the branch
           //var len = mBaseLen * (0.1 + 0.3 * (1 - posR));
@@ -672,12 +738,18 @@ namespace BeingAliveLanguage
           node.AddBranchAlong(curDir * len);
           mAllNode.Add(node);
 
+          // add a item in the relationship dict, and add the node to the parent node relationship
+          if (!mBranchRelation.ContainsKey(node.mID))
+            mBranchRelation.Add(node.mID, new HashSet<int>());
+          mBranchRelation[mBaseNode.mID].Add(node.mID);
+
+
         }
         // for the next layer, rotate vertically as the layers goes up
         verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
         curDir.Rotate(verAngleIncrement, verRotAxis);
         // also rotate the starting position so that two layers don't overlap
-        curDir.Rotate(Utils.balRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
+        curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
       }
       //}
 
@@ -685,87 +757,132 @@ namespace BeingAliveLanguage
       {
         if (node.mNodePhase != mPhase)
         {
-          node.GrowToPhase(phasePeriodOne);
+          node.GrowToPhase(auxPhaseS1);
         }
       }
 
-      if (mPhase > 4)
+
+    }
+
+    public void GrowPhase2()
+    {
+      // auxiliary phase variable
+      var auxPhaseS2 = mPhase <= mStage2 ? mPhase : mStage2;
+
+      // ! phase 5-10: branching phase
+      var numBranchPerBranch = 3;
+
+      for (int curPhase = mStage1 + 1; curPhase <= auxPhaseS2; curPhase++)
       {
-        // lock nodes that started from phase 3 to be eternal node
+        // for each end node, branch out several new branches
+        var newNodeCollection = new List<BranchNode3D>();
+
+        // the following for-loop cannot modify mAllnode, use  this aux variable to iterate the node idx
+        var startNodeId = mAllNode.Count;
         foreach (var node in mAllNode)
         {
-          if (node.mNodePhase > 1)
+          // ignore lower phase node, and non-end node
+          if (node.mNodePhase < mStage1 || !node.flagEndNode)
+            continue;
+
+          // auxilary line from Curve -> Line
+          var parentLn = new Line(node.mBranch[0].PointAtStart, node.mBranch[0].PointAtEnd);
+
+          var pt = parentLn.To;
+          var initDir = parentLn.Direction;
+
+          // get a perpendicular vector to the current direction
+          var perpVec = Vector3d.CrossProduct(initDir, mPln.ZAxis);
+          initDir.Rotate(Utils.ToRadian(mAngle), perpVec);
+
+          for (int n = 0; n < numBranchPerBranch; n++)
           {
-            node.TogglePermanent();
+            var newNode = new BranchNode3D(startNodeId++, curPhase, pt);
+            var newLenth = parentLn.Length * 0.7;
+
+            initDir.Rotate(Math.PI * 2 / numBranchPerBranch, parentLn.Direction);
+
+            initDir.Unitize();
+            newNode.AddBranchAlong(initDir * newLenth);
+
+            // add a item in the relationship dict, and add the node to the parent node relationship
+            if (!mBranchRelation.ContainsKey(newNode.mID))
+              mBranchRelation.Add(newNode.mID, new HashSet<int>());
+            mBranchRelation[node.mID].Add(newNode.mID);
+
+            newNodeCollection.Add(newNode);
+
+            // todo: not sure should do here
+            newNode.TogglePermanent();
           }
+          node.ToggleEndNode();
         }
 
-        // ! phase 5-8
-        if (mPhase > 4 && mPhase <= 8)
-        {
-          for (int curPhase = 5; curPhase <= mPhase; curPhase++)
-          {
-            // for each end node, branch out several new branches
-            var newNodeCollection = new List<BranchNode3D>();
-            foreach (var node in mAllNode)
-            {
-              // ignore lower phase node, and non-end node
-              if (node.mNodePhase < 2 || !node.flagEndNode)
-                continue;
-
-              // auxilary line from Curve -> Line
-              var parentLn = new Line(node.mBranch[0].PointAtStart, node.mBranch[0].PointAtEnd);
-
-              var pt = parentLn.To;
-              var initDir = parentLn.Direction;
-
-              // get a perpendicular vector to the current direction
-              var perpVec = Vector3d.CrossProduct(initDir, mPln.ZAxis);
-              initDir.Rotate(Math.PI * 0.2, perpVec);
-
-              for (int n = 0; n < numBranchPerBranch; n++)
-              {
-                var newNode = new BranchNode3D(curPhase, pt);
-                var newLenth = parentLn.Length * 0.5;
-
-                initDir.Rotate(Math.PI * 2 / numBranchPerBranch, parentLn.Direction);
-
-                initDir.Unitize();
-                newNode.AddBranchAlong(initDir * newLenth);
-                newNodeCollection.Add(newNode);
-
-                // todo: not sure should do here
-                newNode.TogglePermanent();
-              }
-              node.ToggleEndNode();
-            }
-
-            // after the loop, add the new nodes to the allNode collection
-            mAllNode.AddRange(newNodeCollection);
-          }
-        }
-        // ! phase 9-11
-        else if (mPhase > 8 && mPhase <= 11)
-        {
-
-        }
-        // ! phase 12
-        else if (mPhase == 12)
-        {
-
-        }
-
-        foreach (var node in mAllNode)
-        {
-          if (node.mNodePhase != mPhase)
-          {
-            node.GrowToPhase(mPhase);
-          }
-        }
-
+        //// after the loop, add the new nodes to the allNode collection
+        mAllNode.AddRange(newNodeCollection);
       }
 
-      return true;
+    }
+
+    public void GrowPhase3()
+    {
+      // auxiliary phase variable
+      var auxPhaseS3 = mPhase <= mStage3 ? mPhase : mStage3;
+
+      for (int curPhase = mStage2 + 1; curPhase <= auxPhaseS3; curPhase++)
+      {
+        int removeNum = (int)(mAllNode.Count * 0.3);
+
+        int accumRm = 0;
+
+        while (true)
+        {
+          var rmId = mRnd.Next(mAllNode.Count);
+          accumRm += mAllNode[rmId].TurnOff(mBranchRelation, mAllNode);
+
+          if (accumRm >= removeNum)
+            break;
+        }
+      }
+    }
+
+    public void GrowPhase4()
+    {
+      // auxiliary phase variable
+      var auxPhaseS4 = mPhase <= mStage4 ? mPhase : mStage4;
+
+      // for the final stage, remove all the side branches and several main branches
+      foreach (var node in mAllNode)
+      {
+        if (node.mNodePhase > 0 && node.mNodePhase < mStage1)
+        {
+          node.TurnOff(mBranchRelation, mAllNode);
+        }
+
+        if (node.mNodePhase == mStage1)
+        {
+          if (node.mID % 2 != 0)
+            node.TurnOff(mBranchRelation, mAllNode);
+        }
+      }
+
+
+      //for (int curPhase = mStage3 + 1; curPhase <= auxPhaseS4; curPhase++)
+      //{
+      //  int removeNum = (int)(mAllNode.Count * 0.3);
+
+      //  int accumRm = 0;
+
+      //  while (true)
+      //  {
+      //    var rmId = mRnd.Next(mAllNode.Count);
+      //    accumRm += mAllNode[rmId].TurnOff(mBranchRelation, mAllNode);
+
+      //    if (accumRm >= removeNum)
+      //      break;
+      //  }
+      //}
+
     }
 
     public void GetBranch(ref Dictionary<int, List<Curve>> branchCollection)
@@ -773,6 +890,9 @@ namespace BeingAliveLanguage
       //branchCollection = new Dictionary<int, List<Curve>>();
       foreach (var node in mAllNode)
       {
+        if (!node.flagShow)
+          continue;
+
         if (branchCollection.ContainsKey(node.mNodePhase))
           branchCollection[node.mNodePhase].AddRange(node.mBranch);
         else
@@ -783,8 +903,9 @@ namespace BeingAliveLanguage
     public List<Curve> GetTrunk()
     {
       return mBaseNode.mBranch;
-
     }
+
+    Random mRnd = new Random();
 
     // tree core param
     public double mBaseLen = 10;
@@ -793,9 +914,17 @@ namespace BeingAliveLanguage
 
     public int mPhase;
     public double mScale;
+    public double mAngle;
+
+    // variables
+    public int mStage1 = 4;
+    public int mStage2 = 10;
+    public int mStage3 = 12;
+    public int mStage4 = 13;
 
     // curve collection
     BranchNode3D mBaseNode;
+    public Dictionary<int, HashSet<int>> mBranchRelation = new Dictionary<int, HashSet<int>>();
     public List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
     public List<string> mMmsg { get; set; } = new List<string>();
   }

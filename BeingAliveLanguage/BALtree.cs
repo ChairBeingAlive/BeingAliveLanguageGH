@@ -5,7 +5,9 @@ using Grasshopper.Kernel.Data;
 using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Windows.Forms;
 
 namespace BeingAliveLanguage
@@ -231,7 +233,9 @@ namespace BeingAliveLanguage
     {
       pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.list, Plane.WorldXY);
       pManager.AddNumberParameter("Scale", "S", "Scale of the tree.", GH_ParamAccess.list);
+      pManager.AddNumberParameter("SpreadAngle", "ang", "Spread angle of the tree branches.", GH_ParamAccess.list, 35);
       pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree's growth.", GH_ParamAccess.list);
+      pManager.AddIntegerParameter("Seed", "seed", "Seed for random number to varify the tree shape.", GH_ParamAccess.list, 0);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -249,6 +253,7 @@ namespace BeingAliveLanguage
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
+      #region Input Check
       var plnLst = new List<Plane>();
       if (!DA.GetDataList("Plane", plnLst))
       { return; }
@@ -266,6 +271,19 @@ namespace BeingAliveLanguage
         }
       };
 
+      var angLst = new List<double>();
+      if (!DA.GetDataList("SpreadAngle", angLst))
+      { return; }
+
+      foreach (var a in angLst)
+      {
+        if (a < 0 || a > 90)
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Angle should be within [0, 90].");
+          return;
+        }
+      };
+
       var phaseLst = new List<int>();
       if (!DA.GetDataList("Phase", phaseLst))
       { return; }
@@ -278,6 +296,21 @@ namespace BeingAliveLanguage
           return;
         }
       };
+
+      var seedLst = new List<int>();
+      if (!DA.GetDataList("Seed", seedLst))
+      { return; }
+
+      foreach (var s in seedLst)
+      {
+        if (s < 0)
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Seed should be non-negative.");
+          return;
+        }
+      };
+
+      #endregion
 
       //! 1. determine horizontal scaling factor of the trees
       //var tscal = new List<Tuple<double, double>>();
@@ -326,20 +359,12 @@ namespace BeingAliveLanguage
         //! 2. draw the trees, collect tree width
         foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
         {
-          var t = new Tree3D(pln, scaleLst[i]);
-          t.Generate(phaseLst[i]);
+          var t = new Tree3D(pln, scaleLst[i], seedLst[i]);
+          t.Generate(phaseLst[i], angLst[i]);
           t.GetBranch(ref branchCol);
           trunkCol.Add(i, t.GetTrunk());
           //var res = t.Draw(phaseLst[i]);
 
-          //if (!res.Item1)
-          //{
-          //  AddRuntimeMessage(GH_RuntimeMessageLevel.Error, res.Item2);
-          //  return;
-          //}
-
-          //treeCol.Add(t);
-          //widCol.Add(t.CalWidth());
         }
       }
 
@@ -352,10 +377,23 @@ namespace BeingAliveLanguage
 
       // collection branches
       DataTree<Curve> brCrv = new DataTree<Curve>();
+      var maxBr = 0;
       foreach (var br in branchCol)
       {
+        maxBr = Math.Max(maxBr, br.Key);
         brCrv.AddRange(br.Value, new GH_Path(br.Key));
       }
+      // in some cases, intermediate branches are not generated, we need to manually generate them
+      // so that the tree structure is consistent across all trees with the phase
+      for (int i = 0; i <= maxBr; i++)
+      {
+        var path = new GH_Path(i);
+        if (!brCrv.PathExists(path))
+        {
+          brCrv.AddRange(new List<Curve>(), new GH_Path(i));
+        }
+      }
+
 
       DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);
