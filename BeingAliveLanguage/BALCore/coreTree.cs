@@ -709,7 +709,7 @@ namespace BeingAliveLanguage
       // ! phase 1-4: base phase, always needed
 
       var totalLayer = 2 * auxPhaseS1 + 1;
-      var verAngleIncrement = Utils.ToRadian(55) / totalLayer;
+      var verAngleIncrement = Utils.ToRadian(50) / totalLayer;
 
 
       var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
@@ -729,7 +729,7 @@ namespace BeingAliveLanguage
 
           // length of the branch
           //var len = mBaseLen * (0.1 + 0.3 * (1 - posR));
-          var len = mBaseLen * 0.15;
+          var len = i == totalLayer ? mBaseLen * 0.17 : mBaseLen * 0.5;
 
           // rotate in XY-plane
           var horRotRadian = Math.PI * 2 / numBranchPerLayer;
@@ -751,15 +751,14 @@ namespace BeingAliveLanguage
         // also rotate the starting position so that two layers don't overlap
         curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
       }
-      //}
 
-      foreach (var node in mAllNode)
-      {
-        if (node.mNodePhase != mPhase)
-        {
-          node.GrowToPhase(auxPhaseS1);
-        }
-      }
+      //foreach (var node in mAllNode)
+      //{
+      //  if (node.mNodePhase != mPhase)
+      //  {
+      //    node.GrowToPhase(auxPhaseS1);
+      //  }
+      //}
 
 
     }
