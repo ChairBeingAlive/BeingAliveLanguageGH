@@ -694,7 +694,8 @@ namespace BeingAliveLanguage
     public void GrowPhase1()
     {
       // auxiliary phase variable
-      var auxPhaseS1 = mPhase <= mStage1 ? mPhase : mStage1;
+      var auxPhaseS1 = mPhase < mStage1 ? mPhase : mStage1;
+      bool isS1LastPhase = mPhase >= mStage1 ? true : false;
 
       // main trunk
       var trunkLen = mPhase < 4 ? mBaseLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mBaseLen) : mBaseLen;
@@ -730,7 +731,7 @@ namespace BeingAliveLanguage
 
           // length of the branch
           //var len = mBaseLen * (0.1 + 0.3 * (1 - posR));
-          var len = i == totalLayer ? mBaseLen * 0.17 : mBaseLen * 0.5;
+          var len = i == totalLayer ? isS1LastPhase ? mBaseLen * 0.17 : 0.01 : mBaseLen * 0.5;
 
           // rotate in XY-plane
           var horRotRadian = Math.PI * 2 / numBranchPerLayer;
