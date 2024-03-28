@@ -657,10 +657,11 @@ namespace BeingAliveLanguage
     /// phase 9-11: dying tree, growing with branching
     /// phase 12: dead tree, no growth
     /// </summary>
-    public bool Generate(int phase, double angle)
+    public bool Generate(int phase, double angleMain, double angleTop)
     {
       mPhase = phase;
-      mAngle = angle;
+      mAngleMain = angleMain;
+      mAngleTop = angleTop;
       mBranchRelation.Clear();
 
       GrowPhase1();
@@ -709,7 +710,7 @@ namespace BeingAliveLanguage
       // ! phase 1-4: base phase, always needed
 
       var totalLayer = 2 * auxPhaseS1 + 1;
-      var verAngleIncrement = Utils.ToRadian(50) / totalLayer;
+      var verAngleIncrement = Utils.ToRadian(mAngleMain) / totalLayer;
 
 
       var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
@@ -741,15 +742,19 @@ namespace BeingAliveLanguage
           // add a item in the relationship dict, and add the node to the parent node relationship
           if (!mBranchRelation.ContainsKey(node.mID))
             mBranchRelation.Add(node.mID, new HashSet<int>());
-          mBranchRelation[mBaseNode.mID].Add(node.mID);
+
+          // Important: for the base layer, we don't add the relationship to the base node
+          //mBranchRelation[mBaseNode.mID].Add(node.mID);
 
 
         }
         // for the next layer, rotate vertically as the layers goes up
         verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
         curDir.Rotate(verAngleIncrement, verRotAxis);
+
         // also rotate the starting position so that two layers don't overlap
-        curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
+        //curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
+        curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
       }
 
       //foreach (var node in mAllNode)
@@ -780,7 +785,7 @@ namespace BeingAliveLanguage
         var startNodeId = mAllNode.Count;
         foreach (var node in mAllNode)
         {
-          // ignore lower phase node, and non-end node
+          // ignore lower phase node, and non-end node, only branch the nodes created in the last phase
           if (node.mNodePhase < mStage1 || !node.flagEndNode)
             continue;
 
@@ -789,20 +794,28 @@ namespace BeingAliveLanguage
 
           var pt = parentLn.To;
           var initDir = parentLn.Direction;
+          initDir.Unitize();
 
           // get a perpendicular vector to the current direction
           var perpVec = Vector3d.CrossProduct(initDir, mPln.ZAxis);
-          initDir.Rotate(Utils.ToRadian(mAngle), perpVec);
+          initDir.Rotate(Utils.ToRadian(mAngleTop), perpVec);
 
           for (int n = 0; n < numBranchPerBranch; n++)
           {
             var newNode = new BranchNode3D(startNodeId++, curPhase, pt);
-            var newLenth = parentLn.Length * 0.7;
+            var newLenth = parentLn.Length * 0.67;
 
             initDir.Rotate(Math.PI * 2 / numBranchPerBranch, parentLn.Direction);
 
-            initDir.Unitize();
-            newNode.AddBranchAlong(initDir * newLenth);
+
+            // AUX: each rotation, anti-gravity growth is applied
+            var auxDir = initDir;
+            var auxPerpDir = Vector3d.CrossProduct(initDir, mPln.ZAxis);
+            auxDir.Rotate(Math.PI * 0.05, auxPerpDir);
+
+
+            newNode.AddBranchAlong(auxDir * newLenth);
+            //newNode.AddBranchAlong(initDir * newLenth);
 
             // add a item in the relationship dict, and add the node to the parent node relationship
             if (!mBranchRelation.ContainsKey(newNode.mID))
@@ -853,16 +866,17 @@ namespace BeingAliveLanguage
       // for the final stage, remove all the side branches and several main branches
       foreach (var node in mAllNode)
       {
-        if (node.mNodePhase > 0 && node.mNodePhase < mStage1)
-        {
-          node.TurnOff(mBranchRelation, mAllNode);
-        }
-
         if (node.mNodePhase == mStage1)
         {
           if (node.mID % 2 != 0)
             node.TurnOff(mBranchRelation, mAllNode);
         }
+
+        if (node.mNodePhase >= 0 && node.mNodePhase < mStage1)
+        {
+          node.TurnOff(mBranchRelation, mAllNode);
+        }
+
       }
 
 
@@ -913,7 +927,8 @@ namespace BeingAliveLanguage
 
     public int mPhase;
     public double mScale;
-    public double mAngle;
+    public double mAngleMain;
+    public double mAngleTop;
 
     // variables
     public int mStage1 = 4;

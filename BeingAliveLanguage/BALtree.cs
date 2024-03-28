@@ -233,7 +233,8 @@ namespace BeingAliveLanguage
     {
       pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.list, Plane.WorldXY);
       pManager.AddNumberParameter("Scale", "S", "Scale of the tree.", GH_ParamAccess.list);
-      pManager.AddNumberParameter("SpreadAngle", "ang", "Spread angle of the tree branches.", GH_ParamAccess.list, 35);
+      pManager.AddNumberParameter("SpreadAngleMain", "angMain", "Spread angle of the primary tree branches.", GH_ParamAccess.list, 50);
+      pManager.AddNumberParameter("SpreadAngleTop", "angTop", "Spread angle of the secontary tree branches (the top part).", GH_ParamAccess.list, 35);
       pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree's growth.", GH_ParamAccess.list);
       pManager.AddIntegerParameter("Seed", "seed", "Seed for random number to varify the tree shape.", GH_ParamAccess.list, 0);
     }
@@ -271,11 +272,24 @@ namespace BeingAliveLanguage
         }
       };
 
-      var angLst = new List<double>();
-      if (!DA.GetDataList("SpreadAngle", angLst))
+      var angLstMain = new List<double>();
+      if (!DA.GetDataList("SpreadAngleMain", angLstMain))
       { return; }
 
-      foreach (var a in angLst)
+      foreach (var a in angLstMain)
+      {
+        if (a < 0 || a > 90)
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Angle should be within [0, 90].");
+          return;
+        }
+      };
+
+      var angLstTop = new List<double>();
+      if (!DA.GetDataList("SpreadAngleTop", angLstTop))
+      { return; }
+
+      foreach (var a in angLstTop)
       {
         if (a < 0 || a > 90)
         {
@@ -360,7 +374,7 @@ namespace BeingAliveLanguage
         foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
         {
           var t = new Tree3D(pln, scaleLst[i], seedLst[i]);
-          t.Generate(phaseLst[i], angLst[i]);
+          t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
           t.GetBranch(ref branchCol);
           trunkCol.Add(i, t.GetTrunk());
           //var res = t.Draw(phaseLst[i]);
