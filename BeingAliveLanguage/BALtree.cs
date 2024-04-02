@@ -272,6 +272,13 @@ namespace BeingAliveLanguage
         }
       };
 
+      if (gsLst.Count == 1)
+        gsLst = Enumerable.Repeat(gsLst[0], plnLst.Count).ToList();
+      else if (gsLst.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Global scale # does not match Plane #, please check.");
+      }
+
       var tsLst = new List<double>();
       if (!DA.GetDataList("TrunkScale", tsLst))
       { return; }
@@ -284,6 +291,12 @@ namespace BeingAliveLanguage
           return;
         }
       };
+      if (tsLst.Count == 1)
+        tsLst = Enumerable.Repeat(tsLst[0], plnLst.Count).ToList();
+      else if (tsLst.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Trunk scale # does not match Plane #, please check.");
+      }
 
       var angLstMain = new List<double>();
       if (!DA.GetDataList("SpreadAngleMain", angLstMain))
@@ -297,6 +310,12 @@ namespace BeingAliveLanguage
           return;
         }
       };
+      if (angLstMain.Count == 1)
+        angLstMain = Enumerable.Repeat(angLstMain[0], plnLst.Count).ToList();
+      else if (angLstMain.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Spread angle # does not match Plane #, please check.");
+      }
 
       var angLstTop = new List<double>();
       if (!DA.GetDataList("SpreadAngleTop", angLstTop))
@@ -310,6 +329,12 @@ namespace BeingAliveLanguage
           return;
         }
       };
+      if (angLstTop.Count == 1)
+        angLstTop = Enumerable.Repeat(angLstTop[0], plnLst.Count).ToList();
+      else if (angLstTop.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Spread angle # does not match Plane #, please check.");
+      }
 
       var phaseLst = new List<int>();
       if (!DA.GetDataList("Phase", phaseLst))
@@ -323,6 +348,12 @@ namespace BeingAliveLanguage
           return;
         }
       };
+      if (phaseLst.Count == 1)
+        phaseLst = Enumerable.Repeat(phaseLst[0], plnLst.Count).ToList();
+      else if (phaseLst.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase # does not match Plane #, please check.");
+      }
 
       var seedLst = new List<int>();
       if (!DA.GetDataList("Seed", seedLst))
@@ -336,63 +367,29 @@ namespace BeingAliveLanguage
           return;
         }
       };
+      if (seedLst.Count == 1)
+        seedLst = Enumerable.Repeat(seedLst[0], plnLst.Count).ToList();
+      else if (seedLst.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Seed # does not match Plane #, please check.");
+      }
 
       #endregion
 
       //! 1. determine horizontal scaling factor of the trees
-      //var tscal = new List<Tuple<double, double>>();
-      var distLst = new List<double>();
-      //var treeCol = new List<Tree>();
       Dictionary<int, List<Curve>> branchCol = new Dictionary<int, List<Curve>>();
       Dictionary<int, List<Curve>> trunkCol = new Dictionary<int, List<Curve>>();
 
       if (plnLst.Count == 0)
         return;
-      else if (plnLst.Count >= 1)
+
+      //! 2. draw the trees, collect tree width
+      foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
       {
-        if (gsLst.Count == 1)
-          gsLst = Enumerable.Repeat(gsLst[0], plnLst.Count).ToList();
-        else if (gsLst.Count != plnLst.Count)
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Height # does not match Plane #, please check.");
-        }
-
-        if (phaseLst.Count == 1)
-          phaseLst = Enumerable.Repeat(phaseLst[0], plnLst.Count).ToList();
-        else if (phaseLst.Count != plnLst.Count)
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase # does not match Plane #, please check.");
-        }
-
-        // ! sort root location 
-        plnLst.Sort((pln0, pln1) =>
-        {
-          Vector3d res = pln0.Origin - pln1.Origin;
-          if (Math.Abs(res[0]) > 1e-5)
-            return pln0.OriginX.CompareTo(pln1.OriginX);
-          else if (Math.Abs(res[1]) > 1e-5)
-            return pln0.OriginY.CompareTo(pln1.OriginY);
-          else // align on z axis or overlap, use the same criteria
-            return pln0.OriginZ.CompareTo(pln1.OriginZ);
-        });
-
-        // after list length check:
-        //for (int i = 0; i < plnLst.Count - 1; i++)
-        //{
-        //  var dis = Math.Abs(plnLst[i].Origin.DistanceTo(plnLst[i + 1].Origin));
-        //  distLst.Add(dis);
-        //}
-
-        //! 2. draw the trees, collect tree width
-        foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
-        {
-          var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i]);
-          t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
-          t.GetBranch(ref branchCol);
-          trunkCol.Add(i, t.GetTrunk());
-          //var res = t.Draw(phaseLst[i]);
-
-        }
+        var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i]);
+        t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
+        t.GetBranch(ref branchCol);
+        trunkCol.Add(i, t.GetTrunk());
       }
 
       // collection trunk
@@ -410,6 +407,7 @@ namespace BeingAliveLanguage
         maxBr = Math.Max(maxBr, br.Key);
         brCrv.AddRange(br.Value, new GH_Path(br.Key));
       }
+
       // in some cases, intermediate branches are not generated, we need to manually generate them
       // so that the tree structure is consistent across all trees with the phase
       for (int i = 0; i <= maxBr; i++)

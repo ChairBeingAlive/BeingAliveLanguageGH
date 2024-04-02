@@ -766,7 +766,7 @@ namespace BeingAliveLanguage
 
         // also rotate the starting position so that two layers don't overlap
         //curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
-        //curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
+        curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
       }
 
       //foreach (var node in mAllNode)
