@@ -522,24 +522,6 @@ namespace BeingAliveLanguage
 
   }
 
-  class TreeRoot
-  {
-    public TreeRoot() { }
-    public TreeRoot(Plane pln, double height, ref SoilMap sMap)
-    {
-      mPln = pln;
-      mAnchor = pln.Origin;
-      mSoilMap = sMap;
-    }
-
-
-    // internal variables
-    public Point3d mAnchor;
-    private Plane mPln;
-    private SoilMap mSoilMap;
-  }
-
-
   class BranchNode3D
   {
     public BranchNode3D() { }
@@ -657,6 +639,11 @@ namespace BeingAliveLanguage
       mRnd = new Random(seed);
     }
 
+    public void SetNearestDist(double dist)
+    {
+      mNearestTreeDist = dist;
+    }
+
     /// <summary>
     /// The tree drawing function
     /// We have three stages of the tree:
@@ -694,6 +681,9 @@ namespace BeingAliveLanguage
       {
         GrowPhase4();
       }
+
+      // scale 2D if tree size is too large (> 0.5 nearest tree distance)
+      ForestRescale();
 
       return true;
     }
@@ -910,6 +900,43 @@ namespace BeingAliveLanguage
 
     }
 
+    public void ForestRescale()
+    {
+      // scale 2D if tree size is too large (> 0.5 nearest tree distance)
+      List<double> rCollection = new List<double>();
+      foreach (var node in mAllNode)
+      {
+        foreach (var ln in node.mBranch)
+        {
+          mPln.RemapToPlaneSpace(ln.PointAtStart, out var ptStart);
+          mPln.RemapToPlaneSpace(ln.PointAtEnd, out var ptEnd);
+
+          var distA = Math.Sqrt(ptStart.X * ptStart.X + ptStart.Y * ptStart.Y);
+          var distB = Math.Sqrt(ptEnd.X * ptEnd.X + ptEnd.Y * ptEnd.Y);
+
+          rCollection.Add(distA);
+          rCollection.Add(distB);
+        }
+      }
+
+      if (rCollection.Count == 0)
+        return;
+
+      var maxR = rCollection.Max();
+      if (maxR > mNearestTreeDist * 0.5)
+      {
+        var rescaleFactor = mNearestTreeDist * 0.5 / maxR;
+        var xform = Transform.Scale(mPln, rescaleFactor, rescaleFactor, 1);
+        foreach (var node in mAllNode)
+        {
+          foreach (var ln in node.mBranch)
+          {
+            ln.Transform(xform);
+          }
+        }
+      }
+    }
+
     public void GetBranch(ref Dictionary<int, List<Curve>> branchCollection)
     {
       //branchCollection = new Dictionary<int, List<Curve>>();
@@ -942,6 +969,8 @@ namespace BeingAliveLanguage
     public double mTScale;
     public double mAngleMain;
     public double mAngleTop;
+
+    public double mNearestTreeDist = double.MaxValue;
 
     // variables
     public int mStage1 = 4;

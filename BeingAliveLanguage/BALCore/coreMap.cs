@@ -1,5 +1,4 @@
-﻿using Grasshopper.GUI;
-using KdTree;
+﻿using KdTree;
 using MathNet.Numerics.Distributions;
 using Rhino.Geometry;
 using System;

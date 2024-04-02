@@ -1,4 +1,5 @@
 ﻿using Rhino.Geometry;
+using KdTree;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +30,25 @@ namespace BeingAliveLanguage
         return targetMax;
 
       return targetMin + (val - originMin) / (originMax - originMin) * (targetMax - targetMin);
+    }
+
+    // get the closest distance of each point to all points in the same list
+    public static void GetLstNearestDist(in List<Point3d> pts, out List<double> distLst)
+    {
+      var kdMap = new KdTree<float, Point3d>(3, new KdTree.Math.FloatMath());
+      foreach (var pt in pts)
+      {
+        var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+        kdMap.Add(kdKey, pt);
+      }
+
+      distLst = new List<double>();
+      foreach (var pt in pts)
+      {
+        var ptArray = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+        var nearest2pt = kdMap.GetNearestNeighbours(ptArray, 2);
+        distLst.Add(nearest2pt[1].Value.DistanceTo(pt));
+      }
     }
 
     // create a range of values with step size

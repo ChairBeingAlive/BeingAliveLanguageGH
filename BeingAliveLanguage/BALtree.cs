@@ -383,10 +383,18 @@ namespace BeingAliveLanguage
       if (plnLst.Count == 0)
         return;
 
-      //! 2. draw the trees, collect tree width
+      // calculate distance between trees
+      // todo: currently, only consider distance between trunks, phases are not considered
+      var distLst = new List<double>();
+      if (plnLst.Count > 1)
+        Utils.GetLstNearestDist(plnLst.Select(x => x.Origin).ToList(), out distLst);
+      else
+        distLst = Enumerable.Repeat(double.MaxValue, plnLst.Count).ToList();
+
       foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
       {
         var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i]);
+        t.SetNearestDist(distLst[i]);
         t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
         t.GetBranch(ref branchCol);
         trunkCol.Add(i, t.GetTrunk());
