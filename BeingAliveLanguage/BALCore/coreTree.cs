@@ -1,5 +1,6 @@
 ﻿using Grasshopper.GUI.SettingsControls;
 using Grasshopper.Kernel.Expressions;
+using Grasshopper.Kernel.Types.Transforms;
 using MathNet.Numerics.Optimization;
 using MathNet.Numerics.Random;
 using Rhino.Geometry;
@@ -562,8 +563,11 @@ namespace BeingAliveLanguage
     public void AddBranchAlong(Vector3d vec)
     {
       var tmpLen = new Line(mNode, mNode + vec).ToNurbsCurve();
-      tmpLen.Domain = new Interval(0.0, 1.0);
-      mBranch.Add(tmpLen);
+      if (tmpLen != null)
+      {
+        tmpLen.Domain = new Interval(0.0, 1.0);
+        mBranch.Add(tmpLen);
+      }
     }
 
     public void GrowToPhase(int phase)
@@ -642,10 +646,14 @@ namespace BeingAliveLanguage
   {
     public Tree3D() { }
 
-    public Tree3D(Plane pln, double scale, int seed = 0)
+    public Tree3D(Plane pln, double globalScale, double trunkScale, int seed = 0)
     {
       mPln = pln;
-      mScale = scale;
+      mGScale = globalScale;
+      mTScale = trunkScale;
+
+      var baseLen = 10;
+      mScaledLen = baseLen * mGScale;
       mRnd = new Random(seed);
     }
 
@@ -698,7 +706,10 @@ namespace BeingAliveLanguage
       bool isS1LastPhase = mPhase >= mStage1 ? true : false;
 
       // main trunk
-      var trunkLen = mPhase < 4 ? mBaseLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mBaseLen) : mBaseLen;
+      var trunkLen = mPhase < 4 ? mScaledLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mScaledLen) : mScaledLen;
+
+      // trunk scale
+      trunkLen *= mTScale;
       mBaseNode = new BranchNode3D(0, 0, mPln.Origin);
       //mBranchRelation.Add(0, new HashSet<int>());
 
@@ -730,14 +741,14 @@ namespace BeingAliveLanguage
 
 
           // length of the branch
-          //var len = mBaseLen * (0.1 + 0.3 * (1 - posR));
-          var len = i == totalLayer ? isS1LastPhase ? mBaseLen * 0.17 : 0.01 : mBaseLen * 0.5;
+          var branchLen = i == totalLayer ? isS1LastPhase ? mScaledLen * 0.17 : 0.01 : mScaledLen * 0.5;
+          branchLen = Utils.remap(auxPhaseS1, 0, mStage1, 0, branchLen);
 
           // rotate in XY-plane
           var horRotRadian = Math.PI * 2 / numBranchPerLayer;
           curDir.Rotate(horRotRadian, mPln.ZAxis);
 
-          node.AddBranchAlong(curDir * len);
+          node.AddBranchAlong(curDir * branchLen);
           mAllNode.Add(node);
 
           // add a item in the relationship dict, and add the node to the parent node relationship
@@ -755,7 +766,7 @@ namespace BeingAliveLanguage
 
         // also rotate the starting position so that two layers don't overlap
         //curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
-        curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
+        //curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
       }
 
       //foreach (var node in mAllNode)
@@ -922,12 +933,13 @@ namespace BeingAliveLanguage
     Random mRnd = new Random();
 
     // tree core param
-    public double mBaseLen = 10;
+    public double mScaledLen = 10;
 
     public Plane mPln { get; set; }
 
     public int mPhase;
-    public double mScale;
+    public double mGScale;
+    public double mTScale;
     public double mAngleMain;
     public double mAngleTop;
 

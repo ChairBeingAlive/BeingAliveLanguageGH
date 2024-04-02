@@ -232,7 +232,8 @@ namespace BeingAliveLanguage
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
     {
       pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.list, Plane.WorldXY);
-      pManager.AddNumberParameter("Scale", "S", "Scale of the tree.", GH_ParamAccess.list);
+      pManager.AddNumberParameter("GlobalScale", "globalS", "Global scale of the tree.", GH_ParamAccess.list, 1);
+      pManager.AddNumberParameter("TrunkScale", "trunkS", "Trunk scale of the tree.", GH_ParamAccess.list, 1);
       pManager.AddNumberParameter("SpreadAngleMain", "angMain", "Spread angle of the primary tree branches.", GH_ParamAccess.list, 50);
       pManager.AddNumberParameter("SpreadAngleTop", "angTop", "Spread angle of the secontary tree branches (the top part).", GH_ParamAccess.list, 35);
       pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree's growth.", GH_ParamAccess.list);
@@ -249,7 +250,6 @@ namespace BeingAliveLanguage
       //pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.", GH_ParamAccess.tree);
 
       pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
-      //pManager.AddCurveParameter("Debug", "debug", "Debug curves.", GH_ParamAccess.tree);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -259,15 +259,28 @@ namespace BeingAliveLanguage
       if (!DA.GetDataList("Plane", plnLst))
       { return; }
 
-      var scaleLst = new List<double>();
-      if (!DA.GetDataList("Scale", scaleLst))
+      var gsLst = new List<double>();
+      if (!DA.GetDataList("GlobalScale", gsLst))
       { return; }
 
-      foreach (var s in scaleLst)
+      foreach (var s in gsLst)
       {
         if (s <= 0)
         {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Scale should be positive.");
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Global scale should be positive.");
+          return;
+        }
+      };
+
+      var tsLst = new List<double>();
+      if (!DA.GetDataList("TrunkScale", tsLst))
+      { return; }
+
+      foreach (var s in tsLst)
+      {
+        if (s <= 0)
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Trunk scale should be positive.");
           return;
         }
       };
@@ -337,9 +350,9 @@ namespace BeingAliveLanguage
         return;
       else if (plnLst.Count >= 1)
       {
-        if (scaleLst.Count == 1)
-          scaleLst = Enumerable.Repeat(scaleLst[0], plnLst.Count).ToList();
-        else if (scaleLst.Count != plnLst.Count)
+        if (gsLst.Count == 1)
+          gsLst = Enumerable.Repeat(gsLst[0], plnLst.Count).ToList();
+        else if (gsLst.Count != plnLst.Count)
         {
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Height # does not match Plane #, please check.");
         }
@@ -373,7 +386,7 @@ namespace BeingAliveLanguage
         //! 2. draw the trees, collect tree width
         foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
         {
-          var t = new Tree3D(pln, scaleLst[i], seedLst[i]);
+          var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i]);
           t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
           t.GetBranch(ref branchCol);
           trunkCol.Add(i, t.GetTrunk());
