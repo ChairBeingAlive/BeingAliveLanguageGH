@@ -912,7 +912,7 @@ namespace BeingAliveLanguage
 
       pManager.AddCurveParameter("Compact Area", "cpArea", "Compaction area near the soil surface. Using lines or curves for the input.", GH_ParamAccess.item);
       pManager.AddNumberParameter("Compact Depth", "cpDepth", "Compaction Depth, unit associated with Rhino's unit.", GH_ParamAccess.item);
-      pManager.AddNumberParameter("Strength", "strength", "Compaction strength, [0, 1].", GH_ParamAccess.item, 0.5);
+      pManager.AddNumberParameter("Strength", "strength", "Compaction strength based on your model unit. The range should be [0, 1] for [m] and [0, 1000] for [mm].", GH_ParamAccess.item, 0.5);
       pManager[pManager.ParamCount - 1].Optional = true;
     }
 
@@ -972,9 +972,11 @@ namespace BeingAliveLanguage
       double globalStrength = 0.5;
       if (!DA.GetData("Strength", ref globalStrength))
       { return; }
-      if (globalStrength < 0 || globalStrength > 1)
+
+      //if (globalStrength < 0 || globalStrength > 1)
+      if (globalStrength < 0)
       {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Strength out of range [0, 1].");
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Strength should be positive.");
         return;
       }
 
