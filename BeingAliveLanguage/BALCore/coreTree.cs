@@ -731,7 +731,7 @@ namespace BeingAliveLanguage
 
 
           // length of the branch
-          var branchLen = i == totalLayer ? isS1LastPhase ? mScaledLen * 0.17 : 0.01 : mScaledLen * 0.5;
+          var branchLen = i == totalLayer ? isS1LastPhase ? mScaledLen * 0.19 : 0.01 : mScaledLen * 0.5;
           branchLen = Utils.remap(auxPhaseS1, 0, mStage1, 0, branchLen);
 
           // rotate in XY-plane
