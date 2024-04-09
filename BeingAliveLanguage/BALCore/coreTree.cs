@@ -568,11 +568,6 @@ namespace BeingAliveLanguage
           mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.2, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
         }
 
-        //if (phaseDiff == 3)
-        //{
-        //  mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(0.8, phaseDiff - 2) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-        //}
-
         if (phaseDiff > 3)
         {
           mBranch.Clear();
@@ -744,11 +739,6 @@ namespace BeingAliveLanguage
           // add a item in the relationship dict, and add the node to the parent node relationship
           if (!mBranchRelation.ContainsKey(node.mID))
             mBranchRelation.Add(node.mID, new HashSet<int>());
-
-          // Important: for the base layer, we don't add the relationship to the base node
-          //mBranchRelation[mBaseNode.mID].Add(node.mID);
-
-
         }
         // for the next layer, rotate vertically as the layers goes up
         verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
@@ -758,15 +748,6 @@ namespace BeingAliveLanguage
         //curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
         curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
       }
-
-      //foreach (var node in mAllNode)
-      //{
-      //  if (node.mNodePhase != mPhase)
-      //  {
-      //    node.GrowToPhase(auxPhaseS1);
-      //  }
-      //}
-
 
     }
 
@@ -925,7 +906,7 @@ namespace BeingAliveLanguage
       var maxR = rCollection.Max();
       if (maxR > mNearestTreeDist * 0.5)
       {
-        var rescaleFactor = mNearestTreeDist * 0.5 / maxR;
+        var rescaleFactor = mNearestTreeDist * 0.6 / maxR;
         var xform = Transform.Scale(mPln, rescaleFactor, rescaleFactor, 1);
         foreach (var node in mAllNode)
         {

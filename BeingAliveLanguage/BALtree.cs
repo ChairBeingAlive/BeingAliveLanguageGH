@@ -427,7 +427,6 @@ namespace BeingAliveLanguage
         }
       }
 
-
       DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);
     }
