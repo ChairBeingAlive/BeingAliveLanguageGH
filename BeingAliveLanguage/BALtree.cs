@@ -238,18 +238,15 @@ namespace BeingAliveLanguage
       pManager.AddNumberParameter("SpreadAngleTop", "angTop", "Spread angle of the secontary tree branches (the top part).", GH_ParamAccess.list, 35);
       pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree's growth.", GH_ParamAccess.list);
       pManager.AddIntegerParameter("Seed", "seed", "Seed for random number to varify the tree shape.", GH_ParamAccess.list, 0);
+      pManager.AddBooleanParameter("BranchRotation", "brRot", "Whether to rotate the branches sequentially.", GH_ParamAccess.list, false);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
     {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
       pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
-      //pManager.AddCurveParameter("Canopy", "C", "Tree canopy curves.", GH_ParamAccess.tree);
-      //pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
-      //pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
-      //pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.", GH_ParamAccess.tree);
 
-      pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
+      //pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -374,6 +371,16 @@ namespace BeingAliveLanguage
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Seed # does not match Plane #, please check.");
       }
 
+      var brRotLst = new List<bool>();
+      if (!DA.GetDataList("BranchRotation", brRotLst))
+      { return; }
+      if (brRotLst.Count == 1)
+        brRotLst = Enumerable.Repeat(brRotLst[0], plnLst.Count).ToList();
+      else if (brRotLst.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Branch rotation # does not match Plane #, please check.");
+      }
+
       #endregion
 
       //! 1. determine horizontal scaling factor of the trees
@@ -393,7 +400,7 @@ namespace BeingAliveLanguage
 
       foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
       {
-        var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i]);
+        var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
         t.SetNearestDist(distLst[i]);
         t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
         t.GetBranch(ref branchCol);

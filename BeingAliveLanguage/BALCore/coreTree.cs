@@ -623,7 +623,7 @@ namespace BeingAliveLanguage
   {
     public Tree3D() { }
 
-    public Tree3D(Plane pln, double globalScale, double trunkScale, int seed = 0)
+    public Tree3D(Plane pln, double globalScale, double trunkScale, int seed = 0, bool branchRot = false)
     {
       mPln = pln;
       mGScale = globalScale;
@@ -632,6 +632,7 @@ namespace BeingAliveLanguage
       var baseLen = 10;
       mScaledLen = baseLen * mGScale;
       mRnd = new Random(seed);
+      mBranchRot = branchRot;
     }
 
     public void SetNearestDist(double dist)
@@ -690,7 +691,7 @@ namespace BeingAliveLanguage
       var auxPhaseS1 = mPhase < mStage1 ? mPhase : mStage1;
       bool isS1LastPhase = mPhase >= mStage1 ? true : false;
 
-      // main trunk
+      // main trunk: grow with the phase
       var trunkLen = mPhase < 4 ? mScaledLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mScaledLen) : mScaledLen;
 
       // trunk scale
@@ -700,36 +701,45 @@ namespace BeingAliveLanguage
 
       mBaseNode.AddBranchAlong(trunkLen * mPln.ZAxis);
 
-      var brStartRatio = 0.3;
       var numBranchPerLayer = 6;
       var curDir = mPln.YAxis;
 
+      var brStartLen = mScaledLen * 0.3; // fixed 1st branching position 
+
       // ! phase 1-4: base phase, always needed
-
-      var totalLayer = 2 * auxPhaseS1 + 1;
-      var verAngleIncrement = Utils.ToRadian(mAngleMain) / totalLayer;
-
-
+      var totalBranchLayer = 2 * auxPhaseS1 + 1;
+      var verAngleIncrement = Utils.ToRadian(mAngleMain) / totalBranchLayer;
       var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
-      //var perturbAngle = mRnd.NextDouble() * verAngleIncrement;
       curDir.Rotate(verAngleIncrement, verRotAxis);
 
-      for (int i = 1; i <= totalLayer; i++)
+      // Branch generation.
+      for (int i = 1; i <= totalBranchLayer; i++)
       {
         int curPhase = (i - 1) / 2;
 
-        for (int n = 0; n < numBranchPerLayer; n++)
+        var brPosRatio = brStartLen / trunkLen;
+        for (int brNum = 0; brNum < numBranchPerLayer; brNum++)
         {
-          var posR = Utils.remap(i, 0, totalLayer, brStartRatio, 1);
+          var posR = Utils.remap(i, 0, totalBranchLayer, brPosRatio, 1);
           var pt = mBaseNode.mBranch[0].PointAt(posR);
           var node = new BranchNode3D(mAllNode.Count, curPhase, pt);
 
+          // Length
+          double branchLen = 0;
+          if (mPhase <= mStage1)
+          {
+            branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.35;
+            branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.1);
+          }
+          else
+          {
+            branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.35 * (1 + (double)(mPhase - mStage1) / (double)(mStage2 - mStage1));
+            branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.8);
+          }
 
-          // length of the branch
-          var branchLen = i == totalLayer ? isS1LastPhase ? mScaledLen * 0.19 : 0.01 : mScaledLen * 0.5;
-          branchLen = Utils.remap(auxPhaseS1, 0, mStage1, 0, branchLen);
+          // after stage 1, the side branch need to grow a bit more
 
-          // rotate in XY-plane
+          // Rotation in XY-plane
           var horRotRadian = Math.PI * 2 / numBranchPerLayer;
           curDir.Rotate(horRotRadian, mPln.ZAxis);
 
@@ -745,8 +755,11 @@ namespace BeingAliveLanguage
         curDir.Rotate(verAngleIncrement, verRotAxis);
 
         // also rotate the starting position so that two layers don't overlap
-        //curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
-        curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
+        if (mBranchRot)
+        {
+          //curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
+          curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
+        }
       }
 
     }
@@ -939,6 +952,7 @@ namespace BeingAliveLanguage
     }
 
     Random mRnd = new Random();
+    bool mBranchRot = false;
 
     // tree core param
     public double mScaledLen = 10;
