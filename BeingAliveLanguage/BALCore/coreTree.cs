@@ -1,18 +1,18 @@
 ﻿using Grasshopper.GUI.SettingsControls;
 using Grasshopper.Kernel.Expressions;
 using Grasshopper.Kernel.Types.Transforms;
-using MathNet.Numerics.Optimization;
-using MathNet.Numerics.Random;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using Rhino.NodeInCode;
-using Rhino.Render;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Security.Principal;
+using MIConvexHull;
+using System.Diagnostics;
+using System.Diagnostics.Eventing;
 
+using ghDelSolver = Grasshopper.Kernel.Geometry.Delaunay.Solver;
+using Eto.Forms;
 namespace BeingAliveLanguage
 {
   class Tree
@@ -684,7 +684,6 @@ namespace BeingAliveLanguage
       return true;
     }
 
-
     public void GrowStage1()
     {
       // auxiliary phase variable
@@ -949,6 +948,57 @@ namespace BeingAliveLanguage
     public List<Curve> GetTrunk()
     {
       return mBaseNode.mBranch;
+    }
+
+    public void GetCanopyVolume(out Mesh canopyMesh)
+    {
+      var ptCol = new List<Point3d>();
+      foreach (var node in mAllNode)
+      {
+        if (!node.flagShow)
+          continue;
+
+        foreach (var ln in node.mBranch)
+        {
+          ptCol.Add(ln.PointAtEnd);
+        }
+      }
+
+      var cvxPt = ptCol.Select(p =>
+                      new DefaultVertex { Position = new[] { p.X, p.Y, p.Z } }).ToList();
+
+      canopyMesh = new Mesh();
+      var hull = ConvexHull.Create(cvxPt).Result;
+      var convexHullVertices = hull.Points.ToArray();
+
+      foreach (var pt in hull.Points)
+      {
+        double[] pos = pt.Position;
+        canopyMesh.Vertices.Add(new Point3d(pos[0], pos[1], pos[2]));
+      }
+
+      foreach (var f in hull.Faces)
+      {
+        int a = Array.IndexOf(convexHullVertices, f.Vertices[0]);
+        int b = Array.IndexOf(convexHullVertices, f.Vertices[1]);
+        int c = Array.IndexOf(convexHullVertices, f.Vertices[2]);
+        canopyMesh.Faces.AddFace(a, b, c);
+      }
+    }
+
+    public void GetTrunckVolume(out Mesh trunkMesh)
+    {
+      // todo: trunk from branching position 
+      var trunk = this.GetTrunk()[0];
+      var radius = trunk.GetLength() * 0.1;
+
+      var circle = new Circle(trunk.PointAtStart, radius);
+      var crossSection = Polyline.CreateInscribedPolygon(circle, 8);
+
+      var cyl = Brep.CreateFromSweep(trunk, crossSection.ToPolylineCurve(), true, 0.01)[0];
+
+      trunkMesh = Mesh.CreateFromBrep(cyl, MeshingParameters.DefaultAnalysisMesh)[0];
+
     }
 
     Random mRnd = new Random();

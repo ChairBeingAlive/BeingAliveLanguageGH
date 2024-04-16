@@ -245,6 +245,7 @@ namespace BeingAliveLanguage
     {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
       pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
+      pManager.AddMeshParameter("EnergyVolume", "E", "Energy volume for energy analysis.", GH_ParamAccess.list);
 
       //pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
     }
@@ -398,13 +399,23 @@ namespace BeingAliveLanguage
       else
         distLst = Enumerable.Repeat(double.MaxValue, plnLst.Count).ToList();
 
+
+      List<Mesh> canopyVolLst = new List<Mesh>();
+      List<Mesh> trunkVolLst = new List<Mesh>();
       foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
       {
+        // generate tree
         var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
         t.SetNearestDist(distLst[i]);
         t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
         t.GetBranch(ref branchCol);
         trunkCol.Add(i, t.GetTrunk());
+
+        // create 3D volume for Energy Analysis
+        t.GetCanopyVolume(out Mesh canopyVol);
+        canopyVolLst.Add(canopyVol);
+        t.GetTrunckVolume(out Mesh trunkVol);
+        trunkVolLst.Add(trunkVol);
       }
 
       // collection trunk
@@ -434,8 +445,12 @@ namespace BeingAliveLanguage
         }
       }
 
+      var volLst = new List<Mesh>();
+      volLst.AddRange(canopyVolLst);
+      volLst.AddRange(trunkVolLst);
       DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);
+      DA.SetDataList(2, volLst);
     }
   }
 }

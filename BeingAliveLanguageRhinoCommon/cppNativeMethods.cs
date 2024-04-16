@@ -16,6 +16,12 @@ namespace BeingAliveLanguageRC
   internal static class cppBAL
   {
     /// <summary>
+    /// Testing Function to make sure the cpp part is integrated correctly.
+    /// </summary>
+    [DllImport(Import.cppLib, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern double BAL_Addition(double a, double b);
+
+    /// <summary>
     /// Possion Disc Sampling using the reduction approach, no need for radius.
     /// </summary>
     [DllImport(Import.cppLib, CallingConvention = CallingConvention.Cdecl)]
@@ -27,10 +33,11 @@ namespace BeingAliveLanguageRC
     [DllImport(Import.cppLib, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void BAL_possionDiskElimSampleBound(IntPtr minMaxBound, int n, IntPtr gPt, IntPtr outPt);
 
+
     /// <summary>
-    /// Testing Function to make sure the cpp part is integrated correctly.
+    /// Compute the convex hull of a set of points.
     /// </summary>
-    [DllImport(Import.cppLib, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern double BAL_Addition(double a, double b);
+    //[DllImport(Import.cppLib, CallingConvention = CallingConvention.Cdecl)]
+    //internal static extern double BAL_computeHull(IntPtr inPt, IntPtr outV, IntPtr outF);
   }
 }
