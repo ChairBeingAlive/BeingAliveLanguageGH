@@ -654,7 +654,7 @@ namespace BeingAliveLanguage
       mAngleTop = angleTop;
       mBranchRelation.Clear();
 
-      GrowPhase1();
+      GrowStage1();
 
       if (mPhase > mStage1)
       {
@@ -664,17 +664,17 @@ namespace BeingAliveLanguage
           node.TogglePermanent();
         }
 
-        GrowPhase2();
+        GrowStage2();
       }
 
       if (mPhase > mStage2)
       {
-        GrowPhase3();
+        GrowStage3();
       }
 
       if (mPhase > mStage3)
       {
-        GrowPhase4();
+        GrowStage4();
       }
 
       // scale 2D if tree size is too large (> 0.5 nearest tree distance)
@@ -684,7 +684,7 @@ namespace BeingAliveLanguage
     }
 
 
-    public void GrowPhase1()
+    public void GrowStage1()
     {
       // auxiliary phase variable
       var auxPhaseS1 = mPhase < mStage1 ? mPhase : mStage1;
@@ -751,7 +751,7 @@ namespace BeingAliveLanguage
 
     }
 
-    public void GrowPhase2()
+    public void GrowStage2()
     {
       // auxiliary phase variable
       var auxPhaseS2 = mPhase <= mStage2 ? mPhase : mStage2;
@@ -819,7 +819,7 @@ namespace BeingAliveLanguage
 
     }
 
-    public void GrowPhase3()
+    public void GrowStage3()
     {
       // auxiliary phase variable
       var auxPhaseS3 = mPhase <= mStage3 ? mPhase : mStage3;
@@ -841,7 +841,7 @@ namespace BeingAliveLanguage
       }
     }
 
-    public void GrowPhase4()
+    public void GrowStage4()
     {
       // auxiliary phase variable
       var auxPhaseS4 = mPhase <= mStage4 ? mPhase : mStage4;
