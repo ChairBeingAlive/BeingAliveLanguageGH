@@ -414,7 +414,7 @@ namespace BeingAliveLanguage
         // create 3D volume for Energy Analysis
         t.GetCanopyVolume(out Mesh canopyVol);
         canopyVolLst.Add(canopyVol);
-        t.GetTrunckVolume(out Mesh trunkVol);
+        t.GetTrunckVolume(phaseLst[i], out Mesh trunkVol);
         trunkVolLst.Add(trunkVol);
       }
 

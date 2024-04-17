@@ -963,6 +963,8 @@ namespace BeingAliveLanguage
           ptCol.Add(ln.PointAtEnd);
         }
       }
+      // add the first pt in brach to extend the volume
+      ptCol.Add(mAllNode[0].mBranch[0].PointAtStart);
 
       var cvxPt = ptCol.Select(p =>
                       new DefaultVertex { Position = new[] { p.X, p.Y, p.Z } }).ToList();
@@ -986,19 +988,17 @@ namespace BeingAliveLanguage
       }
     }
 
-    public void GetTrunckVolume(out Mesh trunkMesh)
+    public void GetTrunckVolume(in int curPhase, out Mesh trunkMesh)
     {
-      // todo: trunk from branching position 
       var trunk = this.GetTrunk()[0];
-      var radius = trunk.GetLength() * 0.1;
+      var trunkTop = curPhase > mStage3 ? mAllNode[13].mBranch[0].PointAtStart : mAllNode[9].mBranch[0].PointAtStart;
+      trunk.ClosestPoint(trunkTop, out double tTop);
 
-      var circle = new Circle(trunk.PointAtStart, radius);
-      var crossSection = Polyline.CreateInscribedPolygon(circle, 8);
+      // trim trunk rail and prepair for trunk mesh generation
+      var trunkRail = trunk.Trim(0.0, tTop);
+      var radius = trunkRail.GetLength() * 0.2 * curPhase / 13.0;
 
-      var cyl = Brep.CreateFromSweep(trunk, crossSection.ToPolylineCurve(), true, 0.01)[0];
-
-      trunkMesh = Mesh.CreateFromBrep(cyl, MeshingParameters.DefaultAnalysisMesh)[0];
-
+      trunkMesh = Mesh.CreateFromCurvePipe(trunkRail, radius, 8, 1, MeshPipeCapStyle.Flat, true);
     }
 
     Random mRnd = new Random();
