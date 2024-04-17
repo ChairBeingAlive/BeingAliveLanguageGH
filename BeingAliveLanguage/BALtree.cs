@@ -245,7 +245,7 @@ namespace BeingAliveLanguage
     {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
       pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
-      pManager.AddMeshParameter("EnergyVolume", "E", "Energy volume for energy analysis.", GH_ParamAccess.list);
+      //pManager.AddMeshParameter("EnergyVolume", "E", "Energy volume for energy analysis.", GH_ParamAccess.list);
 
       //pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
     }
@@ -450,7 +450,7 @@ namespace BeingAliveLanguage
       volLst.AddRange(trunkVolLst);
       DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);
-      DA.SetDataList(2, volLst);
+      //DA.SetDataList(2, volLst);
     }
   }
 }
