@@ -930,9 +930,9 @@ namespace BeingAliveLanguage
       }
     }
 
-    public void GetBranch(ref Dictionary<int, List<Curve>> branchCollection)
+    public Dictionary<int, List<Curve>> GetBranch()
     {
-      //branchCollection = new Dictionary<int, List<Curve>>();
+      var branchCollection = new Dictionary<int, List<Curve>>();
       foreach (var node in mAllNode)
       {
         if (!node.flagShow)
@@ -943,6 +943,7 @@ namespace BeingAliveLanguage
         else
           branchCollection.Add(node.mNodePhase, node.mBranch);
       }
+      return branchCollection;
     }
 
     public List<Curve> GetTrunk()

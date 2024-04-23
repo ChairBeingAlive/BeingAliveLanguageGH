@@ -395,62 +395,113 @@ namespace BeingAliveLanguage
       // todo: currently, only consider distance between trunks, phases are not considered
       var distLst = new List<double>();
       if (plnLst.Count > 1)
+      {
         Utils.GetLstNearestDist(plnLst.Select(x => x.Origin).ToList(), out distLst);
+        if (distLst.Min() < 1e-5)
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Trees are too close to each other or overlap, please check.");
+      }
       else
         distLst = Enumerable.Repeat(double.MaxValue, plnLst.Count).ToList();
 
-
-      List<Mesh> canopyVolLst = new List<Mesh>();
-      List<Mesh> trunkVolLst = new List<Mesh>();
+      DataTree<Curve> brCrv = new DataTree<Curve>();
+      DataTree<Curve> trCrv = new DataTree<Curve>();
       foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
       {
         // generate tree
         var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
         t.SetNearestDist(distLst[i]);
         t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
-        t.GetBranch(ref branchCol);
-        trunkCol.Add(i, t.GetTrunk());
 
-        // create 3D volume for Energy Analysis
-        t.GetCanopyVolume(out Mesh canopyVol);
-        canopyVolLst.Add(canopyVol);
-        t.GetTrunckVolume(phaseLst[i], out Mesh trunkVol);
-        trunkVolLst.Add(trunkVol);
-      }
-
-      // collection trunk
-      DataTree<Curve> trCrv = new DataTree<Curve>();
-      foreach (var tr in trunkCol)
-      {
-        trCrv.AddRange(tr.Value, new GH_Path(tr.Key));
-      }
-
-      // collection branches
-      DataTree<Curve> brCrv = new DataTree<Curve>();
-      var maxBr = 0;
-      foreach (var br in branchCol)
-      {
-        maxBr = Math.Max(maxBr, br.Key);
-        brCrv.AddRange(br.Value, new GH_Path(br.Key));
-      }
-
-      // in some cases, intermediate branches are not generated, we need to manually generate them
-      // so that the tree structure is consistent across all trees with the phase
-      for (int i = 0; i <= maxBr; i++)
-      {
-        var path = new GH_Path(i);
-        if (!brCrv.PathExists(path))
+        // collection branches
+        branchCol = t.GetBranch();
+        var maxBr = 0;
+        foreach (var (br, id) in branchCol.Select((br, id) => (br, id)))
         {
-          brCrv.AddRange(new List<Curve>(), new GH_Path(i));
+          maxBr = Math.Max(maxBr, br.Key);
+          brCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
         }
+
+        for (int id = 0; id <= maxBr; id++)
+        {
+          var path = new GH_Path(i, id);
+          if (!brCrv.PathExists(path))
+          {
+            brCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
+          }
+        }
+
+        // collection of trunk
+        var trC = t.GetTrunk();
+        trCrv.AddRange(trC, new GH_Path(new int[] { i }));
       }
 
-      var volLst = new List<Mesh>();
-      volLst.AddRange(canopyVolLst);
-      volLst.AddRange(trunkVolLst);
+      //DataTree<Curve> trCrv = new DataTree<Curve>();
+      //foreach (var (tr, i) in trunkCol.Select((tr, i) => (tr, i)))
+      //{
+      //  trCrv.AddRange(tr.Value, new GH_Path(new int[] { tr.Key }));
+      //}
+
       DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);
-      //DA.SetDataList(2, volLst);
+    }
+  }
+
+  public class BALtreeEnergyCanopy : GH_Component
+  {
+    public BALtreeEnergyCanopy()
+      : base("EnergyCanopy", "balEnergyCanopy",
+                   "Generate the energy canopy for energy analysis.",
+                             "BAL", "03::plant")
+    { }
+
+    protected override System.Drawing.Bitmap Icon => null;
+    public override Guid ComponentGuid => new Guid("73fc1cbd-f7b7-4b0c-ad39-cc88bbfdf385");
+
+    protected override void RegisterInputParams(GH_InputParamManager pManager)
+    {
+      pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
+      pManager[0].Optional = true;
+
+      pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
+    }
+
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+    {
+      pManager.AddMeshParameter("EnergyVolume", "E", "Energy volume for energy analysis.", GH_ParamAccess.list);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
+      #region input check
+
+      #endregion
+
+      List<Mesh> canopyVolLst = new List<Mesh>();
+      List<Mesh> trunkVolLst = new List<Mesh>();
+
+      //foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
+      //{
+      //  // generate tree
+      //  var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
+      //  t.SetNearestDist(distLst[i]);
+      //  t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
+      //  t.GetBranch(ref branchCol);
+      //  trunkCol.Add(i, t.GetTrunk());
+
+      //  // create 3D volume for Energy Analysis
+      //  t.GetCanopyVolume(out Mesh canopyVol);
+      //  canopyVolLst.Add(canopyVol);
+      //  t.GetTrunckVolume(phaseLst[i], out Mesh trunkVol);
+      //  trunkVolLst.Add(trunkVol);
+
+      //}
+
+      var volLst = new List<Mesh>();
+      //  volLst.AddRange(canopyVolLst);
+      //  volLst.AddRange(trunkVolLst);
+
+      DA.SetDataList(0, volLst);
     }
   }
 }
+

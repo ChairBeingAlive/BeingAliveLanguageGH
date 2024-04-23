@@ -47,7 +47,11 @@ namespace BeingAliveLanguage
       {
         var ptArray = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
         var nearest2pt = kdMap.GetNearestNeighbours(ptArray, 2);
-        distLst.Add(nearest2pt[1].Value.DistanceTo(pt));
+
+        if (nearest2pt.Length < 2)
+          distLst.Add(0);
+        else
+          distLst.Add(nearest2pt[1].Value.DistanceTo(pt));
       }
     }
 
