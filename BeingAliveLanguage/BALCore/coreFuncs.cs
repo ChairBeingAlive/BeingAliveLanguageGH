@@ -3,9 +3,67 @@ using KdTree;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MIConvexHull;
 
 namespace BeingAliveLanguage
 {
+  namespace BalCore
+  {
+    static class MeshUtils
+    {
+      // create a convex hull mesh from a list of points
+      public static Mesh CreateCvxHull(in List<Point3d> inPt)
+      {
+        var cvxPt = inPt.Select(p =>
+                        new DefaultVertex { Position = new[] { p.X, p.Y, p.Z } }).ToList();
+
+        var mesh = new Mesh();
+        var hull = ConvexHull.Create(cvxPt).Result;
+        var convexHullVertices = hull.Points.ToArray();
+
+        foreach (var pt in hull.Points)
+        {
+          double[] pos = pt.Position;
+          mesh.Vertices.Add(new Point3d(pos[0], pos[1], pos[2]));
+        }
+
+        foreach (var f in hull.Faces)
+        {
+          int a = Array.IndexOf(convexHullVertices, f.Vertices[0]);
+          int b = Array.IndexOf(convexHullVertices, f.Vertices[1]);
+          int c = Array.IndexOf(convexHullVertices, f.Vertices[2]);
+          mesh.Faces.AddFace(a, b, c);
+        }
+        mesh.RebuildNormals();
+
+        return mesh;
+      }
+
+      //public static Mesh CreateLineMesh(in Curve ln)
+      //{
+      //  var mesh = new Mesh();
+
+      //  // trim trunk rail and prepair for trunk mesh generation
+      //  var trunkRail = ln.Trim(0.0, 0.7);
+      //  var radius = trunkRail.GetLength() * 0.2;
+
+      //  mesh = Mesh.CreateFromCurvePipe(trunkRail, radius, 8, 1, MeshPipeCapStyle.Flat, true);
+
+      //  return mesh;
+      //}
+    }
+
+    static class MathUtils
+    {
+
+    }
+
+    static class BrepUtils
+    {
+
+    }
+  }
+
 
   /// <summary>
   /// Utility Class, containing all funcs that needed by the BAL system

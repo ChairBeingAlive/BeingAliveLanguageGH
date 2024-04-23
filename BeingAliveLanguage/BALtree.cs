@@ -2,13 +2,15 @@
 using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
+using Rhino.Geometry.Collections;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Windows.Forms;
+using MIConvexHull;
 
 namespace BeingAliveLanguage
 {
@@ -246,8 +248,6 @@ namespace BeingAliveLanguage
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
       pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
       //pManager.AddMeshParameter("EnergyVolume", "E", "Energy volume for energy analysis.", GH_ParamAccess.list);
-
-      //pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -449,8 +449,8 @@ namespace BeingAliveLanguage
   public class BALtreeEnergyCanopy : GH_Component
   {
     public BALtreeEnergyCanopy()
-      : base("EnergyCanopy", "balEnergyCanopy",
-                   "Generate the energy canopy for energy analysis.",
+      : base("Tree Energy Canopy", "balEnergyCanopy",
+                   "Generate the energy canopy of the 3D tree for energy analysis.",
                              "BAL", "03::plant")
     { }
 
@@ -462,45 +462,54 @@ namespace BeingAliveLanguage
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
       pManager[0].Optional = true;
 
-      pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
+      pManager.AddCurveParameter("Branch", "B", "Tree branch curves.", GH_ParamAccess.tree);
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
-      pManager.AddMeshParameter("EnergyVolume", "E", "Energy volume for energy analysis.", GH_ParamAccess.list);
+      pManager.AddMeshParameter("EnergyVolume", "E", "Energy volume for energy analysis.", GH_ParamAccess.tree);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
       #region input check
 
+      //var plnLst = new List<Plane>();
+      if (!DA.GetDataTree("Trunk", out GH_Structure<GH_Curve> trunckCol))
+      { return; }
+      if (!DA.GetDataTree("Branch", out GH_Structure<GH_Curve> branchCol))
+      { return; }
+
       #endregion
 
       List<Mesh> canopyVolLst = new List<Mesh>();
       List<Mesh> trunkVolLst = new List<Mesh>();
+      DataTree<Mesh> energyVolTree = new DataTree<Mesh>();
 
-      //foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
-      //{
-      //  // generate tree
-      //  var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
-      //  t.SetNearestDist(distLst[i]);
-      //  t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
-      //  t.GetBranch(ref branchCol);
-      //  trunkCol.Add(i, t.GetTrunk());
+      for (int i = 0; i < branchCol.PathCount; i++)
+      {
+        var ptCol = new List<Point3d>();
+        var pth = branchCol.Paths[i];
+        List<GH_Curve> brLst = branchCol.get_Branch(pth) as List<GH_Curve>;
+        brLst.ForEach(x =>
+        {
+          ptCol.Add(x.Value.PointAtStart);
+          ptCol.Add(x.Value.PointAtEnd);
+        });
 
-      //  // create 3D volume for Energy Analysis
-      //  t.GetCanopyVolume(out Mesh canopyVol);
-      //  canopyVolLst.Add(canopyVol);
-      //  t.GetTrunckVolume(phaseLst[i], out Mesh trunkVol);
-      //  trunkVolLst.Add(trunkVol);
+        if (trunckCol.PathExists(pth))
+        {
+          var trCrv = trunckCol.get_Branch(pth)[0] as GH_Curve;
+          ptCol.Add(trCrv.Value.PointAtStart);
+          ptCol.Add(trCrv.Value.PointAtEnd);
+        }
 
-      //}
+        var energyMesh = BalCore.MeshUtils.CreateCvxHull(ptCol);
+        energyVolTree.Add(energyMesh, new GH_Path(i));
+        ;
+      }
 
-      var volLst = new List<Mesh>();
-      //  volLst.AddRange(canopyVolLst);
-      //  volLst.AddRange(trunkVolLst);
-
-      DA.SetDataList(0, volLst);
+      DA.SetDataTree(0, energyVolTree);
     }
   }
 }
