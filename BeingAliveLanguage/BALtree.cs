@@ -454,7 +454,7 @@ namespace BeingAliveLanguage
                              "BAL", "03::plant")
     { }
 
-    protected override System.Drawing.Bitmap Icon => null;
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3DVolume;
     public override Guid ComponentGuid => new Guid("73fc1cbd-f7b7-4b0c-ad39-cc88bbfdf385");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
