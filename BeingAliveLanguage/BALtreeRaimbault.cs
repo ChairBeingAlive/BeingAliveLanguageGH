@@ -17,11 +17,11 @@ namespace BeingAliveLanguage
   /// <summary>
   /// 2D version of the tree component.
   /// </summary>
-  public class BALtree : GH_Component
+  public class BALtreeRaimbault : GH_Component
   {
-    public BALtree()
-    : base("Tree", "balTree",
-          "Generate the BAL tree model.",
+    public BALtreeRaimbault()
+    : base("Tree_Raimbault", "balTree_Raimbault",
+          "Generate the BAL tree using Raimbault's architectural model.",
           "BAL", "03::plant")
     { }
 
@@ -219,11 +219,11 @@ namespace BeingAliveLanguage
   /// <summary>
   /// The 3D version of the tree component.
   /// </summary>
-  public class BALtree3D : GH_Component
+  public class BALtreeDrenou : GH_Component
   {
-    public BALtree3D()
-    : base("Tree3D", "balTree3D",
-          "Generate the BAL tree model in 3D, using Drenou's model.",
+    public BALtreeDrenou()
+    : base("Tree_Drenou", "balTree_Drenou",
+          "Generate the BAL tree using Drenou's architectural model.",
           "BAL", "03::plant")
     { }
 
@@ -247,7 +247,6 @@ namespace BeingAliveLanguage
     {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
       pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
-      //pManager.AddMeshParameter("EnergyVolume", "E", "Energy volume for energy analysis.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)

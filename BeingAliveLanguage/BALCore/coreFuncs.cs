@@ -39,18 +39,6 @@ namespace BeingAliveLanguage
         return mesh;
       }
 
-      //public static Mesh CreateLineMesh(in Curve ln)
-      //{
-      //  var mesh = new Mesh();
-
-      //  // trim trunk rail and prepair for trunk mesh generation
-      //  var trunkRail = ln.Trim(0.0, 0.7);
-      //  var radius = trunkRail.GetLength() * 0.2;
-
-      //  mesh = Mesh.CreateFromCurvePipe(trunkRail, radius, 8, 1, MeshPipeCapStyle.Flat, true);
-
-      //  return mesh;
-      //}
     }
 
     static class MathUtils
