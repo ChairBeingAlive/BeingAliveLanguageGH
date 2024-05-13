@@ -87,9 +87,23 @@ namespace BeingAliveLanguage
       var surplus = new List<double>();
       var reserve = new List<double>();
       var maxReserve = (soilInfo.fieldCapacity - soilInfo.wiltingPoint) * 1000 * soilDepth;
+
+      // dry-run for one year to get the December data
+      var decemberRes = maxReserve;
       for (int i = 0; i < 12; i++)
       {
-        var previousRes = (i == 0 ? maxReserve : reserve[i - 1]);
+        var previousRes = (i == 0 ? decemberRes: reserve[i - 1]);
+        var curETR = Math.Min(etpCorrected[i], precipitation[i] + previousRes);
+        var curRes = Math.Min(previousRes + precipitation[i] - curETR, maxReserve);
+        reserve.Add(curRes);
+
+        decemberRes = curRes;
+      }
+
+      // real calculation
+      for (int i = 0; i < 12; i++)
+      {
+        var previousRes = (i == 0 ? decemberRes : reserve[i - 1]);
         var curETR = Math.Min(etpCorrected[i], precipitation[i] + previousRes);
         var curRes = Math.Min(previousRes + precipitation[i] - curETR, maxReserve);
         var curSur = Math.Max(previousRes + precipitation[i] - curETR - maxReserve, 0);
@@ -98,6 +112,7 @@ namespace BeingAliveLanguage
         surplus.Add(curSur);
         reserve.Add(curRes);
       }
+
       var deficit = etpCorrected.Zip(etr, (x, y) => (x - y)).ToList();
 
       // ! Set data output
