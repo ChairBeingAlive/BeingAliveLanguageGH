@@ -101,6 +101,7 @@ namespace BeingAliveLanguage
       }
 
       // real calculation
+      reserve.Clear();
       for (int i = 0; i < 12; i++)
       {
         var previousRes = (i == 0 ? decemberRes : reserve[i - 1]);
