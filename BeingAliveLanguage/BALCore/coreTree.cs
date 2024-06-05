@@ -703,7 +703,7 @@ namespace BeingAliveLanguage
       var numBranchPerLayer = 6;
       var curDir = mPln.YAxis;
 
-      var brStartLen = mScaledLen * 0.3; // fixed 1st branching position 
+      var brStartLen = trunkLen * 0.3; // fixed 1st branching position 
 
       // ! phase 1-4: base phase, always needed
       var totalBranchLayer = 2 * auxPhaseS1 + 1;
