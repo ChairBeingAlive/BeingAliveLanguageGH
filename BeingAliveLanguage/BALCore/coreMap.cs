@@ -350,4 +350,199 @@ namespace BeingAliveLanguage
     //public string mapMode = "sectional";
 
   }
+
+  class RootNode3D
+  {
+    public Point3d pos;
+    public List<RootNode3D> nextNode;
+    public Vector3d dir;
+    public int curStep;
+    public int lifeSpan;
+    public int mBranchLevel;
+    public int stepCounting;
+    public RootNodeType nType;
+
+    public void AddChildNode(in RootNode3D node, RootNodeType nT = RootNodeType.Stem)
+    {
+      nextNode.Add(node);
+      node.nType = nT;
+    }
+  }
+
+  /// <summary>
+  /// Soil Map in 3D space
+  /// </summary>
+  class SoilMap3D
+  {
+    public Plane mPln;
+    Tuple<double, double, double, double> mBndParam = new Tuple<double, double, double, double>(0, 0, 0, 0);
+    public double unitLen = float.MaxValue;
+
+    public SoilMap3D(in Plane pl)
+    {
+      // kd-tree map
+      this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
+
+      // topological map
+      this.topoMap = new ConcurrentDictionary<string, List<Tuple<float, string>>>();
+
+      // point map
+      this.ptMap = new ConcurrentDictionary<string, Point3d>();
+
+      this.mPln = pl;
+      this.distNorm = new Normal(3.5, 0.5);
+    }
+
+    // kd-tree map, for fast search
+    public readonly KdTree<float, string> kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath());
+    // ptMap, for fast access by mapping the simplifed string of the point
+    public ConcurrentDictionary<string, Point3d> ptMap;
+    // topoMap, for fast access
+    readonly ConcurrentDictionary<string, List<Tuple<float, string>>> topoMap;
+
+    readonly Normal distNorm = new Normal();
+
+    private void AddNeighbour(string strLoc, int idx, in Point3d refP, in Point3d P)
+    {
+      var dist = (float)refP.DistanceTo(P);
+      if (topoMap[strLoc][idx].Item1 < 0 || dist < topoMap[strLoc][idx].Item1)
+      {
+        topoMap[strLoc][idx] = new Tuple<float, string>(dist, Utils.PtString(P));
+      }
+    }
+
+    public void BuildMap(in List<Point3d> ptLst)
+    {
+      var ptCollection = new ConcurrentBag<Point3d>();
+      Parallel.ForEach(ptLst, pt =>
+      {
+        ptCollection.Add(pt);
+      });
+
+      //var ptCollection = ptBag.Concat(ptLst);
+
+      Parallel.ForEach(ptCollection, pt =>
+      {
+        var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+        var strLoc = Utils.PtString(pt);
+        if (kdMap.Add(kdKey, strLoc))
+        {
+          ptMap.TryAdd(strLoc, pt);
+        }
+      });
+
+      var tmpN = (int)Math.Round(Math.Min(ptCollection.Count() * 0.4, 100));
+      var pt10 = ptCollection.OrderBy(x => Guid.NewGuid()).Take(tmpN).ToList();
+      unitLen = pt10.Select(x =>
+      {
+        var res = kdMap.GetNearestNeighbours(new[] { (float)x.X, (float)x.Y, (float)x.Z }, 2);
+        var nearest2Dist = res.Select(m => ptMap[m.Value].DistanceTo(x)).ToList();
+        return nearest2Dist.Max();
+      }).Average();
+    }
+
+    public void BuildBound()
+    {
+      List<double> uLst = new List<double>();
+      List<double> vLst = new List<double>();
+      foreach (var node in kdMap)
+      {
+        var pt3d = new Point3d(node.Point[0], node.Point[1], node.Point[2]);
+        double u, v;
+        if (mPln.ClosestParameter(pt3d, out u, out v))
+        {
+          uLst.Add(u);
+          vLst.Add(v);
+        }
+      }
+      mBndParam = new Tuple<double, double, double, double>(uLst.Min(), uLst.Max(), vLst.Min(), vLst.Max());
+    }
+
+    public bool IsOnBound(in Point3d pt)
+    {
+      double u, v;
+      if (mPln.ClosestParameter(pt, out u, out v))
+      {
+        if ((mBndParam.Item1 - u) * (mBndParam.Item1 - u) < 1e-2
+            || (mBndParam.Item2 - u) * (mBndParam.Item2 - u) < 1e-2
+            || (mBndParam.Item3 - v) * (mBndParam.Item3 - v) < 1e-2
+            || (mBndParam.Item4 - v) * (mBndParam.Item4 - v) < 1e-2)
+          return true;
+      }
+
+      return false;
+    }
+
+    public Point3d GetNearestPoint(in Point3d pt)
+    {
+      var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, 1)[0];
+
+      return new Point3d(resNode.Point[0], resNode.Point[1], resNode.Point[2]);
+    }
+
+    public string GetNearestPointStr(in Point3d pt)
+    {
+      var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, 1)[0];
+
+      return resNode.Value;
+    }
+
+    public List<Point3d> GetNearestPoints(in Point3d pt, int N)
+    {
+      var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, N);
+
+      if (resNode.Length == 0)
+      {
+        return new List<Point3d>();
+      }
+
+      var resL = resNode.Select(x => new Point3d(x.Point[0], x.Point[1], x.Point[2])).ToList();
+      return resL;
+    }
+
+    public List<string> GetNearestPointsStr(in Point3d pt, int N)
+    {
+      var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, N);
+
+      if (resNode.Length == 0)
+      {
+        return new List<string>();
+      }
+
+      var resL = resNode.Select(x => x.Value).ToList();
+      return resL;
+    }
+
+    private int SampleIdx(int i0 = 2, int i1 = 5)
+    {
+      if (i0 > i1)
+        return -1;
+
+      var sampleIdx = (int)Math.Round(distNorm.Sample());
+      while (sampleIdx < i0 || sampleIdx > i1)
+        sampleIdx = (int)Math.Round(distNorm.Sample());
+
+      return sampleIdx;
+    }
+
+    public (double, string) GetNextPointAndDistance(in string pt, int i0 = 2, int i1 = 5)
+    {
+      var idx = SampleIdx(i0, i1);
+
+      var (dis, nextPt) = topoMap[pt][idx];
+      while (nextPt == "")
+      {
+        idx = SampleIdx(i0, i1);
+        (dis, nextPt) = topoMap[pt][idx];
+      }
+
+      return (dis, nextPt);
+    }
+
+    public Point3d GetPoint(string strKey)
+    {
+      return ptMap[strKey];
+    }
+
+  }
 }

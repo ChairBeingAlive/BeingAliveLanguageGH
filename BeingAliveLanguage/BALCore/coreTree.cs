@@ -11,8 +11,6 @@ using MIConvexHull;
 using System.Diagnostics;
 using System.Diagnostics.Eventing;
 
-using ghDelSolver = Grasshopper.Kernel.Geometry.Delaunay.Solver;
-using Eto.Forms;
 namespace BeingAliveLanguage
 {
   class Tree

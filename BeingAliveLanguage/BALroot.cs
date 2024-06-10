@@ -13,15 +13,14 @@ using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
-  public class BALRootSoilMap : GH_Component
+  /// <summary>
+  /// Initializes a new instance of the RootSoilMap2d class.
+  /// </summary>
+  public class BALSoilMap2d : GH_Component
   {
-
-    /// <summary>
-    /// Initializes a new instance of the MyComponent1 class.
-    /// </summary>
-    public BALRootSoilMap()
-      : base("Root_SoilMap", "balSoilMap",
-          "Build the soil map for root drawing.",
+    public BALSoilMap2d()
+      : base("SoilMap2d", "balSoilMap2d",
+          "Build the 2D soil map for root drawing.",
           "BAL", "02::root")
     {
     }
@@ -29,8 +28,6 @@ namespace BeingAliveLanguage
     public override GH_Exposure Exposure => GH_Exposure.primary;
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootMap;
     public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
-
-    //public string mapMode = "sectional";
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
     {
@@ -47,7 +44,7 @@ namespace BeingAliveLanguage
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
     {
-      pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+      pManager.AddGenericParameter("SoilMap2d", "sMap2d", "The soil map class to build root upon.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -100,6 +97,79 @@ namespace BeingAliveLanguage
     }
   }
 
+
+  /// <summary>
+  /// Initializes a new instance of the SoilMap3d class.
+  /// </summary>
+  public class BALSoilMap3d : GH_Component
+  {
+    public BALSoilMap3d()
+      : base("SoilMap3d", "balSoilMap3d",
+          "Build the 3D soil map for root drawing.",
+          "BAL", "02::root")
+    {
+    }
+
+    public override GH_Exposure Exposure => GH_Exposure.primary;
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootMap;
+    public override Guid ComponentGuid => new Guid("84929d36-71bd-4c96-ae00-6f39b1025455");
+
+    protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+    {
+      pManager.AddPlaneParameter("Surface Plane", "surP", "A plane representing the soil surface.", GH_ParamAccess.item, Plane.WorldXY);
+      pManager[0].Optional = true;
+      pManager.AddGenericParameter("Soil Volume", "soilVol", "Geometry volume that representing the soil.", GH_ParamAccess.list);
+      pManager.AddIntegerParameter("Particle Number", "particleN", "The number of particles to simulate the soil volume.", GH_ParamAccess.item, 1000);
+    }
+
+    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+    {
+      pManager.AddGenericParameter("SoilMap3d", "sMap3d", "The 3D soil map class to build root in.", GH_ParamAccess.item);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
+      #region input handling
+      var pln = new Plane();
+      DA.GetData(0, ref pln);
+
+      //SoilMap sMap = new SoilMap(pln, mapMode);
+      SoilMap sMap = new SoilMap(pln);
+
+      // detecting the goo type and add it to the corresponding container
+      object soilVolObj = null;
+      if (DA.GetData("Soil Volume", ref soilVolObj))
+      {
+        if (soilVolObj is Mesh)
+        {
+          Mesh soilVol = (Mesh)soilVolObj;
+          if (!soilVol.IsClosed)
+          {
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The input mesh is not watertight.");
+          }
+        }
+        else if (soilVolObj is Brep)
+        {
+          Brep soilVolBrep = (Brep)soilVolObj;
+          Mesh soilVol = Mesh.CreateFromBrep(soilVolBrep, MeshingParameters.Default)[0];
+          if (!soilVol.IsClosed)
+          {
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The input mesh is not watertight.");
+          }
+        }
+        else
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Invalid input type. Expected Mesh or Brep.");
+        }
+      }
+      #endregion
+
+      //sMap.BuildMap(conPt, conPoly);
+      //sMap.BuildBound();
+
+      DA.SetData(0, sMap);
+    }
+  }
   /// <summary>
   /// Draw the root in sectional soil grid.
   /// </summary>
@@ -583,7 +653,7 @@ namespace BeingAliveLanguage
     { }
 
     public override GH_Exposure Exposure => GH_Exposure.quarternary;
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeRoot; //todo: update img
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeRoot;
     public override Guid ComponentGuid => new Guid("27C279E0-08C9-4110-AE40-81A59C9D9EB8");
     private bool rootDense = false;
     private int scalingFactor = 1;
@@ -970,6 +1040,43 @@ namespace BeingAliveLanguage
       DA.SetDataList("RootNew", newRoot);
       DA.SetDataList("RootDead", deadRoot);
     }
+  }
+
+  /// <summary>
+  /// Draw Tree Root in 3D
+  /// </summary>  
+  public class BALtreeRoot3d : GH_Component
+  {
+    public BALtreeRoot3d()
+    : base("TreeRoot3d", "balTreeRoot3d",
+          "Generate the BAL tree-root drawing in 3D using the BAL tree and soil information.",
+        "BAL", "02::Root")
+    { }
+
+    public override GH_Exposure Exposure => GH_Exposure.quarternary;
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeRoot; //todo: update img
+    public override Guid ComponentGuid => new Guid("3f18edbd-320a-49e8-b16f-6c19b5654301");
+
+    protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+    {
+      pManager.AddGenericParameter("TreeInfo", "tInfo", "Information about the tree.", GH_ParamAccess.item);
+      pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+    }
+
+    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+    {
+      pManager.AddLineParameter("All Roots", "rootAll", "The planar root drawing, collection of all level roots.", GH_ParamAccess.list);
+
+      pManager.AddLineParameter("Root3dMain", "root3dM", "Primary roots in 3D.", GH_ParamAccess.list);
+      pManager.AddLineParameter("Root3dNew", "root3dN", "Secondary roots in 3D.", GH_ParamAccess.list);
+      pManager.AddLineParameter("Root3dDead", "root3dD", "Dead roots in later phases of a tree's life in 3D.", GH_ParamAccess.list);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
+      // TODO: Add your implementation logic here
+    }
+
   }
 
 }
