@@ -9,7 +9,7 @@ double BAL_Addition(double a, double b)
 	return a + b;
 }
 
-void BAL_possionDiskElimSample(ON_SimpleArray<double>* inPt, double area, int n,
+void BAL_possionDiskElimSample(ON_SimpleArray<double>* inPt, double generalArea, int n,
 	ON_3dPointArray* outPt) {
 	// input conversion
 	int sz = inPt->Count() / 3;
@@ -27,7 +27,7 @@ void BAL_possionDiskElimSample(ON_SimpleArray<double>* inPt, double area, int n,
 	//! Important!
 	// d_max is used to define the sampling dist param based on sampling area
 	//http://www.cemyuksel.com/cyCodeBase/soln/poisson_disk_sampling.html
-	float d_max = 2 * wse.GetMaxPoissonDiskRadius(2, outputPoints.size(), area);
+	float d_max = 2 * wse.GetMaxPoissonDiskRadius(2, outputPoints.size(), generalArea);
 
 	// 3D points, sampling in 2D plane
 	wse.Eliminate(inputPoints.data(), inputPoints.size(), outputPoints.data(),
@@ -35,10 +35,12 @@ void BAL_possionDiskElimSample(ON_SimpleArray<double>* inPt, double area, int n,
 
 	// output conversion
 	outPt->Empty();
-	for (auto p : outputPoints) {
+	for (auto &p : outputPoints) {
 		outPt->Append(ON_3dPoint(p.x, p.y, p.z));
 	}
 }
+
+
 
 
 //void BAL_computeHull(ON_3dPointArray* inPt, ON_3dPointArray* outPt, ON_SimpleArray<int>* outF) {

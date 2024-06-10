@@ -120,6 +120,8 @@ namespace BeingAliveLanguage
       pManager[0].Optional = true;
       pManager.AddGenericParameter("Soil Volume", "soilVol", "Geometry volume that representing the soil.", GH_ParamAccess.list);
       pManager.AddIntegerParameter("Particle Number", "particleN", "The number of particles to simulate the soil volume.", GH_ParamAccess.item, 1000);
+      //pManager.AddPointParameter("Additional Points", "pts", "Points representing additional soil particles for the soil map.", GH_ParamAccess.list);
+      pManager[3].Optional = true;
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -133,9 +135,6 @@ namespace BeingAliveLanguage
       var pln = new Plane();
       DA.GetData(0, ref pln);
 
-      //SoilMap sMap = new SoilMap(pln, mapMode);
-      SoilMap sMap = new SoilMap(pln);
-
       // detecting the goo type and add it to the corresponding container
       object soilVolObj = null;
       if (DA.GetData("Soil Volume", ref soilVolObj))
@@ -147,6 +146,29 @@ namespace BeingAliveLanguage
           {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The input mesh is not watertight.");
           }
+          else
+          {
+            BoundingBox bbox = soilVol.GetBoundingBox(true);
+            Point3d[] points = new Point3d[parNum * 10];
+            Random rand = new Random();
+
+            for (int i = 0; i < points.Length; i++)
+            {
+              double x = rand.NextDouble() * (bbox.Max.X - bbox.Min.X) + bbox.Min.X;
+              double y = rand.NextDouble() * (bbox.Max.Y - bbox.Min.Y) + bbox.Min.Y;
+              double z = rand.NextDouble() * (bbox.Max.Z - bbox.Min.Z) + bbox.Min.Z;
+              points[i] = new Point3d(x, y, z);
+            }
+
+            // 2. Eliminate until the `parNum` is reached
+
+            //sMap.BuildMap(parNum);
+
+            //sMap.BuildBound();
+
+            // 3. Output the soil map
+            DA.SetData(0, sMap);
+          }
         }
         else if (soilVolObj is Brep)
         {
@@ -156,18 +178,50 @@ namespace BeingAliveLanguage
           {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The input mesh is not watertight.");
           }
+          else
+          {
+            BoundingBox bbox = soilVol.GetBoundingBox(true);
+            Point3d[] points = new Point3d[parNum * 10];
+            Random rand = new Random();
+
+            for (int i = 0; i < points.Length; i++)
+            {
+              double x = rand.NextDouble() * (bbox.Max.X - bbox.Min.X) + bbox.Min.X;
+              double y = rand.NextDouble() * (bbox.Max.Y - bbox.Min.Y) + bbox.Min.Y;
+              double z = rand.NextDouble() * (bbox.Max.Z - bbox.Min.Z) + bbox.Min.Z;
+              points[i] = new Point3d(x, y, z);
+            }
+
+            // 2. Eliminate until the `parNum` is reached
+
+            //sMap.BuildMap(parNum);
+
+            //sMap.BuildBound();
+
+            // 3. Output the soil map
+            DA.SetData(0, sMap);
+          }
         }
         else
         {
           AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Invalid input type. Expected Mesh or Brep.");
         }
       }
+
+      int parNum = 0;
+      if (!DA.GetData("Particle Number", ref parNum))
+      { return; }
+
       #endregion
 
-      //sMap.BuildMap(conPt, conPoly);
-      //sMap.BuildBound();
+      // Generate points inside the soil volume
+      // ...
 
-      DA.SetData(0, sMap);
+      // Eliminate until the `parNum` is reached
+      // ...
+
+      // Output the soil map
+      // ...
     }
   }
   /// <summary>
@@ -190,7 +244,7 @@ namespace BeingAliveLanguage
     public override Guid ComponentGuid => new Guid("8772b28f-5853-4460-9aa0-1b711b1b3662");
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
 
-    protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+    protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
       pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
       pManager.AddPointParameter("Anchor", "A", "Anchor locations of the root(s).", GH_ParamAccess.item);
@@ -208,7 +262,7 @@ namespace BeingAliveLanguage
       pManager.AddBooleanParameter("EnvAffector Toggle", "envToggle", "Toggle the affects caused by environmental factors.", GH_ParamAccess.item, false);
     }
 
-    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
       pManager.AddGenericParameter("RootSec-Primary", "root-main", "The sectional root drawing for primary roots.", GH_ParamAccess.list);
       pManager.AddGenericParameter("RootSec-Secondary", "root-rest", "The sectional root drawing for secondary roots.", GH_ParamAccess.list);

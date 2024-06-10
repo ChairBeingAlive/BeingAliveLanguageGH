@@ -9,14 +9,14 @@ namespace BeingAliveLanguageRC
   {
 
     // testing func
-    //public static double Addition(double a, double b)
-    //{
-    //    var c = cppBAL.BAL_Addition(a, b);
-    //    return c;
-    //}
+    public static double Addition(double a, double b)
+    {
+      var c = cppBAL.BAL_Addition(a, b);
+      return c;
+    }
 
     // Poisson Elimination Sampling
-    public static void SampleElim(in List<Point3d> inPt, double area, int num, out List<Point3d> outPt)
+    public static void SampleElim(in List<Point3d> inPt, double generalArea, int num, out List<Point3d> outPt)
     {
       var Parray = new List<double>();
       foreach (var p in inPt)
@@ -30,7 +30,7 @@ namespace BeingAliveLanguageRC
       var outPcpp = new Rhino.Runtime.InteropWrappers.SimpleArrayPoint3d();
 
       // ! disable when developing nonCPP-required functions, so that MS's hotReload can work
-      cppBAL.BAL_possionDiskElimSample(inPcpp.ConstPointer(), area, num, outPcpp.NonConstPointer());
+      cppBAL.BAL_possionDiskElimSample(inPcpp.ConstPointer(), generalArea, num, outPcpp.NonConstPointer());
 
       // assign to the output
       outPt = new List<Point3d>(outPcpp.ToArray());

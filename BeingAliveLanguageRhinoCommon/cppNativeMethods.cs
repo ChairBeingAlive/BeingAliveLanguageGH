@@ -23,16 +23,17 @@ namespace BeingAliveLanguageRC
 
     /// <summary>
     /// Possion Disc Sampling using the reduction approach, no need for radius.
+    /// area-based 2D/3D version -- generalArea: area for 2d, volume for 3d
     /// </summary>
     [DllImport(Import.cppLib, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern void BAL_possionDiskElimSample(IntPtr inPt, double area, int n, IntPtr outPt);
+    internal static extern void BAL_possionDiskElimSample(IntPtr inPt, double generalArea, int n, IntPtr outPt);
 
     /// <summary>
     /// Possion Disc Sampling using the reduction approach, no need for radius.
+    /// range-based 2D version  
     /// </summary>
     [DllImport(Import.cppLib, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void BAL_possionDiskElimSampleBound(IntPtr minMaxBound, int n, IntPtr gPt, IntPtr outPt);
-
 
     /// <summary>
     /// Compute the convex hull of a set of points.

@@ -372,13 +372,13 @@ namespace BeingAliveLanguage
   /// <summary>
   /// Soil Map in 3D space
   /// </summary>
-  class SoilMap3D
+  class SoilMap3d
   {
     public Plane mPln;
     Tuple<double, double, double, double> mBndParam = new Tuple<double, double, double, double>(0, 0, 0, 0);
     public double unitLen = float.MaxValue;
 
-    public SoilMap3D(in Plane pl)
+    public SoilMap3d(in Plane pl)
     {
       // kd-tree map
       this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
@@ -414,10 +414,13 @@ namespace BeingAliveLanguage
     public void BuildMap(in List<Point3d> ptLst)
     {
       var ptCollection = new ConcurrentBag<Point3d>();
-      Parallel.ForEach(ptLst, pt =>
-      {
-        ptCollection.Add(pt);
-      });
+      if (ptLst != null && ptLst.Count > 0)
+        Parallel.ForEach(ptLst, pt =>
+        {
+          ptCollection.Add(pt);
+        });
+      else
+        return;
 
       //var ptCollection = ptBag.Concat(ptLst);
 
