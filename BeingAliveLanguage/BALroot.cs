@@ -8,6 +8,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Mail;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -118,110 +119,91 @@ namespace BeingAliveLanguage
     {
       pManager.AddPlaneParameter("Surface Plane", "surP", "A plane representing the soil surface.", GH_ParamAccess.item, Plane.WorldXY);
       pManager[0].Optional = true;
-      pManager.AddGenericParameter("Soil Volume", "soilVol", "Geometry volume that representing the soil.", GH_ParamAccess.list);
-      pManager.AddIntegerParameter("Particle Number", "particleN", "The number of particles to simulate the soil volume.", GH_ParamAccess.item, 1000);
+      pManager.AddGenericParameter("Soil Volume", "soilVol", "Geometry volume that representing the soil.", GH_ParamAccess.item);
+      pManager.AddIntegerParameter("Particle Number", "parN", "The number of particles to simulate the soil volume.", GH_ParamAccess.item, 1000);
+      pManager[2].Optional = true;
       //pManager.AddPointParameter("Additional Points", "pts", "Points representing additional soil particles for the soil map.", GH_ParamAccess.list);
-      pManager[3].Optional = true;
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
     {
-      pManager.AddGenericParameter("SoilMap3d", "sMap3d", "The 3D soil map class to build root in.", GH_ParamAccess.item);
+      pManager.AddGenericParameter("SoilMap3d", "sMap3d", "The 3D soil map class to build root in.", GH_ParamAccess.list);
+      pManager.AddPointParameter("Map Points", "mapPt", "Spatial points that the 3D soil map builds upon.", GH_ParamAccess.list);
+      //pManager.AddMeshParameter("testMesh", "TestM", "Test mesh for the soil volume.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
       #region input handling
-      var pln = new Plane();
-      DA.GetData(0, ref pln);
+      var mPln = new Plane();
+      DA.GetData("Surface Plane", ref mPln);
+
+      int parNum = 0;
+      DA.GetData("Particle Number", ref parNum);
 
       // detecting the goo type and add it to the corresponding container
       object soilVolObj = null;
-      if (DA.GetData("Soil Volume", ref soilVolObj))
-      {
-        if (soilVolObj is Mesh)
-        {
-          Mesh soilVol = (Mesh)soilVolObj;
-          if (!soilVol.IsClosed)
-          {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The input mesh is not watertight.");
-          }
-          else
-          {
-            BoundingBox bbox = soilVol.GetBoundingBox(true);
-            Point3d[] points = new Point3d[parNum * 10];
-            Random rand = new Random();
-
-            for (int i = 0; i < points.Length; i++)
-            {
-              double x = rand.NextDouble() * (bbox.Max.X - bbox.Min.X) + bbox.Min.X;
-              double y = rand.NextDouble() * (bbox.Max.Y - bbox.Min.Y) + bbox.Min.Y;
-              double z = rand.NextDouble() * (bbox.Max.Z - bbox.Min.Z) + bbox.Min.Z;
-              points[i] = new Point3d(x, y, z);
-            }
-
-            // 2. Eliminate until the `parNum` is reached
-
-            //sMap.BuildMap(parNum);
-
-            //sMap.BuildBound();
-
-            // 3. Output the soil map
-            DA.SetData(0, sMap);
-          }
-        }
-        else if (soilVolObj is Brep)
-        {
-          Brep soilVolBrep = (Brep)soilVolObj;
-          Mesh soilVol = Mesh.CreateFromBrep(soilVolBrep, MeshingParameters.Default)[0];
-          if (!soilVol.IsClosed)
-          {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The input mesh is not watertight.");
-          }
-          else
-          {
-            BoundingBox bbox = soilVol.GetBoundingBox(true);
-            Point3d[] points = new Point3d[parNum * 10];
-            Random rand = new Random();
-
-            for (int i = 0; i < points.Length; i++)
-            {
-              double x = rand.NextDouble() * (bbox.Max.X - bbox.Min.X) + bbox.Min.X;
-              double y = rand.NextDouble() * (bbox.Max.Y - bbox.Min.Y) + bbox.Min.Y;
-              double z = rand.NextDouble() * (bbox.Max.Z - bbox.Min.Z) + bbox.Min.Z;
-              points[i] = new Point3d(x, y, z);
-            }
-
-            // 2. Eliminate until the `parNum` is reached
-
-            //sMap.BuildMap(parNum);
-
-            //sMap.BuildBound();
-
-            // 3. Output the soil map
-            DA.SetData(0, sMap);
-          }
-        }
-        else
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Invalid input type. Expected Mesh or Brep.");
-        }
-      }
-
-      int parNum = 0;
-      if (!DA.GetData("Particle Number", ref parNum))
+      if (!DA.GetData("Soil Volume", ref soilVolObj))
       { return; }
 
+      var typ = soilVolObj.GetType();
+      Mesh soilVol = null;
+      if (soilVolObj is GH_Mesh sMesh)
+      {
+        soilVol = sMesh.Value;
+      }
+      else if (soilVolObj is GH_Brep sBrep)
+      {
+        //var soilVolBrep = soilVolObj;
+        var fLst = Mesh.CreateFromBrep(sBrep.Value, MeshingParameters.Smooth).ToList<Mesh>();
+        foreach (var f in fLst)
+        {
+          if (soilVol == null)
+            soilVol = f;
+          else
+            soilVol.Append(f);
+        }
+      }
+      else
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Invalid input type. Expected Mesh or Brep.");
+        return;
+      }
+
+      if (!soilVol.IsClosed)
+      {
+        //DA.SetData("testMesh", soilVol);
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The input mesh is not watertight.");
+        return;
+      }
       #endregion
 
+      BoundingBox bbox = soilVol.GetBoundingBox(true);
+      List<Point3d> points = new List<Point3d>();
+
       // Generate points inside the soil volume
-      // ...
+      for (int i = 0; i < parNum * 10; i++)
+      {
+        double x = Utils.balRnd.NextDouble() * (bbox.Max.X - bbox.Min.X) + bbox.Min.X;
+        double y = Utils.balRnd.NextDouble() * (bbox.Max.Y - bbox.Min.Y) + bbox.Min.Y;
+        double z = Utils.balRnd.NextDouble() * (bbox.Max.Z - bbox.Min.Z) + bbox.Min.Z;
+
+        Point3d pt = new Point3d(x, y, z);
+        if (soilVol.IsPointInside(pt, 0.001, false))
+          points.Add(pt);
+      }
 
       // Eliminate until the `parNum` is reached
-      // ...
+      cppUtils.SampleElim(points, soilVol.Volume(), parNum, out List<Point3d> resPt);
+
+      // build the map
+      var sMap3d = new SoilMap3d(mPln);
+      sMap3d.BuildMap(resPt);
+
 
       // Output the soil map
-      // ...
+      DA.SetData("SoilMap3d", sMap3d);
+      DA.SetDataList("Map Points", resPt);
     }
   }
   /// <summary>
