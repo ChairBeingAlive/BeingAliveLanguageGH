@@ -1096,7 +1096,7 @@ namespace BeingAliveLanguage
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
     {
       pManager.AddGenericParameter("TreeInfo", "tInfo", "Information about the tree.", GH_ParamAccess.item);
-      pManager.AddGenericParameter("SoilMap", "sMap", "The soil map class to build root upon.", GH_ParamAccess.item);
+      pManager.AddGenericParameter("SoilMap3d", "sMap3d", "The soil map class to build root upon.", GH_ParamAccess.item);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)

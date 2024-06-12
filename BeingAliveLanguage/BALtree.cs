@@ -247,6 +247,7 @@ namespace BeingAliveLanguage
     {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
       pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
+      pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -404,6 +405,8 @@ namespace BeingAliveLanguage
 
       DataTree<Curve> brCrv = new DataTree<Curve>();
       DataTree<Curve> trCrv = new DataTree<Curve>();
+      DataTree<TreeProperty> tInfoCol = new DataTree<TreeProperty>();
+
       foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
       {
         // generate tree
@@ -432,7 +435,30 @@ namespace BeingAliveLanguage
         // collection of trunk
         var trC = t.GetTrunk();
         trCrv.AddRange(trC, new GH_Path(new int[] { i }));
+
+        // Calculate tree height
+        var brPtCol = new List<Point3d>();
+        foreach (var (br, id) in branchCol.Select((br, id) => (br, id)))
+        {
+          foreach (var crv in br.Value)
+          {
+            t.mPln.RemapToPlaneSpace(crv.PointAtStart, out Point3d mappedPtStart);
+            t.mPln.RemapToPlaneSpace(crv.PointAtEnd, out Point3d mappedPtEnd);
+            brPtCol.Add(mappedPtStart);
+            brPtCol.Add(mappedPtEnd);
+          }
+        }
+
+        double tHeight = 0;
+        foreach (var pt in brPtCol)
+        {
+          var dir = (pt - t.mPln.Origin);
+          tHeight = Math.Max(Math.Abs(Vector3d.Multiply(dir, t.mPln.ZAxis)), tHeight);
+        }
+
+        tInfoCol.Add(new TreeProperty(t.mPln, tHeight, phaseLst[i]), new GH_Path(new int[] { i }));
       }
+
 
       //DataTree<Curve> trCrv = new DataTree<Curve>();
       //foreach (var (tr, i) in trunkCol.Select((tr, i) => (tr, i)))
@@ -442,6 +468,7 @@ namespace BeingAliveLanguage
 
       DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);
+      DA.SetDataTree(2, tInfoCol);
     }
   }
 
