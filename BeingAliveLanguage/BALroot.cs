@@ -8,7 +8,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Mail;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -1106,11 +1105,44 @@ namespace BeingAliveLanguage
       pManager.AddLineParameter("Root3dMain", "root3dM", "Primary roots in 3D.", GH_ParamAccess.list);
       pManager.AddLineParameter("Root3dNew", "root3dN", "Secondary roots in 3D.", GH_ParamAccess.list);
       pManager.AddLineParameter("Root3dDead", "root3dD", "Dead roots in later phases of a tree's life in 3D.", GH_ParamAccess.list);
+
+      pManager.AddPointParameter("DebugPt", "debugPt", "Debugging points.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
-      // TODO: Add your implementation logic here
+      #region input handling
+      //! Get data
+      var tInfo = new TreeProperty();
+
+      if (!DA.GetData("TreeInfo", ref tInfo))
+      { return; }
+
+      var sMap3d = new SoilMap3d(tInfo.pln);
+      if (!DA.GetData("SoilMap3d", ref sMap3d))
+      { return; }
+
+      //if (sMap3d.mPln != tInfo.pln)
+      //{
+      //  AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Tree plane and SoilMap plane does not match. This may cause issues for the root drawing.");
+      //}
+
+      // ! get anchor additional info 
+      var anchorPt = sMap3d.GetNearestPoint(tInfo.pln.Origin);
+      var curPhase = tInfo.phase;
+      var curHeight = tInfo.height;
+      //if (anchorPt.DistanceTo(tInfo.pln.Origin) > sMap)
+      //{
+      //  AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tree anchor point is too far from the soil. Please plant your tree near the soil grid.");
+      //}
+      #endregion
+
+      //Draw Roots based on the current phase
+
+
+      // Output data
+      DA.SetData("DebugPt", anchorPt);
+
     }
 
   }

@@ -460,11 +460,6 @@ namespace BeingAliveLanguage
       }
 
 
-      //DataTree<Curve> trCrv = new DataTree<Curve>();
-      //foreach (var (tr, i) in trunkCol.Select((tr, i) => (tr, i)))
-      //{
-      //  trCrv.AddRange(tr.Value, new GH_Path(new int[] { tr.Key }));
-      //}
 
       DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);

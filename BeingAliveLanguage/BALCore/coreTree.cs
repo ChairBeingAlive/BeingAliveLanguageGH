@@ -691,11 +691,9 @@ namespace BeingAliveLanguage
       // main trunk: grow with the phase
       var trunkLen = mPhase < 4 ? mScaledLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mScaledLen) : mScaledLen;
 
-      // trunk scale
+      // trunk 
       trunkLen *= mTScale;
       mBaseNode = new BranchNode3D(0, 0, mPln.Origin);
-      //mBranchRelation.Add(0, new HashSet<int>());
-
       mBaseNode.AddBranchAlong(trunkLen * mPln.ZAxis);
 
       var numBranchPerLayer = 6;
@@ -705,7 +703,7 @@ namespace BeingAliveLanguage
 
       // ! phase 1-4: base phase, always needed
       var totalBranchLayer = 2 * auxPhaseS1 + 1;
-      var verAngleIncrement = Utils.ToRadian(mAngleMain) / totalBranchLayer;
+      var verAngleIncrement = Utils.ToRadian(mAngleMain) / (totalBranchLayer + 1);
       var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
       curDir.Rotate(verAngleIncrement, verRotAxis);
 
@@ -717,7 +715,7 @@ namespace BeingAliveLanguage
         var brPosRatio = brStartLen / trunkLen;
         for (int brNum = 0; brNum < numBranchPerLayer; brNum++)
         {
-          var posR = Utils.remap(i, 0, totalBranchLayer, brPosRatio, 1);
+          double posR = Utils.remap(i, 0, totalBranchLayer, brPosRatio, 1);
           var pt = mBaseNode.mBranch[0].PointAt(posR);
           var node = new BranchNode3D(mAllNode.Count, curPhase, pt);
 
@@ -725,14 +723,24 @@ namespace BeingAliveLanguage
           double branchLen = 0;
           if (mPhase <= mStage1)
           {
-            branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.35;
-            branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.1);
+            branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.45;
+            branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.05);
           }
           else
           {
-            branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.35 * (1 + (double)(mPhase - mStage1) / (double)(mStage2 - mStage1));
-            branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.8);
+            branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.45 * (1 + (double)(mPhase - mStage1) / (double)(mStage2 - mStage1));
+            branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.7);
+
+
           }
+
+          // decaying branch length for lateral branches
+          if (posR < 1)
+          {
+            branchLen *= posR * (mPhase > mStage1 ? Utils.remap(mPhase - mStage1, 1, 9, 1, 0.95) : 1);
+          }
+
+
 
           // after stage 1, the side branch need to grow a bit more
 
