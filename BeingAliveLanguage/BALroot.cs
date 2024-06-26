@@ -1103,7 +1103,7 @@ namespace BeingAliveLanguage
       pManager.AddLineParameter("All Roots", "rootAll", "The planar root drawing, collection of all level roots.", GH_ParamAccess.list);
 
       pManager.AddGeometryParameter("Root3dMain", "root3dM", "Primary roots in 3D.", GH_ParamAccess.list);
-      pManager.AddLineParameter("Root3dNew", "root3dN", "Secondary roots in 3D.", GH_ParamAccess.list);
+      pManager.AddGeometryParameter("Root3dNew", "root3dN", "Secondary roots in 3D.", GH_ParamAccess.list);
       pManager.AddLineParameter("Root3dDead", "root3dD", "Dead roots in later phases of a tree's life in 3D.", GH_ParamAccess.list);
 
       pManager.AddPointParameter("DebugPt", "debugPt", "Debugging points.", GH_ParamAccess.item);
@@ -1145,9 +1145,8 @@ namespace BeingAliveLanguage
       // Output data
       DA.SetData("DebugPt", rootTree3D.debugPt);
       DA.SetDataList("Root3dMain", rootTree3D.GetRootMain());
+      DA.SetDataList("Root3dNew", rootTree3D.GetRootExplore());
 
     }
-
   }
-
 }

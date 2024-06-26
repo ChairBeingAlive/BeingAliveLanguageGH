@@ -61,6 +61,18 @@ namespace BeingAliveLanguage
     // get the random core
     public static Random balRnd = new Random(Guid.NewGuid().GetHashCode());
 
+    public static Vector3d GenerateRandomVector3d()
+    {
+      Vector3d randVec = new Vector3d(
+        balRnd.NextDouble() - 0.5,
+        balRnd.NextDouble() - 0.5,
+        balRnd.NextDouble() - 0.5
+        );
+      randVec.Unitize();
+
+      return randVec;
+    }
+
     // remap a number from one range to another
     public static double remap(double val, double originMin, double originMax, double targetMin, double targetMax)
     {

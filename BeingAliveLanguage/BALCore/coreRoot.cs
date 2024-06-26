@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Net;
 using Rhino.FileIO;
 using System.Xml.Schema;
+using Rhino.DocObjects;
 
 namespace BeingAliveLanguage
 {
@@ -541,6 +542,7 @@ namespace BeingAliveLanguage
     int mDivN = 1;
 
     List<Polyline> mRootMain = new List<Polyline>();
+    List<Polyline> mRootExplore = new List<Polyline>();
     List<Polyline> mRootNew = new List<Polyline>();
     List<Polyline> mRootDead = new List<Polyline>();
 
@@ -576,27 +578,52 @@ namespace BeingAliveLanguage
 
 
       // lv1 horizontal roots
-      res.Clear();
+      var lv1HorizontalRoot = new List<Polyline>();
       Point3d lv1RootAnchor = tapRootNrb.PointAt(0.1);
       vecLst = GenerateVecLst(basePln, mDivN, true);
-      GrowAlongDirections(lv1RootAnchor, maxLength, vecLst, out res);
-      mRootMain.AddRange(res);
+      GrowAlongDirections(lv1RootAnchor, maxLength, vecLst, out lv1HorizontalRoot);
+      mRootMain.AddRange(lv1HorizontalRoot);
 
       // lv2 horizontal roots
-      res.Clear();
+      var lv2HorizontalRoot = new List<Polyline>();
       Point3d lv2RootAnchor = tapRootNrb.PointAt(0.45);
       vecLst = GenerateVecLst(basePln, mDivN - 1, true);
-      GrowAlongDirections(lv2RootAnchor, maxLength * 0.75, vecLst, out res);
-      mRootMain.AddRange(res);
+      GrowAlongDirections(lv2RootAnchor, maxLength * 0.75, vecLst, out lv2HorizontalRoot);
+      mRootMain.AddRange(lv2HorizontalRoot);
 
 
       // lv3 horizontal roots
-      res.Clear();
+      var lv3HorizontalRoot = new List<Polyline>();
       Point3d lv3RootAnchor = tapRootNrb.PointAt(0.9);
       vecLst = GenerateVecLst(basePln, mDivN - 2, true);
-      GrowAlongDirections(lv3RootAnchor, maxLength * 0.3, vecLst, out res);
-      mRootMain.AddRange(res);
+      GrowAlongDirections(lv3RootAnchor, maxLength * 0.3, vecLst, out lv3HorizontalRoot);
+      mRootMain.AddRange(lv3HorizontalRoot);
 
+
+      // exploration roots
+      List<Polyline> allExplorationalRoots = new List<Polyline>();
+
+      mRootExplore.Clear();
+      // Generate explorational roots for lv1HorizontalRoot
+      foreach (Polyline root in lv1HorizontalRoot)
+      {
+        mRootExplore.AddRange(GenerateExplorationalRoots(root, 10));
+      }
+
+      // Generate explorational roots for lv2HorizontalRoot
+      foreach (Polyline root in lv2HorizontalRoot)
+      {
+        mRootExplore.AddRange(GenerateExplorationalRoots(root, 7));
+      }
+
+      // Generate explorational roots for lv3HorizontalRoot
+      foreach (Polyline root in lv3HorizontalRoot)
+      {
+        mRootExplore.AddRange(GenerateExplorationalRoots(root, 5));
+      }
+
+
+      // debug
       debugPt = lv1RootAnchor;
 
     }
@@ -688,9 +715,102 @@ namespace BeingAliveLanguage
       return bestCandidate;
     }
 
+    private List<Point3d> GeneratePointsAlongPolyline(Polyline polyline, int pointCount)
+    {
+      List<Point3d> points = new List<Point3d>();
+      NurbsCurve curve = polyline.ToNurbsCurve();
+      curve.Domain = new Interval(0, 1);
+
+      for (int i = 0; i < pointCount; i++)
+      {
+        double t = (double)i / (pointCount - 1);
+        points.Add(curve.PointAt(t));
+      }
+
+      return points;
+    }
+    private Polyline GrowSingleExplorationalRoot(Point3d startPoint, Vector3d mainRootDirection, double length, bool isReverse)
+    {
+      const int totalSteps = 3;
+      const int horizontalSteps = 1;
+      double stepLength = length / totalSteps;
+
+      Polyline explorationRoot = new Polyline();
+      explorationRoot.Add(startPoint);
+
+      Vector3d horizontalDir = Vector3d.CrossProduct(mainRootDirection, mMap3d.mPln.ZAxis);
+      if (isReverse)
+        horizontalDir = -horizontalDir;
+      horizontalDir.Unitize();
+
+      Vector3d currentDirection = horizontalDir;
+      Point3d currentPoint = startPoint;
+
+      for (int step = 0; step < totalSteps; step++)
+      {
+        if (step == horizontalSteps)
+        {
+          // Transition to a more downward direction
+          currentDirection = (horizontalDir + mMap3d.mPln.ZAxis * -2) / 3;
+          currentDirection.Unitize();
+        }
+
+        // Add some randomness to the direction
+        Vector3d randomVector = Utils.GenerateRandomVector3d();
+        Vector3d growthDirection = currentDirection * 0.8 + randomVector * 0.2;
+        growthDirection.Unitize();
+
+        // Grow the next segment
+        Polyline segment = GrowAlongVec(currentPoint, stepLength, growthDirection);
+
+        if (segment.Count > 1)
+        {
+          explorationRoot.AddRange(segment.GetRange(1, segment.Count - 1));
+          currentPoint = segment.Last;
+        }
+        else
+        {
+          // If growth failed, stop the process
+          break;
+        }
+      }
+
+      return explorationRoot;
+    }
+    private List<Polyline> GenerateExplorationalRoots(Polyline mainRoot, int pointCount)
+    {
+      List<Polyline> explorationalRoots = new List<Polyline>();
+      List<Point3d> points = GeneratePointsAlongPolyline(mainRoot, pointCount);
+
+      NurbsCurve mainRootCurve = mainRoot.ToNurbsCurve();
+      mainRootCurve.Domain = new Interval(0, 1);
+
+      for (int i = 0; i < points.Count; i++)
+      {
+        Point3d point = points[i];
+        mainRootCurve.ClosestPoint(point, out double parameter);
+        Vector3d mainRootDirection = mainRootCurve.TangentAt(parameter);
+        mainRootDirection.Unitize();
+
+        double explorationLength = mainRoot.Length * 0.1;
+
+        // Grow two explorational roots in opposite directions
+        explorationalRoots.Add(GrowSingleExplorationalRoot(point, mainRootDirection, explorationLength, false));
+        explorationalRoots.Add(GrowSingleExplorationalRoot(point, mainRootDirection, explorationLength, true));
+      }
+
+      return explorationalRoots;
+    }
     public List<Polyline> GetRootMain()
     {
       return this.mRootMain;
     }
+
+    public List<Polyline> GetRootExplore()
+    {
+      return this.mRootExplore;
+    }
+
+
   }
 }
