@@ -6,7 +6,7 @@ namespace BeingAliveLanguage
 
   static class cppUtils
   {
-    public static void SampleElim(in List<Point3d> inPt, double generalArea, int num, out List<Point3d> outPt)
+    public static void SampleElim(in List<Point3d> inPt, double generalArea, int dim, int num, out List<Point3d> outPt)
     {
       outPt = new List<Point3d>();
       BeingAliveLanguageRC.Utils.SampleElim(inPt, generalArea, num, out outPt);

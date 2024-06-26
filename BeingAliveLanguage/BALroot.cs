@@ -193,7 +193,7 @@ namespace BeingAliveLanguage
       }
 
       // Eliminate until the `parNum` is reached
-      cppUtils.SampleElim(points, soilVol.Volume(), parNum, out List<Point3d> resPt);
+      cppUtils.SampleElim(points, soilVol.Volume(), 3, parNum, out List<Point3d> resPt);
 
       // build the map
       var sMap3d = new SoilMap3d(mPln);
@@ -1102,7 +1102,7 @@ namespace BeingAliveLanguage
     {
       pManager.AddLineParameter("All Roots", "rootAll", "The planar root drawing, collection of all level roots.", GH_ParamAccess.list);
 
-      pManager.AddLineParameter("Root3dMain", "root3dM", "Primary roots in 3D.", GH_ParamAccess.list);
+      pManager.AddGeometryParameter("Root3dMain", "root3dM", "Primary roots in 3D.", GH_ParamAccess.list);
       pManager.AddLineParameter("Root3dNew", "root3dN", "Secondary roots in 3D.", GH_ParamAccess.list);
       pManager.AddLineParameter("Root3dDead", "root3dD", "Dead roots in later phases of a tree's life in 3D.", GH_ParamAccess.list);
 
@@ -1128,7 +1128,8 @@ namespace BeingAliveLanguage
       //}
 
       // ! get anchor additional info 
-      var anchorPt = sMap3d.GetNearestPoint(tInfo.pln.Origin);
+      //var anchorPt = sMap3d.GetNearestPoint(tInfo.pln.Origin);
+      var anchorPt = tInfo.pln.Origin;
       var curPhase = tInfo.phase;
       var curHeight = tInfo.height;
       //if (anchorPt.DistanceTo(tInfo.pln.Origin) > sMap)
@@ -1138,10 +1139,12 @@ namespace BeingAliveLanguage
       #endregion
 
       //Draw Roots based on the current phase
-
+      var rootTree3D = new RootTree3D(sMap3d, anchorPt, curHeight, curPhase, 8);
+      rootTree3D.GrowRoot();
 
       // Output data
-      DA.SetData("DebugPt", anchorPt);
+      DA.SetData("DebugPt", rootTree3D.debugPt);
+      DA.SetDataList("Root3dMain", rootTree3D.GetRootMain());
 
     }
 

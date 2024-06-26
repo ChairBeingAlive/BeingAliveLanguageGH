@@ -27,7 +27,7 @@ double BAL_Addition(double a, double b);
 // ! Sampling
 // `generalArea`: area for 2D; volume for 3D
 RH_C_FUNCTION
-void BAL_possionDiskElimSample(ON_SimpleArray<double>* inPt, double generalArea, int n,
+void BAL_possionDiskElimSample(ON_SimpleArray<double>* inPt, double generalArea, int dim, int n,
 	ON_3dPointArray* outPt);
 
 

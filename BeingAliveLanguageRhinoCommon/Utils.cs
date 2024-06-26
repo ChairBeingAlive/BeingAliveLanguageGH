@@ -1,4 +1,5 @@
-﻿using Rhino.Geometry;
+﻿using Eto.Forms;
+using Rhino.Geometry;
 using Rhino.Runtime;
 using System;
 using System.Collections.Generic;
@@ -16,7 +17,7 @@ namespace BeingAliveLanguageRC
     }
 
     // Poisson Elimination Sampling
-    public static void SampleElim(in List<Point3d> inPt, double generalArea, int num, out List<Point3d> outPt)
+    public static void SampleElim(in List<Point3d> inPt, double generalArea, int num, out List<Point3d> outPt, int dim = 3)
     {
       var Parray = new List<double>();
       foreach (var p in inPt)
@@ -30,7 +31,7 @@ namespace BeingAliveLanguageRC
       var outPcpp = new Rhino.Runtime.InteropWrappers.SimpleArrayPoint3d();
 
       // ! disable when developing nonCPP-required functions, so that MS's hotReload can work
-      cppBAL.BAL_possionDiskElimSample(inPcpp.ConstPointer(), generalArea, num, outPcpp.NonConstPointer());
+      cppBAL.BAL_possionDiskElimSample(inPcpp.ConstPointer(), generalArea, dim, num, outPcpp.NonConstPointer());
 
       // assign to the output
       outPt = new List<Point3d>(outPcpp.ToArray());
@@ -38,7 +39,7 @@ namespace BeingAliveLanguageRC
 
     // Poisson Elimination Sampling overload, given rectangle bound
     // the use of sample seed here is only for generating the initial points, elimination process is still random
-    public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, int seed = -1, double bndScale = 1.0, int initPtRange = 8)
+    public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt, out List<Point3d> outPt, int seed = -1, double bndScale = 1.0, int initPtRange = 8, int dim = 2)
     {
       var rnd = seed >= 0 ? new Random(seed) : new Random(Guid.NewGuid().GetHashCode());
 
@@ -73,7 +74,7 @@ namespace BeingAliveLanguageRC
         genPt.Add(new Point3d(rnd.NextDouble() * diagVec.X, rnd.NextDouble() * diagVec.Y, rnd.NextDouble() * diagVec.Z) + lowerLeft);
       }
 
-      SampleElim(genPt, curBnd.Area, num, out outPt);
+      SampleElim(genPt, curBnd.Area, num, out outPt, dim);
     }
 
     //  // Compute the convex hull of a set of points

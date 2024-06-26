@@ -87,7 +87,7 @@ namespace BeingAliveLanguage
            */
           int numPoissonSand = Convert.ToInt32(numSand * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
           //BeingAliveLanguageRC.Utils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
-          cppUtils.SampleElim(triCen, mBase.bnd.Area, numPoissonSand, out outSandCen);
+          cppUtils.SampleElim(triCen, mBase.bnd.Area, 2, numPoissonSand, out outSandCen);
 
           // part 2
           var remainingTriCen = triCen.Except(outSandCen).ToList();
@@ -137,7 +137,7 @@ namespace BeingAliveLanguage
         // part 1
         int numPoissonSilt = Convert.ToInt32(numSilt * Utils.remap(mStage, 1.0, 8.0, 1.0, 0.05));
         //BeingAliveLanguageRC.Utils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out outSiltCen);
-        cppUtils.SampleElim(preSiltCen, mBase.bnd.Area, numPoissonSilt, out outSiltCen);
+        cppUtils.SampleElim(preSiltCen, mBase.bnd.Area, 2, numPoissonSilt, out outSiltCen);
 
         // part 2
         var curRemainTriCen = preSiltCen.Except(outSiltCen).ToList();
@@ -247,8 +247,7 @@ namespace BeingAliveLanguage
 
         // sand
         var numSand = (int)Math.Round(postSandT.Count * rSand);
-        //BeingAliveLanguageRC.Utils.SampleElim(triCen, sBase.bnd.Area, numSand, out List<Point3d> outSandCen);
-        cppUtils.SampleElim(triCen, sBase.bnd.Area, numSand, out List<Point3d> outSandCen);
+        cppUtils.SampleElim(triCen, sBase.bnd.Area, 2, numSand, out List<Point3d> outSandCen);
         sandT = outSandCen.Select(x => cenMap[Utils.PtString(x)].Item2).ToList();
         sandT = postSandT.OrderBy(x => Guid.NewGuid()).Take(numSand).ToList();
 
@@ -415,7 +414,7 @@ namespace BeingAliveLanguage
       {
         var curLst = new List<Point3d>();
         //BeingAliveLanguageRC.Utils.SampleElim(tmpStoneCen, sBase.bnd.Area, stoneCntLst[i], out curLst);
-        cppUtils.SampleElim(tmpStoneCen, sBase.bnd.Area, stoneCntLst[i], out curLst);
+        cppUtils.SampleElim(tmpStoneCen, sBase.bnd.Area, 2, stoneCntLst[i], out curLst);
 
         // record centre triangle
         foreach (var pt in curLst)
@@ -537,7 +536,7 @@ namespace BeingAliveLanguage
     public void CollectAll(out List<Polyline> allT)
     {
       allT = new List<Polyline>();
-      allT.AddRange(stonePoly.SelectMany(d=>d));
+      allT.AddRange(stonePoly.SelectMany(d => d));
       allT.AddRange(sandT);
       allT.AddRange(clayT);
       allT.AddRange(biocharT);

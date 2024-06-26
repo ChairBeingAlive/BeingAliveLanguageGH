@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Net;
+using Rhino.FileIO;
+using System.Xml.Schema;
 
 namespace BeingAliveLanguage
 {
@@ -228,7 +230,7 @@ namespace BeingAliveLanguage
       var tmpPos = mSoilMap.GetNearestPoint(endPt);
       var newNode = new RootNode(tmpPos);
 
-      if (!(curNode.pos.DistanceToSquared(newNode.pos) >= 0.01 && RootDensityCheck(newNode.pos)))
+      if (!(curNode.pos.DistanceToSquared(newNode.pos) >= 1e-4 && RootDensityCheck(newNode.pos)))
         return;
 
       curNode.AddChildNode(newNode, nType);
@@ -530,4 +532,165 @@ namespace BeingAliveLanguage
     List<List<Vector3d>> frontDir = new List<List<Vector3d>>();
   }
 
+  class RootTree3D
+  {
+    private SoilMap3d mMap3d = null;
+    private Point3d mAnchor = new Point3d();
+    double mTreeHeight = 0.0;
+    int mPhase = 0;
+    int mDivN = 1;
+
+    List<Polyline> mRootMain = new List<Polyline>();
+    List<Polyline> mRootNew = new List<Polyline>();
+    List<Polyline> mRootDead = new List<Polyline>();
+
+    public Point3d debugPt;
+
+    public RootTree3D() { }
+
+    public RootTree3D(in SoilMap3d map3d, in Point3d anchor, double treeHeight, int phase, int divN)
+    {
+      this.mMap3d = map3d;
+      this.mAnchor = anchor;
+      this.mTreeHeight = treeHeight;
+      this.mPhase = phase;
+      this.mDivN = divN;
+    }
+
+    public void GrowRoot()
+    {
+      // Get the directional vector based on divN
+      Plane basePln = mMap3d.mPln;
+      var vecLst = new List<Vector3d>();
+
+      // Define growth parameters
+      double maxLength = mTreeHeight * 0.8; // Maximum length of each root branch
+      List<Polyline> res = new List<Polyline>();
+
+      // tap root
+      var tapRootLen = maxLength * 0.5;
+      var tapRoot = GrowAlongVec(mAnchor, tapRootLen, -basePln.ZAxis);
+      var tapRootNrb = tapRoot.ToNurbsCurve();
+      tapRootNrb.Domain = new Interval(0, 1);
+      mRootMain.Add(tapRoot);
+
+
+      // lv1 horizontal roots
+      res.Clear();
+      Point3d lv1RootAnchor = tapRootNrb.PointAt(0.1);
+      vecLst = GenerateVecLst(basePln, mDivN, true);
+      GrowAlongDirections(lv1RootAnchor, maxLength, vecLst, out res);
+      mRootMain.AddRange(res);
+
+      // lv2 horizontal roots
+      res.Clear();
+      Point3d lv2RootAnchor = tapRootNrb.PointAt(0.45);
+      vecLst = GenerateVecLst(basePln, mDivN - 1, true);
+      GrowAlongDirections(lv2RootAnchor, maxLength * 0.75, vecLst, out res);
+      mRootMain.AddRange(res);
+
+
+      // lv3 horizontal roots
+      res.Clear();
+      Point3d lv3RootAnchor = tapRootNrb.PointAt(0.9);
+      vecLst = GenerateVecLst(basePln, mDivN - 2, true);
+      GrowAlongDirections(lv3RootAnchor, maxLength * 0.3, vecLst, out res);
+      mRootMain.AddRange(res);
+
+      debugPt = lv1RootAnchor;
+
+    }
+    public List<Vector3d> GenerateVecLst(Plane basePln, int totalVectors, bool randomizeStart = false)
+    {
+      var vecLst = new List<Vector3d>();
+      double angleIncrement = Math.PI * 2 / totalVectors;
+      double startAngle = 0.0;
+
+      // Randomize start angle if requested
+      if (randomizeStart)
+      {
+        Random rand = new Random();
+        startAngle = rand.NextDouble() * Math.PI * 2;
+      }
+
+      for (int i = 0; i < totalVectors; i++)
+      {
+        double theta = startAngle + (i * angleIncrement);
+        Vector3d baseVec = basePln.XAxis * Math.Cos(theta) + basePln.YAxis * Math.Sin(theta);
+        vecLst.Add(baseVec);
+      }
+
+      return vecLst;
+    }
+
+    private Polyline GrowAlongVec(in Point3d cen, in double maxLength, in Vector3d dir)
+    {
+      int candidatePtNum = 20; // Number of candidate points to consider at each step
+      Polyline rootBranch = new Polyline();
+
+      Point3d currentPoint = cen;
+      Vector3d currentDirection = dir;
+      string currentPointStr = mMap3d.GetNearestPointStr(currentPoint);
+
+      rootBranch.Add(cen);
+      while (rootBranch.Length < maxLength)
+      {
+        // Get candidate points
+        List<Point3d> candidates = mMap3d.GetNearestPoints(currentPoint, candidatePtNum);
+
+        // Select the best candidate based on direction similarity
+        Point3d nextPt = SelectBestCandidate(currentPoint, candidates, currentDirection);
+
+        // Calculate the direction to the best candidate
+        Vector3d dirToNextPt = nextPt - currentPoint;
+        dirToNextPt.Unitize();
+
+        // Move to the next point
+        currentPoint = nextPt;
+        rootBranch.Add(nextPt);
+      }
+
+      return rootBranch;
+    }
+
+    private void GrowAlongDirections(in Point3d cen, in double maxLength, in List<Vector3d> vecLst, out List<Polyline> res)
+    {
+      res = new List<Polyline>();
+
+      // Grow roots along each direction
+      foreach (Vector3d direction in vecLst)
+      {
+        res.Add(GrowAlongVec(cen, maxLength, direction));
+      }
+    }
+
+    private Point3d SelectBestCandidate(Point3d currentPoint, List<Point3d> candidates, Vector3d currentDirection)
+    {
+      double bestAlignment = -1;
+      Point3d bestCandidate = currentPoint;
+
+      foreach (Point3d pt in candidates)
+      {
+        Vector3d toCandidate = pt - currentPoint;
+        if (toCandidate.Length < 1e-3)
+          continue;
+
+        toCandidate.Unitize();
+
+        double alignment = Vector3d.Multiply(currentDirection, toCandidate);
+        if (alignment > bestAlignment) // dot product means the alignment of two vectors
+        {
+          bestAlignment = alignment;
+          bestCandidate = pt;
+        }
+      }
+
+      return bestCandidate;
+    }
+
+    public List<Polyline> GetRootMain()
+    {
+      return this.mRootMain;
+    }
+  }
 }
