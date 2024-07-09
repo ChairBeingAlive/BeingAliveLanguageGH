@@ -1139,7 +1139,7 @@ namespace BeingAliveLanguage
       #endregion
 
       //Draw Roots based on the current phase
-      var rootTree3D = new RootTree3D(sMap3d, anchorPt, curHeight, curPhase, 8);
+      var rootTree3D = new RootTree3D(sMap3d, anchorPt, curHeight, curPhase, 6);
       rootTree3D.GrowRoot();
 
       // Output data

@@ -566,11 +566,11 @@ namespace BeingAliveLanguage
       var vecLst = new List<Vector3d>();
 
       // Define growth parameters
-      double maxLength = mTreeHeight * 0.8; // Maximum length of each root branch
+      double maxLength = mTreeHeight * 3; // Maximum length of each root branch
       List<Polyline> res = new List<Polyline>();
 
       // tap root
-      var tapRootLen = maxLength * 0.5;
+      var tapRootLen = mTreeHeight * 0.4;
       var tapRoot = GrowAlongVec(mAnchor, tapRootLen, -basePln.ZAxis);
       var tapRootNrb = tapRoot.ToNurbsCurve();
       tapRootNrb.Domain = new Interval(0, 1);
@@ -579,16 +579,52 @@ namespace BeingAliveLanguage
 
       // lv1 horizontal roots
       var lv1HorizontalRoot = new List<Polyline>();
+      var lv1TapRoots = new List<Polyline>();
       Point3d lv1RootAnchor = tapRootNrb.PointAt(0.1);
       vecLst = GenerateVecLst(basePln, mDivN, true);
-      GrowAlongDirections(lv1RootAnchor, maxLength, vecLst, out lv1HorizontalRoot);
+      GrowAlongDirections(lv1RootAnchor, mTreeHeight * 0.2, vecLst, out lv1HorizontalRoot);
+
+      // Branch the lv1 horizontal roots
+      List<Polyline> currentLevelRoots = new List<Polyline>(lv1HorizontalRoot);
+      double remainingLength = mTreeHeight * 0.35; // Adjust this factor as needed
+
+      List<double> lv1LengthParam = new List<double> { 0.2, 0.3, 0.5 };
+      for (int branchLevel = 0; branchLevel < 3; branchLevel++)
+      {
+        List<Polyline> nextLevelRoots = new List<Polyline>();
+        List<Polyline> surroundTapRoots = new List<Polyline>();
+        foreach (var root in currentLevelRoots)
+        {
+          List<Polyline> branchedRoots = BranchRoot(root, mTreeHeight * lv1LengthParam[branchLevel], 1);
+          nextLevelRoots.AddRange(branchedRoots);
+
+          Polyline newTapRoot = GenerateTapRoot(root.ToNurbsCurve().PointAtEnd, remainingLength * 0.8);
+          surroundTapRoots.Add(newTapRoot);
+        }
+
+        lv1HorizontalRoot.AddRange(nextLevelRoots);
+        lv1TapRoots.AddRange(surroundTapRoots);
+
+        currentLevelRoots = nextLevelRoots;
+      }
+
       mRootMain.AddRange(lv1HorizontalRoot);
+      mRootMain.AddRange(lv1TapRoots);
+
+      // one more steup growth without branching
+      List<Polyline> lv1HorizontalAdditional = new List<Polyline>();
+      foreach (var root in currentLevelRoots)
+      {
+        var curSeg = GrowAlongVecInSeg(root.ToNurbsCurve().PointAtEnd, mTreeHeight * 2, root.ToNurbsCurve().TangentAtEnd, 4);
+        lv1HorizontalAdditional.AddRange(curSeg);
+      }
+      mRootMain.AddRange(lv1HorizontalAdditional);
 
       // lv2 horizontal roots
       var lv2HorizontalRoot = new List<Polyline>();
-      Point3d lv2RootAnchor = tapRootNrb.PointAt(0.45);
+      Point3d lv2RootAnchor = tapRootNrb.PointAt(0.5);
       vecLst = GenerateVecLst(basePln, mDivN - 1, true);
-      GrowAlongDirections(lv2RootAnchor, maxLength * 0.75, vecLst, out lv2HorizontalRoot);
+      GrowAlongDirections(lv2RootAnchor, maxLength * 0.2, vecLst, out lv2HorizontalRoot);
       mRootMain.AddRange(lv2HorizontalRoot);
 
 
@@ -596,7 +632,7 @@ namespace BeingAliveLanguage
       var lv3HorizontalRoot = new List<Polyline>();
       Point3d lv3RootAnchor = tapRootNrb.PointAt(0.9);
       vecLst = GenerateVecLst(basePln, mDivN - 2, true);
-      GrowAlongDirections(lv3RootAnchor, maxLength * 0.3, vecLst, out lv3HorizontalRoot);
+      GrowAlongDirections(lv3RootAnchor, maxLength * 0.1, vecLst, out lv3HorizontalRoot);
       mRootMain.AddRange(lv3HorizontalRoot);
 
 
@@ -627,6 +663,7 @@ namespace BeingAliveLanguage
       debugPt = lv1RootAnchor;
 
     }
+
     public List<Vector3d> GenerateVecLst(Plane basePln, int totalVectors, bool randomizeStart = false)
     {
       var vecLst = new List<Vector3d>();
@@ -680,6 +717,21 @@ namespace BeingAliveLanguage
       return rootBranch;
     }
 
+    private List<Polyline> GrowAlongVecInSeg(in Point3d cen, in double maxLength, in Vector3d dir, in int segNum)
+    {
+      List<Polyline> res = new List<Polyline>();
+      var segLen = maxLength / segNum;
+
+      Point3d startPt = cen;
+      for (int i = 0; i < segNum; i++)
+      {
+        var newSeg = GrowAlongVec(startPt, segLen, dir);
+        res.Add(newSeg);
+      }
+
+      return res;
+    }
+
     private void GrowAlongDirections(in Point3d cen, in double maxLength, in List<Vector3d> vecLst, out List<Polyline> res)
     {
       res = new List<Polyline>();
@@ -689,6 +741,49 @@ namespace BeingAliveLanguage
       {
         res.Add(GrowAlongVec(cen, maxLength, direction));
       }
+    }
+
+    private List<Polyline> BranchRoot(Polyline root, double remainingLength, int branchCount)
+    {
+      List<Polyline> branches = new List<Polyline>();
+      NurbsCurve rootCurve = root.ToNurbsCurve();
+      rootCurve.Domain = new Interval(0, 1);
+
+      for (int i = 0; i < branchCount; i++)
+      {
+        Point3d branchPoint = rootCurve.PointAtEnd;
+        Vector3d tangent = rootCurve.TangentAtEnd;
+
+        // Create two branch directions in the horizontal plane
+        Vector3d horizontalPerp = Vector3d.CrossProduct(tangent, mMap3d.mPln.ZAxis);
+        horizontalPerp.Unitize();
+
+        // project the tangent vector to the horizontal plane
+        tangent = Vector3d.CrossProduct(mMap3d.mPln.ZAxis, horizontalPerp);
+        tangent.Unitize();
+
+        Vector3d branchDir1 = (tangent + 0.5 * horizontalPerp);
+        Vector3d branchDir2 = (tangent - 0.5 * horizontalPerp);
+        branchDir1.Unitize();
+        branchDir2.Unitize();
+
+        // Calculate remaining length for each branch
+        double branchLength = remainingLength / (branchCount - i);
+
+        // Grow two new branches
+        Polyline branch1 = GrowAlongVec(branchPoint, branchLength, branchDir1);
+        Polyline branch2 = GrowAlongVec(branchPoint, branchLength, branchDir2);
+
+        branches.Add(branch1);
+        branches.Add(branch2);
+      }
+      return branches;
+    }
+
+    private Polyline GenerateTapRoot(Point3d startPoint, double length)
+    {
+      Vector3d downwardDirection = -mMap3d.mPln.ZAxis;
+      return GrowAlongVec(startPoint, length, downwardDirection);
     }
 
     private Point3d SelectBestCandidate(Point3d currentPoint, List<Point3d> candidates, Vector3d currentDirection)
@@ -729,6 +824,7 @@ namespace BeingAliveLanguage
 
       return points;
     }
+
     private Polyline GrowSingleExplorationalRoot(Point3d startPoint, Vector3d mainRootDirection, double length, bool isReverse)
     {
       const int totalSteps = 3;
@@ -777,6 +873,7 @@ namespace BeingAliveLanguage
 
       return explorationRoot;
     }
+
     private List<Polyline> GenerateExplorationalRoots(Polyline mainRoot, int pointCount)
     {
       List<Polyline> explorationalRoots = new List<Polyline>();
@@ -801,6 +898,7 @@ namespace BeingAliveLanguage
 
       return explorationalRoots;
     }
+
     public List<Polyline> GetRootMain()
     {
       return this.mRootMain;
