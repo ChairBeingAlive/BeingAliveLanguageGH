@@ -542,6 +542,7 @@ namespace BeingAliveLanguage
     int mDivN = 1;
 
     List<Polyline> mRootMain = new List<Polyline>();
+    List<Polyline> mRootTap = new List<Polyline>();
     List<Polyline> mRootExplore = new List<Polyline>();
     List<Polyline> mRootNew = new List<Polyline>();
     List<Polyline> mRootDead = new List<Polyline>();
@@ -574,7 +575,7 @@ namespace BeingAliveLanguage
       var tapRoot = GrowAlongVec(mAnchor, tapRootLen, -basePln.ZAxis);
       var tapRootNrb = tapRoot.ToNurbsCurve();
       tapRootNrb.Domain = new Interval(0, 1);
-      mRootMain.Add(tapRoot);
+      mRootTap.Add(tapRoot);
 
 
       // lv1 horizontal roots
@@ -582,13 +583,22 @@ namespace BeingAliveLanguage
       var lv1TapRoots = new List<Polyline>();
       Point3d lv1RootAnchor = tapRootNrb.PointAt(0.1);
       vecLst = GenerateVecLst(basePln, mDivN, true);
-      GrowAlongDirections(lv1RootAnchor, mTreeHeight * 0.2, vecLst, out lv1HorizontalRoot);
+      GrowAlongDirections(lv1RootAnchor, mTreeHeight * 0.12, vecLst, out lv1HorizontalRoot);
+
+
+      // Additional side branch lv1 roots
+      List<Polyline> sideRoots = new List<Polyline>();
+      foreach (var root in lv1HorizontalRoot)
+      {
+        List<Polyline> sideBranches = BranchOnSide(root, mTreeHeight * 0.1, false);
+        sideRoots.AddRange(sideBranches);
+      }
 
       // Branch the lv1 horizontal roots
       List<Polyline> currentLevelRoots = new List<Polyline>(lv1HorizontalRoot);
       double remainingLength = mTreeHeight * 0.35; // Adjust this factor as needed
 
-      List<double> lv1LengthParam = new List<double> { 0.2, 0.3, 0.5 };
+      List<double> lv1LengthParam = new List<double> { 0.1, 0.2, 0.3 };
       for (int branchLevel = 0; branchLevel < 3; branchLevel++)
       {
         List<Polyline> nextLevelRoots = new List<Polyline>();
@@ -602,25 +612,35 @@ namespace BeingAliveLanguage
           surroundTapRoots.Add(newTapRoot);
         }
 
+        // Side branch next level roots
+        foreach (var root in nextLevelRoots)
+        {
+          List<Polyline> sideBranches = BranchOnSide(root, mTreeHeight * 0.1, true);
+          sideRoots.AddRange(sideBranches);
+        }
+
+        // collection
         lv1HorizontalRoot.AddRange(nextLevelRoots);
         lv1TapRoots.AddRange(surroundTapRoots);
 
         currentLevelRoots = nextLevelRoots;
       }
 
-      mRootMain.AddRange(lv1HorizontalRoot);
-      mRootMain.AddRange(lv1TapRoots);
-
       // one more steup growth without branching
       List<Polyline> lv1HorizontalAdditional = new List<Polyline>();
       foreach (var root in currentLevelRoots)
       {
-        var curSeg = GrowAlongVecInSeg(root.ToNurbsCurve().PointAtEnd, mTreeHeight * 2, root.ToNurbsCurve().TangentAtEnd, 4);
+        var curSeg = GrowAlongVecInSeg(root.ToNurbsCurve().PointAtEnd, mTreeHeight * 3.3, root.ToNurbsCurve().TangentAtEnd, 4);
         lv1HorizontalAdditional.AddRange(curSeg);
       }
-      mRootMain.AddRange(lv1HorizontalAdditional);
+      lv1HorizontalRoot.AddRange(lv1HorizontalAdditional);
 
-      // lv2 horizontal roots
+      mRootMain.AddRange(lv1HorizontalRoot);
+      mRootMain.AddRange(sideRoots);
+      mRootTap.AddRange(lv1TapRoots);
+
+
+      // depth2 horizontal roots
       var lv2HorizontalRoot = new List<Polyline>();
       Point3d lv2RootAnchor = tapRootNrb.PointAt(0.5);
       vecLst = GenerateVecLst(basePln, mDivN - 1, true);
@@ -628,7 +648,7 @@ namespace BeingAliveLanguage
       mRootMain.AddRange(lv2HorizontalRoot);
 
 
-      // lv3 horizontal roots
+      // depth3 horizontal roots
       var lv3HorizontalRoot = new List<Polyline>();
       Point3d lv3RootAnchor = tapRootNrb.PointAt(0.9);
       vecLst = GenerateVecLst(basePln, mDivN - 2, true);
@@ -717,6 +737,7 @@ namespace BeingAliveLanguage
       return rootBranch;
     }
 
+    // grwing a set of segments along a vector, used for growing multiple segments in a single step
     private List<Polyline> GrowAlongVecInSeg(in Point3d cen, in double maxLength, in Vector3d dir, in int segNum)
     {
       List<Polyline> res = new List<Polyline>();
@@ -740,8 +761,57 @@ namespace BeingAliveLanguage
       foreach (Vector3d direction in vecLst)
       {
         res.Add(GrowAlongVec(cen, maxLength, direction));
+
+        //var tmp = GrowAlongVecInSeg(cen, maxLength, direction, 3).Select(x => x.ToNurbsCurve());
+        //var tmpCrv = NurbsCurve.JoinCurves(tmp).Select(x => x.ToPolyline(0.01, 0.01, 0, 1e10)).ToList();
+        //if (tmpCrv[0].TryGetPolyline(out Polyline pl))
+        //  res.Add(pl);
       }
     }
+
+    // growing 1-2 side root as the perenial roots
+    private List<Polyline> BranchOnSide(Polyline root, double length, bool rnd = false)
+    {
+      List<Polyline> res = new List<Polyline>();
+      NurbsCurve rootCurve = root.ToNurbsCurve();
+      rootCurve.Domain = new Interval(0, 1);
+
+      int branchNum = 2;
+      if (rnd)
+        branchNum = Utils.balRnd.Next() % 2 == 0 ? 1 : 2;
+
+      // generate branch points
+      List<Point3d> branchPoints = new List<Point3d>();
+      if (branchNum == 1)
+      {
+        // generate a single branch
+        branchPoints.Add(rootCurve.PointAt(0.5));
+      }
+      else if (branchNum == 2)
+      {
+        branchPoints.Add(rootCurve.PointAt(0.3));
+        branchPoints.Add(rootCurve.PointAt(0.6));
+      }
+
+      // generate directions and branch out
+      //foreach (Point3d pt in branchPoints)
+      for (int i = 0; i < branchPoints.Count; i++)
+      {
+        rootCurve.ClosestPoint(branchPoints[i], out double t);
+        var tanVec = rootCurve.TangentAt(t);
+
+        var sign = Math.Pow(-1, i);
+        var perVec = sign * Vector3d.CrossProduct(tanVec, mMap3d.mPln.ZAxis);
+        var branchDir = perVec * 0.5 + tanVec * 0.5;
+        branchDir.Unitize();
+
+        Polyline branch = GrowAlongVec(branchPoints[i], length, branchDir);
+        res.Add(branch);
+      }
+
+      return res;
+    }
+
 
     private List<Polyline> BranchRoot(Polyline root, double remainingLength, int branchCount)
     {
@@ -909,6 +979,10 @@ namespace BeingAliveLanguage
       return this.mRootExplore;
     }
 
+    public List<Polyline> GetRootTap()
+    {
+      return this.mRootTap;
+    }
 
   }
 }
