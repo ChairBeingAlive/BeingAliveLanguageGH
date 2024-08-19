@@ -879,24 +879,6 @@ namespace BeingAliveLanguage
         }
 
       }
-
-
-      //for (int curPhase = mStage3 + 1; curPhase <= auxPhaseS4; curPhase++)
-      //{
-      //  int removeNum = (int)(mAllNode.Count * 0.3);
-
-      //  int accumRm = 0;
-
-      //  while (true)
-      //  {
-      //    var rmId = mRnd.Next(mAllNode.Count);
-      //    accumRm += mAllNode[rmId].TurnOff(mBranchRelation, mAllNode);
-
-      //    if (accumRm >= removeNum)
-      //      break;
-      //  }
-      //}
-
     }
 
     public void ForestRescale()

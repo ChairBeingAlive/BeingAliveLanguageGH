@@ -1146,6 +1146,7 @@ namespace BeingAliveLanguage
       // Output data
       DA.SetData("DebugPt", rootTree3D.debugPt);
       DA.SetDataList("Root3dMain", rootTree3D.GetRootMain());
+      DA.SetDataList("Root3dTap", rootTree3D.GetRootTap());
       DA.SetDataList("Root3dNew", rootTree3D.GetRootExplore());
 
     }
