@@ -467,6 +467,9 @@ namespace BeingAliveLanguage
     }
   }
 
+  /// <summary>
+  /// The canopy component for the 3D tree (mesh format).
+  /// </summary>
   public class BALtreeEnergyCanopy : GH_Component
   {
     public BALtreeEnergyCanopy()
