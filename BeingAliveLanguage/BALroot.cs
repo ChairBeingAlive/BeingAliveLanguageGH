@@ -154,7 +154,7 @@ namespace BeingAliveLanguage
       else if (soilVolObj is GH_Brep sBrep)
       {
         //var soilVolBrep = soilVolObj;
-        var fLst = Mesh.CreateFromBrep(sBrep.Value, MeshingParameters.Smooth).ToList<Mesh>();
+        var fLst = Mesh.CreateFromBrep(sBrep.Value, MeshingParameters.QualityRenderMesh).ToList<Mesh>();
         foreach (var f in fLst)
         {
           if (soilVol == null)

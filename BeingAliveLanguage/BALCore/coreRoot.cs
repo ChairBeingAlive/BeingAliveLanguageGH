@@ -197,10 +197,10 @@ namespace BeingAliveLanguage
       GrowRoot(curNode, ref resLst, curNode.nType, false);
 
       // grow side roots, with rotated direction 
-      if (curNode.mBranchLevel >= 1)
-      {
-        var x = 1;
-      }
+      //if (curNode.mBranchLevel >= 1)
+      //{
+      //  var x = 1;
+      //}
       if (curNode.mBranchLevel < mMaxBranchLevel
         && curNode.stepCounting % branchingStepInterval == 0) // only stem rootNode can add side rootNode
       {
