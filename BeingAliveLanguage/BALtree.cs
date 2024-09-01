@@ -394,9 +394,12 @@ namespace BeingAliveLanguage
       // calculate distance between trees
       // todo: currently, only consider distance between trunks, phases are not considered
       var distLst = new List<double>();
+      var nearestTreeLst = new List<Point3d>();
       if (plnLst.Count > 1)
       {
         Utils.GetLstNearestDist(plnLst.Select(x => x.Origin).ToList(), out distLst);
+        Utils.GetLstNearestPoint(plnLst.Select(x => x.Origin).ToList(), out nearestTreeLst);
+
         if (distLst.Min() < 1e-5)
           AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Trees are too close to each other or overlap, please check.");
       }
@@ -411,7 +414,8 @@ namespace BeingAliveLanguage
       {
         // generate tree
         var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
-        t.SetNearestDist(distLst[i]);
+        t.SetNearestTree(nearestTreeLst[i]);
+        //t.SetNearestDist(distLst[i]);
         t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
 
         // collection branches
@@ -458,8 +462,6 @@ namespace BeingAliveLanguage
 
         tInfoCol.Add(new TreeProperty(t.mPln, tHeight, phaseLst[i]), new GH_Path(new int[] { i }));
       }
-
-
 
       DA.SetDataTree(0, trCrv);
       DA.SetDataTree(1, brCrv);
@@ -528,6 +530,7 @@ namespace BeingAliveLanguage
           ptCol.Add(trCrv.Value.PointAtEnd);
         }
 
+        // Energy Canopy
         var energyMesh = BalCore.MeshUtils.CreateCvxHull(ptCol);
         energyVolTree.Add(energyMesh, new GH_Path(i));
         ;

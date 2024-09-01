@@ -90,8 +90,35 @@ namespace BeingAliveLanguage
       return targetMin + (val - originMin) / (originMax - originMin) * (targetMax - targetMin);
     }
 
-    // get the closest distance of each point to all points in the same list
-    public static void GetLstNearestDist(in List<Point3d> pts, out List<double> distLst)
+
+    // get the nearest n pt for each pt
+    public static void GetLstNearestPoint(in List<Point3d> pts, out List<Point3d> ptLst, int n = 2)
+    {
+      var kdMap = new KdTree<float, Point3d>(3, new KdTree.Math.FloatMath());
+      foreach (var pt in pts)
+      {
+        var kdKey = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+        kdMap.Add(kdKey, pt);
+      }
+
+      ptLst = new List<Point3d>();
+      foreach (var pt in pts)
+      {
+        var ptArray = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
+        var nearestNpt = kdMap.GetNearestNeighbours(ptArray, n);
+
+        if (nearestNpt.Length < 2)
+          continue;
+        else
+          for (int i = 1; i < nearestNpt.Length; i++) // start from i, skip the pt itself
+          {
+            ptLst.Add(nearestNpt[i].Value);
+          }
+      }
+    }
+
+    // get the closest n distance of each point to all points in the same list
+    public static void GetLstNearestDist(in List<Point3d> pts, out List<double> distLst, int n = 2)
     {
       var kdMap = new KdTree<float, Point3d>(3, new KdTree.Math.FloatMath());
       foreach (var pt in pts)

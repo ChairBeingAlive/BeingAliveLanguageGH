@@ -3,14 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Security.Cryptography;
-using System.Net;
-using Rhino.FileIO;
-using System.Xml.Schema;
-using Rhino.DocObjects;
 
 namespace BeingAliveLanguage
 {

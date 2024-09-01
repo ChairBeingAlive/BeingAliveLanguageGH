@@ -1,9 +1,5 @@
-﻿using Grasshopper.GUI.SettingsControls;
-using Grasshopper.Kernel.Expressions;
-using Grasshopper.Kernel.Types.Transforms;
-using Rhino.Geometry;
+﻿using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
-using Rhino.NodeInCode;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -638,6 +634,11 @@ namespace BeingAliveLanguage
       mNearestTreeDist = dist;
     }
 
+    public void SetNearestTree(Point3d nearbyTree)
+    {
+      mNearestTree = nearbyTree;
+    }
+
     /// <summary>
     /// The tree drawing function
     /// We have three stages of the tree:
@@ -653,6 +654,7 @@ namespace BeingAliveLanguage
       mAngleTop = angleTop;
       mBranchRelation.Clear();
 
+      // Stage-based tree growing
       GrowStage1();
 
       if (mPhase > mStage1)
@@ -741,7 +743,6 @@ namespace BeingAliveLanguage
           }
 
 
-
           // after stage 1, the side branch need to grow a bit more
 
           // Rotation in XY-plane
@@ -749,7 +750,8 @@ namespace BeingAliveLanguage
           curDir.Rotate(horRotRadian, mPln.ZAxis);
 
           node.AddBranchAlong(curDir * branchLen);
-          mAllNode.Add(node);
+          mTrunkBranchNode.Add(node); // add the node to the trunckNode lst
+          mAllNode.Add(node); // add it to the all-node storage
 
           // add a item in the relationship dict, and add the node to the parent node relationship
           if (!mBranchRelation.ContainsKey(node.mID))
@@ -883,37 +885,73 @@ namespace BeingAliveLanguage
 
     public void ForestRescale()
     {
-      // scale 2D if tree size is too large (> 0.5 nearest tree distance)
-      List<double> rCollection = new List<double>();
-      foreach (var node in mAllNode)
+      double openingAngle = Math.PI / 4;
+
+
+      foreach (var mainBranch in mTrunkBranchNode)
       {
-        foreach (var ln in node.mBranch)
+        // Project branch direction onto XY plane
+        Vector3d branchDir = mainBranch.mBranch[0].PointAtEnd - mainBranch.mBranch[0].PointAtStart;
+        Vector3d branchDir2D = new Vector3d(branchDir.X, branchDir.Y, 0);
+        branchDir2D.Unitize();
+
+        // Find the nearest tree within the opening angle
+        double nearestDist = double.MaxValue;
+        Vector3d nearestTreeDir = Vector3d.Zero;
+
+        Vector3d treeDir = mNearestTree - mPln.Origin;
+        Vector3d treeDir2D = new Vector3d(treeDir.X, treeDir.Y, 0);
+        treeDir2D.Unitize();
+
+        double angle = Vector3d.VectorAngle(branchDir2D, treeDir2D);
+        angle %= Math.PI;
+
+        if (angle <= openingAngle / 2)
         {
-          mPln.RemapToPlaneSpace(ln.PointAtStart, out var ptStart);
-          mPln.RemapToPlaneSpace(ln.PointAtEnd, out var ptEnd);
+          double dist = treeDir.Length;
+          if (dist < nearestDist)
+          {
+            nearestDist = dist;
+            nearestTreeDir = treeDir2D;
+          }
+        }
 
-          var distA = Math.Sqrt(ptStart.X * ptStart.X + ptStart.Y * ptStart.Y);
-          var distB = Math.Sqrt(ptEnd.X * ptEnd.X + ptEnd.Y * ptEnd.Y);
+        if (nearestDist < double.MaxValue)
+        {
+          // Calculate scale factor
+          double scaleFactor = Math.Min(nearestDist * 0.6 / mScaledLen, 1.0);
 
-          rCollection.Add(distA);
-          rCollection.Add(distB);
+          // Scale the main branch and all its sub-branches
+          ScaleBranchHierarchy(mainBranch, scaleFactor, nearestTreeDir);
         }
       }
+    }
 
-      if (rCollection.Count == 0)
-        return;
-
-      var maxR = rCollection.Max();
-      if (maxR > mNearestTreeDist * 0.5)
+    private void ScaleBranchHierarchy(BranchNode3D node, double scaleFactor, Vector3d scaleDir)
+    {
+      // Scale the current node's branches
+      foreach (var branch in node.mBranch)
       {
-        var rescaleFactor = mNearestTreeDist * 0.6 / maxR;
-        var xform = Transform.Scale(mPln, rescaleFactor, rescaleFactor, 1);
-        foreach (var node in mAllNode)
+        //Vector3d branchVec = branch.PointAtEnd - branch.PointAtStart;
+        //Vector3d scaledVec = branchVec * scaleFactor;
+
+        // Apply directional scaling
+        //scaledVec += Vector3d.Multiply(scaleDir, scaledVec.Length * (1 - scaleFactor));
+
+        // define a scale only on XY
+        var xform = Transform.Scale(mPln, scaleFactor, scaleFactor, 1);
+        branch.Transform(xform);
+
+        //branch.Transform(Transform.Translation(-branchVec + scaledVec));
+      }
+
+      // Recursively scale child branches
+      if (mBranchRelation.ContainsKey(node.mID))
+      {
+        foreach (var childId in mBranchRelation[node.mID])
         {
-          foreach (var ln in node.mBranch)
-          {
-            ln.Transform(xform);
-          }
+          var childNode = mAllNode.First(n => n.mID == childId);
+          ScaleBranchHierarchy(childNode, scaleFactor, scaleDir);
         }
       }
     }
@@ -1005,6 +1043,7 @@ namespace BeingAliveLanguage
     public double mAngleTop;
 
     public double mNearestTreeDist = double.MaxValue;
+    public Point3d mNearestTree = new Point3d();
 
     // variables
     public int mStage1 = 4;
@@ -1014,8 +1053,14 @@ namespace BeingAliveLanguage
 
     // curve collection
     BranchNode3D mBaseNode;
+
     public Dictionary<int, HashSet<int>> mBranchRelation = new Dictionary<int, HashSet<int>>();
+
+    // all node for branches, including the base node for trunck and all sub-nodes
     public List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
+
+    // all nodes that are attached to the trunck, only for 1st-level branches
+    public List<BranchNode3D> mTrunkBranchNode { get; set; } = new List<BranchNode3D>();
     public List<string> mMmsg { get; set; } = new List<string>();
   }
 
