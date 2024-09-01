@@ -241,6 +241,9 @@ namespace BeingAliveLanguage
       pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree's growth.", GH_ParamAccess.list);
       pManager.AddIntegerParameter("Seed", "seed", "Seed for random number to varify the tree shape.", GH_ParamAccess.list, 0);
       pManager.AddBooleanParameter("BranchRotation", "brRot", "Whether to rotate the branches sequentially.", GH_ParamAccess.list, false);
+      // duplication
+      pManager.AddBooleanParameter("DuplicateFlag", "dupFlag", "Duplicate top side branches for branching.", GH_ParamAccess.list, false);
+      pManager.AddIntegerParameter("DuplicateNumber", "dupNum", "Number of top side branches for duplicate branching", GH_ParamAccess.list, 2);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -382,6 +385,26 @@ namespace BeingAliveLanguage
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Branch rotation # does not match Plane #, please check.");
       }
 
+      var dupFlagLst = new List<bool>();
+      if (!DA.GetDataList("DuplicateFlag", dupFlagLst))
+      { return; }
+      if (dupFlagLst.Count == 1)
+        dupFlagLst = Enumerable.Repeat(dupFlagLst[0], plnLst.Count).ToList();
+      else if (dupFlagLst.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Duplicate # does not match Plane #, please check.");
+      }
+
+      var dupNumLst = new List<int>();
+      if (!DA.GetDataList("DuplicateNumber", dupNumLst))
+      { return; }
+      if (dupNumLst.Count == 1)
+        dupNumLst = Enumerable.Repeat(dupNumLst[0], plnLst.Count).ToList();
+      else if (dupNumLst.Count != plnLst.Count)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DuplicateNumber # does not match Plane #, please check.");
+      }
+
       #endregion
 
       //! 1. determine horizontal scaling factor of the trees
@@ -402,9 +425,16 @@ namespace BeingAliveLanguage
 
         if (distLst.Min() < 1e-5)
           AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Trees are too close to each other or overlap, please check.");
+
       }
+      // single tree case, add a virtual tree in the far dist
       else
-        distLst = Enumerable.Repeat(double.MaxValue, plnLst.Count).ToList();
+      {
+        //distLst = Enumerable.Repeat(double.MaxValue, plnLst.Count).ToList();
+
+        var virtualLst = new List<Point3d> { new Point3d(double.MaxValue, double.MaxValue, double.MaxValue) };
+        nearestTreeLst = Enumerable.Repeat(virtualLst, plnLst.Count).ToList();
+      }
 
       DataTree<Curve> brCrv = new DataTree<Curve>();
       DataTree<Curve> trCrv = new DataTree<Curve>();
@@ -415,7 +445,11 @@ namespace BeingAliveLanguage
         // generate tree
         var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
         t.SetNearestTrees(nearestTreeLst[i]);
-        t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
+
+        if (dupFlagLst[i])
+          t.Generate(phaseLst[i], angLstMain[i], angLstTop[i], dupNumLst[i]);
+        else
+          t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
 
         // collection branches
         branchCol = t.GetBranch();

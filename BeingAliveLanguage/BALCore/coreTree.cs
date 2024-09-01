@@ -647,7 +647,7 @@ namespace BeingAliveLanguage
     /// phase 9-11: dying tree, growing with branching
     /// phase 12: dead tree, no growth
     /// </summary>
-    public bool Generate(int phase, double angleMain, double angleTop)
+    public bool Generate(int phase, double angleMain, double angleTop, int dupNum = 0)
     {
       mPhase = phase;
       mAngleMain = angleMain;
@@ -665,7 +665,7 @@ namespace BeingAliveLanguage
           node.TogglePermanent();
         }
 
-        GrowStage2();
+        GrowStage2(dupNum);
       }
 
       if (mPhase > mStage2)
@@ -677,6 +677,7 @@ namespace BeingAliveLanguage
       {
         GrowStage4();
       }
+
 
       // scale 2D if tree size is too large (> 0.5 nearest tree distance)
       ForestRescale();
@@ -732,8 +733,6 @@ namespace BeingAliveLanguage
           {
             branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.45 * (1 + (double)(mPhase - mStage1) / (double)(mStage2 - mStage1));
             branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.7);
-
-
           }
 
           // decaying branch length for lateral branches
@@ -771,7 +770,7 @@ namespace BeingAliveLanguage
 
     }
 
-    public void GrowStage2()
+    public void GrowStage2(int dupNum = 0)
     {
       // auxiliary phase variable
       var auxPhaseS2 = mPhase <= mStage2 ? mPhase : mStage2;
@@ -784,14 +783,28 @@ namespace BeingAliveLanguage
         // for each end node, branch out several new branches
         var newNodeCollection = new List<BranchNode3D>();
 
-        // the following for-loop cannot modify mAllnode, use  this aux variable to iterate the node idx
+        // the following for-loop cannot modify mAllnode, use this variable to iterate the node idx
         var startNodeId = mAllNode.Count;
-        foreach (var node in mAllNode)
-        {
-          // ignore lower phase node, and non-end node, only branch the nodes created in the last phase
-          if (node.mNodePhase < mStage1 || !node.flagEndNode)
-            continue;
 
+        // Select nodes to branch: top nodes from previous phase and selected side branches
+        var nodesToBranch = mAllNode.Where(node => node.mNodePhase == curPhase - 1 && node.flagEndNode).ToList();
+
+        // Select additional side branches to grow
+        var additionalBranches = SelectTopUnbranchedNodes(dupNum);
+        // Add selected side branches if it's the first iteration of Stage 2
+        if (curPhase == mStage1 + 1)
+        {
+          nodesToBranch.AddRange(additionalBranches);
+        }
+
+        // Add selected side branches if it's the first iteration of Stage 2
+        if (curPhase == mStage1 + 1)
+        {
+          nodesToBranch.AddRange(SelectTopUnbranchedNodes(dupNum));
+        }
+
+        foreach (var node in nodesToBranch)
+        {
           // auxilary line from Curve -> Line
           var parentLn = new Line(node.mBranch[0].PointAtStart, node.mBranch[0].PointAtEnd);
 
@@ -818,7 +831,6 @@ namespace BeingAliveLanguage
 
 
             newNode.AddBranchAlong(auxDir * newLenth);
-            //newNode.AddBranchAlong(initDir * newLenth);
 
             // add a item in the relationship dict, and add the node to the parent node relationship
             if (!mBranchRelation.ContainsKey(newNode.mID))
@@ -881,6 +893,21 @@ namespace BeingAliveLanguage
         }
 
       }
+    }
+
+    private List<BranchNode3D> SelectTopUnbranchedNodes(int count)
+    {
+      // Get all nodes from Stage 1
+      var stage1Nodes = mTrunkBranchNode.Where(node => node.mNodePhase < mStage1).ToList();
+
+      // Sort them by height (Z-coordinate)
+      stage1Nodes.Sort((a, b) => b.mBranch[0].PointAtEnd.Z.CompareTo(a.mBranch[0].PointAtEnd.Z));
+
+      // Find the index of the highest branched node
+      int highestBranchedIndex = stage1Nodes.FindIndex(node => !node.flagEndNode);
+
+      // Select 'count' number of nodes below the highest branched node
+      return stage1Nodes.Skip(highestBranchedIndex + 1).Take(count).ToList();
     }
 
     public void ForestRescale()
