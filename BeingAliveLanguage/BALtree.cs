@@ -394,11 +394,11 @@ namespace BeingAliveLanguage
       // calculate distance between trees
       // todo: currently, only consider distance between trunks, phases are not considered
       var distLst = new List<double>();
-      var nearestTreeLst = new List<Point3d>();
+      var nearestTreeLst = new List<List<Point3d>>();
       if (plnLst.Count > 1)
       {
         Utils.GetLstNearestDist(plnLst.Select(x => x.Origin).ToList(), out distLst);
-        Utils.GetLstNearestPoint(plnLst.Select(x => x.Origin).ToList(), out nearestTreeLst);
+        Utils.GetLstNearestPoint(plnLst.Select(x => x.Origin).ToList(), out nearestTreeLst, 6);
 
         if (distLst.Min() < 1e-5)
           AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Trees are too close to each other or overlap, please check.");
@@ -414,8 +414,7 @@ namespace BeingAliveLanguage
       {
         // generate tree
         var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
-        t.SetNearestTree(nearestTreeLst[i]);
-        //t.SetNearestDist(distLst[i]);
+        t.SetNearestTrees(nearestTreeLst[i]);
         t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
 
         // collection branches

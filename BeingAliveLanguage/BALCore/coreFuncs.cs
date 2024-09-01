@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MIConvexHull;
+using MathNet.Numerics.Optimization;
 
 namespace BeingAliveLanguage
 {
@@ -92,7 +93,7 @@ namespace BeingAliveLanguage
 
 
     // get the nearest n pt for each pt
-    public static void GetLstNearestPoint(in List<Point3d> pts, out List<Point3d> ptLst, int n = 2)
+    public static void GetLstNearestPoint(in List<Point3d> pts, out List<List<Point3d>> ptLst, int n = 2)
     {
       var kdMap = new KdTree<float, Point3d>(3, new KdTree.Math.FloatMath());
       foreach (var pt in pts)
@@ -101,19 +102,25 @@ namespace BeingAliveLanguage
         kdMap.Add(kdKey, pt);
       }
 
-      ptLst = new List<Point3d>();
+      ptLst = new List<List<Point3d>>();
+      var maxN = Math.Max(pts.Count, n);
       foreach (var pt in pts)
       {
         var ptArray = new[] { (float)pt.X, (float)pt.Y, (float)pt.Z };
-        var nearestNpt = kdMap.GetNearestNeighbours(ptArray, n);
+        var nearestNpt = kdMap.GetNearestNeighbours(ptArray, maxN);
 
         if (nearestNpt.Length < 2)
           continue;
         else
+        {
+          var curLst = new List<Point3d>();
           for (int i = 1; i < nearestNpt.Length; i++) // start from i, skip the pt itself
           {
-            ptLst.Add(nearestNpt[i].Value);
+            curLst.Add(nearestNpt[i].Value);
           }
+
+          ptLst.Add(curLst);
+        }
       }
     }
 
