@@ -912,7 +912,7 @@ namespace BeingAliveLanguage
 
     public void ForestRescale()
     {
-      double openingAngle = Math.PI / 3;
+      double openingAngle = 0.5 * Math.PI;
 
       // Collect all branches and measure the max Radius
       List<double> rCollection = new List<double>();
@@ -965,8 +965,7 @@ namespace BeingAliveLanguage
           // SCALE: when the branch if the nearest tree is smaller than 3x the branch lengths
           if (nearestDist < branchDir.Length * 3)
           {
-            double scaleFactorA = Math.Min(nearestDist * 0.6 / mScaledLen, 1.0);
-            double scaleFactor = nearestDist * 0.4 / maxR;
+            double scaleFactor = Math.Min(nearestDist * 0.4 / maxR, 1.0);
             ScaleBranchHierarchy(mainBranch, scaleFactor);
           }
         }
