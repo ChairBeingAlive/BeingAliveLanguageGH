@@ -242,8 +242,7 @@ namespace BeingAliveLanguage
       pManager.AddIntegerParameter("Seed", "seed", "Seed for random number to varify the tree shape.", GH_ParamAccess.list, 0);
       pManager.AddBooleanParameter("BranchRotation", "brRot", "Whether to rotate the branches sequentially.", GH_ParamAccess.list, false);
       // duplication
-      pManager.AddBooleanParameter("DuplicateFlag", "dupFlag", "Duplicate top side branches for branching.", GH_ParamAccess.list, false);
-      pManager.AddIntegerParameter("DuplicateNumber", "dupNum", "Number of top side branches for duplicate branching", GH_ParamAccess.list, 2);
+      pManager.AddIntegerParameter("DuplicateNumber", "dupNum", "[0-3] Number of top side branches for duplicate branching.", GH_ParamAccess.list, 0);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -385,16 +384,6 @@ namespace BeingAliveLanguage
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Branch rotation # does not match Plane #, please check.");
       }
 
-      var dupFlagLst = new List<bool>();
-      if (!DA.GetDataList("DuplicateFlag", dupFlagLst))
-      { return; }
-      if (dupFlagLst.Count == 1)
-        dupFlagLst = Enumerable.Repeat(dupFlagLst[0], plnLst.Count).ToList();
-      else if (dupFlagLst.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Duplicate # does not match Plane #, please check.");
-      }
-
       var dupNumLst = new List<int>();
       if (!DA.GetDataList("DuplicateNumber", dupNumLst))
       { return; }
@@ -446,10 +435,7 @@ namespace BeingAliveLanguage
         var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
         t.SetNearestTrees(nearestTreeLst[i]);
 
-        if (dupFlagLst[i])
-          t.Generate(phaseLst[i], angLstMain[i], angLstTop[i], dupNumLst[i]);
-        else
-          t.Generate(phaseLst[i], angLstMain[i], angLstTop[i]);
+        t.Generate(phaseLst[i], angLstMain[i], angLstTop[i], dupNumLst[i]);
 
         // collection branches
         branchCol = t.GetBranch();

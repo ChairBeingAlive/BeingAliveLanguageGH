@@ -4,8 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MIConvexHull;
-using System.Diagnostics;
-using System.Diagnostics.Eventing;
 
 namespace BeingAliveLanguage
 {
@@ -689,7 +687,7 @@ namespace BeingAliveLanguage
     {
       // auxiliary phase variable
       var auxPhaseS1 = mPhase < mStage1 ? mPhase : mStage1;
-      bool isS1LastPhase = mPhase >= mStage1 ? true : false;
+      //bool isS1LastPhase = mPhase >= mStage1 ? true : false;
 
       // main trunk: grow with the phase
       var trunkLen = mPhase < 4 ? mScaledLen * 0.5 + Utils.remap(mPhase, 0, 4, 0, 0.5 * mScaledLen) : mScaledLen;
@@ -705,7 +703,7 @@ namespace BeingAliveLanguage
       var brStartLen = trunkLen * 0.3; // fixed 1st branching position 
 
       // ! phase 1-4: base phase, always needed
-      var totalBranchLayer = 2 * auxPhaseS1 + 1;
+      var totalBranchLayer = 2 * (auxPhaseS1 - 1);
       var verAngleIncrement = Utils.ToRadian(mAngleMain) / (totalBranchLayer + 1);
       var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
       curDir.Rotate(verAngleIncrement, verRotAxis);
@@ -713,7 +711,7 @@ namespace BeingAliveLanguage
       // Branch generation.
       for (int i = 1; i <= totalBranchLayer; i++)
       {
-        int curPhase = (i - 1) / 2;
+        int curPhase = i / 2 + 1;
 
         var brPosRatio = brStartLen / trunkLen;
         for (int brNum = 0; brNum < numBranchPerLayer; brNum++)
@@ -726,20 +724,26 @@ namespace BeingAliveLanguage
           double branchLen = 0;
           if (mPhase <= mStage1)
           {
-            branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.45;
+            //branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.45;
+            branchLen = mScaledLen * 0.45;
             branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.05);
           }
           else
           {
-            branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.45 * (1 + (double)(mPhase - mStage1) / (double)(mStage2 - mStage1));
+            //branchLen = i == totalBranchLayer ? isS1LastPhase ? mScaledLen * 0.3 : 0.01 : mScaledLen * 0.45 * (1 + (double)(mPhase - mStage1) / (double)(mStage2 - mStage1));
+
+            branchLen = mScaledLen * 0.45 * (1 + (double)(mPhase - mStage1) / (double)(mStage2 - mStage1));
             branchLen = Utils.remap(i, 0, totalBranchLayer, branchLen, branchLen * 0.7);
           }
 
           // decaying branch length for lateral branches
-          if (posR < 1)
-          {
-            branchLen *= posR * (mPhase > mStage1 ? Utils.remap(mPhase - mStage1, 1, 9, 1, 0.95) : 1);
-          }
+          branchLen *= posR * (mPhase > mStage1 ? Utils.remap(mPhase - mStage1, 1, 9, 1, 0.95) : 1);
+
+          //// decaying branch length for lateral branches
+          //if (posR < 1)
+          //{
+          //  branchLen *= posR * (mPhase > mStage1 ? Utils.remap(mPhase - mStage1, 1, 9, 1, 0.95) : 1);
+          //}
 
 
           // after stage 1, the side branch need to grow a bit more
@@ -782,8 +786,6 @@ namespace BeingAliveLanguage
       {
         // for each end node, branch out several new branches
         var newNodeCollection = new List<BranchNode3D>();
-
-        // the following for-loop cannot modify mAllnode, use this variable to iterate the node idx
         var startNodeId = mAllNode.Count;
 
         // Select nodes to branch: top nodes from previous phase and selected side branches
@@ -930,7 +932,7 @@ namespace BeingAliveLanguage
           rCollection.Add(distB);
         }
       }
-      var maxR = rCollection.Max();
+      var maxR = rCollection.Count > 0 ? rCollection.Max() : double.MaxValue;
 
       // Examine each main branch and scale if needed
       foreach (var mainBranch in mTrunkBranchNode)
@@ -965,8 +967,7 @@ namespace BeingAliveLanguage
           // SCALE: when the branch if the nearest tree is smaller than 3x the branch lengths
           if (nearestDist < branchDir.Length * 3)
           {
-            double scaleFactorA = Math.Min(nearestDist * 0.6 / mScaledLen, 1.0);
-            double scaleFactor = nearestDist * 0.4 / maxR;
+            double scaleFactor = Math.Min(nearestDist * 0.4 / maxR, 1.0);
             ScaleBranchHierarchy(mainBranch, scaleFactor);
           }
         }
