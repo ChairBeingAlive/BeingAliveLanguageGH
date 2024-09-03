@@ -914,7 +914,7 @@ namespace BeingAliveLanguage
 
     public void ForestRescale()
     {
-      double openingAngle = Math.PI / 3;
+      double openingAngle = 0.5 * Math.PI;
 
       // Collect all branches and measure the max Radius
       List<double> rCollection = new List<double>();
