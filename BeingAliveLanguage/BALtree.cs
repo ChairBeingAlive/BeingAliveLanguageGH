@@ -388,10 +388,21 @@ namespace BeingAliveLanguage
       if (!DA.GetDataList("DuplicateNumber", dupNumLst))
       { return; }
       if (dupNumLst.Count == 1)
+      {
+        if (dupNumLst[0] < 0 || dupNumLst[0] > 3)
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DuplicateNumber is out of range [1, 3], please check.");
+
         dupNumLst = Enumerable.Repeat(dupNumLst[0], plnLst.Count).ToList();
+      }
       else if (dupNumLst.Count != plnLst.Count)
       {
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DuplicateNumber # does not match Plane #, please check.");
+      }
+      else
+      {
+        foreach (var n in dupNumLst)
+          if (n < 1 || n > 3)
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DuplicateNumber is out of range [1, 3], please check.");
       }
 
       #endregion

@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MIConvexHull;
+using System.ComponentModel;
+using System.Windows.Forms;
 
 namespace BeingAliveLanguage
 {
@@ -600,6 +602,16 @@ namespace BeingAliveLanguage
       flagEndNode = !flagEndNode;
     }
 
+    public void ToggleSplitable()
+    {
+      flagSplittable = !flagSplittable;
+    }
+
+    public Point3d GetPos()
+    {
+      return mNode;
+    }
+
     Point3d mNode = new Point3d();
     public int mNodePhase = -1;
 
@@ -607,6 +619,7 @@ namespace BeingAliveLanguage
     public bool flagPermanent { get; set; } = false;
     public bool flagEndNode { get; set; } = true;
     public bool flagShow = true;
+    public bool flagSplittable = false;
 
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
@@ -652,6 +665,9 @@ namespace BeingAliveLanguage
       mAngleTop = angleTop;
       mBranchRelation.Clear();
 
+      // guard
+      dupNum = Math.Min(dupNum, 3);
+
       // Stage-based tree growing
       GrowStage1();
 
@@ -683,6 +699,15 @@ namespace BeingAliveLanguage
       return true;
     }
 
+    public void AddNodeToTree(BranchNode3D node)
+    {
+      mAllNode.Add(node);
+      if (!mBranchRelation.ContainsKey(node.mID))
+        mBranchRelation.Add(node.mID, new HashSet<int>());
+
+      mBranchRelation[node.mID].Add(node.mID);
+    }
+
     public void GrowStage1()
     {
       // auxiliary phase variable
@@ -704,9 +729,10 @@ namespace BeingAliveLanguage
       }
       mBaseNode.mBranch.Clear();
       mBaseNode.AddBranchAlong(mTrunkSegments.Last().To - mTrunkSegments.First().From);
+      mAllNode.Add(mBaseNode);
+
       mTrunkBranchNode.Clear();
 
-      var numBranchPerLayer = 6;
       var curDir = mPln.YAxis;
 
       // Define branch positions for each segment
@@ -734,24 +760,21 @@ namespace BeingAliveLanguage
           var pt = mTrunkSegments[segIdx].PointAt(posRatio);
           int curBranchLayer = segIdx * 2 + branchPositions.IndexOf(posRatio);
 
-          for (int brNum = 0; brNum < numBranchPerLayer; brNum++)
+          for (int brNum = 0; brNum < mNumBranchPerLayer; brNum++)
           {
             var node = new BranchNode3D(mAllNode.Count, segIdx + 1, pt);
 
             // Calculate branch length based on position and growth
-            double branchLen = Utils.remap(curBranchLayer, 1, totalBranchLayer, bottomBranchLen, minBranchLen);
+            double branchLen = (totalBranchLayer == 1 ? minBranchLen : Utils.remap(curBranchLayer, 1, totalBranchLayer, bottomBranchLen, minBranchLen));
 
             // Rotation in XY-plane
-            double horRotRadian = Math.PI * 2 / numBranchPerLayer;
+            double horRotRadian = Math.PI * 2 / mNumBranchPerLayer;
             curDir.Rotate(horRotRadian, mPln.ZAxis);
 
             node.AddBranchAlong(curDir * branchLen);
             mTrunkBranchNode.Add(node); // add the node to the trunckNode lst
-            mAllNode.Add(node); // add it to the all-node storage
 
-            // add a item in the relationship dict, and add the node to the parent node relationship
-            if (!mBranchRelation.ContainsKey(node.mID))
-              mBranchRelation.Add(node.mID, new HashSet<int>());
+            AddNodeToTree(node);
           }
           // for the next layer, rotate vertically as the layers goes up
           var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
@@ -761,10 +784,18 @@ namespace BeingAliveLanguage
           if (mBranchRot)
           {
             //curDir.Rotate(mRnd.NextDouble() * 1.5 * Math.PI, mPln.ZAxis);
-            curDir.Rotate(Math.PI / numBranchPerLayer, mPln.ZAxis);
+            curDir.Rotate(Math.PI / mNumBranchPerLayer, mPln.ZAxis);
           }
         }
-      }
+      } // end of iteratively add side branches
+
+      // we need to add a virtual branch on the top to match the same branching mechanism as the side branches
+      var topNode = new BranchNode3D(
+        mAllNode.Count, auxPhaseS1, mBaseNode.mBranch[0].PointAtEnd);
+      topNode.AddBranchAlong(mPln.ZAxis * 0.1);
+      topNode.ToggleSplitable();
+
+      AddNodeToTree(topNode);
     }
 
     public void GrowStage2(int dupNum = 0)
@@ -774,26 +805,21 @@ namespace BeingAliveLanguage
 
       // ! phase 5-10: branching phase
       var numBranchPerBranch = 3;
+      var splitInitLen = mScaledLen * 0.2;
 
+      // Select nodes to branch: top nodes from previous phase and selected side branches
       for (int curPhase = mStage1 + 1; curPhase <= auxPhaseS2; curPhase++)
       {
         // for each end node, branch out several new branches
-        var newNodeCollection = new List<BranchNode3D>();
         var startNodeId = mAllNode.Count;
-
-        // Select nodes to branch: top nodes from previous phase and selected side branches
-        var topPt = mBaseNode.mBranch[0].PointAtEnd;
-        mAllNode.Add(new BranchNode3D(startNodeId, mStage1 + 1, topPt));
-
-        var nodesToBranch = new List<BranchNode3D> { mAllNode.Last() };
-        //var nodesToBranch = mAllNode.Where(node => node.mNodePhase == curPhase - 1 && node.flagEndNode).ToList();
+        var nodesToBranch = mAllNode.Where(node => node.flagSplittable == true).ToList();
 
         // Select additional side branches to grow
         if (curPhase == mStage1 + 1)
         {
-          nodesToBranch.AddRange(SelectTopUnbranchedNodes(dupNum));
-
-          //TODO: add parent len and direction
+          var sideNodeToBranch = SelectTopUnbranchedNodes(dupNum);
+          sideNodeToBranch.ForEach(x => x.ToggleSplitable());
+          nodesToBranch.AddRange(sideNodeToBranch);
         }
 
         foreach (var node in nodesToBranch)
@@ -802,46 +828,39 @@ namespace BeingAliveLanguage
           var parentLn = new Line(node.mBranch[0].PointAtStart, node.mBranch[0].PointAtEnd);
 
           var pt = parentLn.To;
+          //var pt = node.GetPos();
           var initDir = parentLn.Direction;
           initDir.Unitize();
 
           // get a perpendicular vector to the current direction
-          var perpVec = Vector3d.CrossProduct(initDir, mPln.ZAxis);
+          var perpVec = Vector3d.CrossProduct(initDir, (mPln.ZAxis + mPln.XAxis + mPln.YAxis));
           initDir.Rotate(Utils.ToRadian(mAngleTop), perpVec);
+          initDir.Rotate(mRnd.NextDouble(), parentLn.Direction);
 
           for (int n = 0; n < numBranchPerBranch; n++)
           {
             var newNode = new BranchNode3D(startNodeId++, curPhase, pt);
-            var newLenth = parentLn.Length * 0.67;
+            var newLenth = splitInitLen * 0.67;
 
             initDir.Rotate(Math.PI * 2 / numBranchPerBranch, parentLn.Direction);
-
 
             // AUX: each rotation, anti-gravity growth is applied
             var auxDir = initDir;
             var auxPerpDir = Vector3d.CrossProduct(initDir, mPln.ZAxis);
             auxDir.Rotate(Math.PI * 0.05, auxPerpDir);
 
-
             newNode.AddBranchAlong(auxDir * newLenth);
-
-            // add a item in the relationship dict, and add the node to the parent node relationship
-            if (!mBranchRelation.ContainsKey(newNode.mID))
-              mBranchRelation.Add(newNode.mID, new HashSet<int>());
-            mBranchRelation[node.mID].Add(newNode.mID);
-
-            newNodeCollection.Add(newNode);
+            newNode.ToggleSplitable();
+            AddNodeToTree(newNode);
+            //newNodeCollection.Add(newNode);
 
             // todo: not sure should do here
             newNode.TogglePermanent();
           }
+          node.ToggleSplitable();
           node.ToggleEndNode();
         }
-
-        //// after the loop, add the new nodes to the allNode collection
-        mAllNode.AddRange(newNodeCollection);
       }
-
     }
 
     public void GrowStage3()
@@ -891,16 +910,21 @@ namespace BeingAliveLanguage
     private List<BranchNode3D> SelectTopUnbranchedNodes(int count)
     {
       // Get all nodes from Stage 1
-      var stage1Nodes = mTrunkBranchNode.Where(node => node.mNodePhase < mStage1).ToList();
+      var stage1Nodes = mTrunkBranchNode.Where(node => node.mNodePhase <= mStage1).ToList();
 
       // Sort them by height (Z-coordinate)
       stage1Nodes.Sort((a, b) => b.mBranch[0].PointAtEnd.Z.CompareTo(a.mBranch[0].PointAtEnd.Z));
+      var topOnes = stage1Nodes.Take(mNumBranchPerLayer).ToList();
 
-      // Find the index of the highest branched node
-      int highestBranchedIndex = stage1Nodes.FindIndex(node => !node.flagEndNode);
+      // randommly pick count Num of branches
+      var res = new HashSet<BranchNode3D>();
+      while (res.Count < count)
+      {
+        var idx = mRnd.Next() % topOnes.Count;
+        res.Add(topOnes[idx]);
+      }
 
-      // Select 'count' number of nodes below the highest branched node
-      return stage1Nodes.Skip(highestBranchedIndex + 1).Take(count).ToList();
+      return res.ToList();
     }
 
     public void ForestRescale()
@@ -1066,6 +1090,7 @@ namespace BeingAliveLanguage
     public Plane mPln { get; set; }
 
     public int mPhase;
+    public int mNumBranchPerLayer = 6;
     public double mGScale;
     public double mTScale;
     public double mAngleMain;
