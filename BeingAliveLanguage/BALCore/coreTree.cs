@@ -815,6 +815,7 @@ namespace BeingAliveLanguage
         {
           foreach (var br in node.mBranch)
           {
+            //TODO: grow side branch after stage 1
 
           }
 
@@ -865,6 +866,11 @@ namespace BeingAliveLanguage
             newNode.ToggleSplitable();
             AddNodeToTree(node, newNode);
 
+            // store the root splitted branches
+            if (curPhase == mStage1 + 1)
+            {
+              mTrunckSplittedNode.Add(newNode);
+            }
             // todo: not sure should do here
             newNode.TogglePermanent();
           }
@@ -960,14 +966,17 @@ namespace BeingAliveLanguage
       }
       var maxR = rCollection.Count > 0 ? rCollection.Max() : double.MaxValue;
 
+      var primaryBranchToScale = mTrunkBranchNode.Concat(mTrunckSplittedNode);
+
       // Examine each main branch and scale if needed
-      foreach (var mainBranch in mTrunkBranchNode)
+      //foreach (var mainBranch in mTrunkBranchNode)
+      //foreach (var mainBranch in mTrunckSplittedNode)
+      foreach (var mainBranch in primaryBranchToScale)
       {
         // Project branch direction onto XY plane
         Vector3d branchDir = mainBranch.mBranch[0].PointAtEnd - mainBranch.mBranch[0].PointAtStart;
         Vector3d branchDir2D = new Vector3d(branchDir.X, branchDir.Y, 0);
         branchDir2D.Unitize();
-
 
         foreach (var treePt in mNearestTrees)
         {
@@ -998,6 +1007,7 @@ namespace BeingAliveLanguage
           }
         }
       }
+
     }
 
     private void ScaleBranchHierarchy(BranchNode3D node, double scaleFactor)
@@ -1126,10 +1136,11 @@ namespace BeingAliveLanguage
 
     // all node for branches, including the base node for trunck and all sub-nodes
     public List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
+    public List<BranchNode3D> mTrunkBranchNode { get; set; } = new List<BranchNode3D>();
+    public List<BranchNode3D> mTrunckSplittedNode { get; set; } = new List<BranchNode3D>();
 
     // all nodes that are attached to the trunck, only for 1st-level branches
     public List<Line> mTrunkSegments { get; private set; } = new List<Line>();
-    public List<BranchNode3D> mTrunkBranchNode { get; set; } = new List<BranchNode3D>();
     public List<string> mMmsg { get; set; } = new List<string>();
   }
 
