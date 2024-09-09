@@ -248,7 +248,8 @@ namespace BeingAliveLanguage
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
     {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
-      pManager.AddCurveParameter("Branches", "B", "Tree branch curves.", GH_ParamAccess.tree);
+      pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
+      pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
       pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
     }
 
@@ -436,9 +437,10 @@ namespace BeingAliveLanguage
         nearestTreeLst = Enumerable.Repeat(virtualLst, plnLst.Count).ToList();
       }
 
-      DataTree<Curve> brCrv = new DataTree<Curve>();
-      DataTree<Curve> trCrv = new DataTree<Curve>();
-      DataTree<TreeProperty> tInfoCol = new DataTree<TreeProperty>();
+      DataTree<Curve> trCrv = new DataTree<Curve>(); // trunk
+      DataTree<Curve> sideBrCrv = new DataTree<Curve>(); // side branches
+      DataTree<Curve> topBrCrv = new DataTree<Curve>(); // top branches
+      DataTree<TreeProperty> tInfoCol = new DataTree<TreeProperty>(); // tree info
 
       foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
       {
@@ -454,15 +456,22 @@ namespace BeingAliveLanguage
         foreach (var (br, id) in branchCol.Select((br, id) => (br, id)))
         {
           maxBr = Math.Max(maxBr, br.Key);
-          brCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
+          if (br.Key > 0 && br.Key <= 4)
+            sideBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
+          else
+            topBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
         }
 
         for (int id = 0; id <= maxBr; id++)
         {
           var path = new GH_Path(i, id);
-          if (!brCrv.PathExists(path))
+          if (!sideBrCrv.PathExists(path))
           {
-            brCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
+            sideBrCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
+          }
+          else if (!topBrCrv.PathExists(path))
+          {
+            topBrCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
           }
         }
 
@@ -494,8 +503,9 @@ namespace BeingAliveLanguage
       }
 
       DA.SetDataTree(0, trCrv);
-      DA.SetDataTree(1, brCrv);
-      DA.SetDataTree(2, tInfoCol);
+      DA.SetDataTree(1, sideBrCrv);
+      DA.SetDataTree(2, topBrCrv);
+      DA.SetDataTree(3, tInfoCol);
     }
   }
 

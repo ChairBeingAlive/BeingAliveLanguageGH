@@ -546,29 +546,35 @@ namespace BeingAliveLanguage
       }
     }
 
-    public void GrowToPhase(int phase)
-    {
-      int phaseDiff = phase - mNodePhase;
+    //public void GrowToPhase(int phase)
+    //{
+    //  int phaseDiff = phase - mNodePhase;
 
-      if (!flagPermanent)
-      {
-        if (phaseDiff <= 0)
-        {
-          return;
-        }
+    //  if (!flagPermanent)
+    //  {
+    //    if (phaseDiff <= 0)
+    //    {
+    //      return;
+    //    }
 
-        if (phaseDiff <= 3)
-        {
-          mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.2, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-        }
+    //    if (phaseDiff <= 3)
+    //    {
+    //      mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.2, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
+    //    }
 
-        if (phaseDiff > 3)
-        {
-          mBranch.Clear();
-        }
-      }
-    }
+    //    if (phaseDiff > 3)
+    //    {
+    //      mBranch.Clear();
+    //    }
+    //  }
+    //}
 
+    /// <summary>
+    ///  Iteratively turn off the display from the given nodes
+    /// </summary>
+    /// <param name="branchRelation"></param>
+    /// <param name="allNodes"></param>
+    /// <returns></returns>
     public int TurnOff(Dictionary<int, HashSet<int>> branchRelation, List<BranchNode3D> allNodes)
     {
       int totalAffectedBranch = 0;
@@ -597,10 +603,10 @@ namespace BeingAliveLanguage
       flagPermanent = !flagPermanent;
     }
 
-    public void ToggleEndNode()
-    {
-      flagEndNode = !flagEndNode;
-    }
+    //public void ToggleEndNode()
+    //{
+    //  flagEndNode = !flagEndNode;
+    //}
 
     public void ToggleSplitable()
     {
@@ -617,7 +623,7 @@ namespace BeingAliveLanguage
 
     public int mID = -1;
     public bool flagPermanent { get; set; } = false;
-    public bool flagEndNode { get; set; } = true;
+    //public bool flagEndNode { get; set; } = true;
     public bool flagShow = true;
     public bool flagSplittable = false;
 
@@ -814,17 +820,20 @@ namespace BeingAliveLanguage
         var lenIncrementPerPhase = (mMaxSideBranchLen - mMinSideBranchLen) / mStage1;
         foreach (var node in mTrunkBranchNode)
         {
-          var tmpLst = new List<Curve>();
-          foreach(var br in node.mBranch)
+          if (!mBranchRelation.ContainsKey(node.mID))
           {
-            var dir = br.PointAtEnd - br.PointAtStart;
-            dir.Unitize();
-            var increLen = addedPhase * lenIncrementPerPhase;
-            var len = Math.Min(mMaxSideBranchLen, br.GetLength() + increLen);
+            var tmpLst = new List<Curve>();
+            foreach (var br in node.mBranch)
+            {
+              var dir = br.PointAtEnd - br.PointAtStart;
+              dir.Unitize();
+              var increLen = addedPhase * lenIncrementPerPhase;
+              var len = Math.Min(mMaxSideBranchLen, br.GetLength() + increLen);
 
-            tmpLst.Add(new Line(br.PointAtStart, dir * len).ToNurbsCurve());
-          };
-          node.mBranch = tmpLst;
+              tmpLst.Add(new Line(br.PointAtStart, dir * len).ToNurbsCurve());
+            };
+            node.mBranch = tmpLst;
+          }
         }
 
 
@@ -846,7 +855,6 @@ namespace BeingAliveLanguage
           var parentLn = new Line(node.mBranch[0].PointAtStart, node.mBranch[0].PointAtEnd);
 
           var pt = parentLn.To;
-          //var pt = node.GetPos();
           var initDir = parentLn.Direction;
           initDir.Unitize();
 
@@ -880,7 +888,7 @@ namespace BeingAliveLanguage
             newNode.TogglePermanent();
           }
           node.ToggleSplitable();
-          node.ToggleEndNode();
+          //node.ToggleEndNode();
         }
       }
     }
@@ -893,16 +901,15 @@ namespace BeingAliveLanguage
       for (int curPhase = mStage2 + 1; curPhase <= auxPhaseS3; curPhase++)
       {
         int removeNum = (int)(mAllNode.Count * 0.3);
-
         int accumRm = 0;
 
-        while (true)
+        while (accumRm < removeNum)
         {
           var rmId = mRnd.Next(mAllNode.Count);
-          accumRm += mAllNode[rmId].TurnOff(mBranchRelation, mAllNode);
+          if (mAllNode[rmId].mNodePhase < 7)
+            continue;
 
-          if (accumRm >= removeNum)
-            break;
+          accumRm += mAllNode[rmId].TurnOff(mBranchRelation, mAllNode);
         }
       }
     }
@@ -915,13 +922,13 @@ namespace BeingAliveLanguage
       // for the final stage, remove all the side branches and several main branches
       foreach (var node in mAllNode)
       {
-        if (node.mNodePhase == mStage1)
-        {
-          if (node.mID % 2 != 0)
-            node.TurnOff(mBranchRelation, mAllNode);
-        }
+        //if (node.mNodePhase == mStage1)
+        //{
+        //  if (node.mID % 2 != 0)
+        //    node.TurnOff(mBranchRelation, mAllNode);
+        //}
 
-        if (node.mNodePhase < mStage1)
+        if (!node.flagSplittable && node.mNodePhase > 0 && node.mNodePhase <= mStage1)
         {
           node.TurnOff(mBranchRelation, mAllNode);
         }
