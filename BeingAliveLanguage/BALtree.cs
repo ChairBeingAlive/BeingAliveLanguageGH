@@ -415,7 +415,7 @@ namespace BeingAliveLanguage
         return;
 
       // calculate distance between trees
-      // todo: currently, only consider distance between trunks, phases are not considered
+      // todo: currently, only consider distance  between trunks, phases are not considered
       var distLst = new List<double>();
       var nearestTreeLst = new List<List<Point3d>>();
       if (plnLst.Count > 1)

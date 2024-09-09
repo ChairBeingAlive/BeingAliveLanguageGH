@@ -811,15 +811,20 @@ namespace BeingAliveLanguage
       {
         // Continue to grow branch emerged in Stage 1
         var addedPhase = curPhase - mStage1;
+        var lenIncrementPerPhase = (mMaxSideBranchLen - mMinSideBranchLen) / mStage1;
         foreach (var node in mTrunkBranchNode)
         {
-          foreach (var br in node.mBranch)
+          var tmpLst = new List<Curve>();
+          foreach(var br in node.mBranch)
           {
-            //TODO: grow side branch after stage 1
+            var dir = br.PointAtEnd - br.PointAtStart;
+            dir.Unitize();
+            var increLen = addedPhase * lenIncrementPerPhase;
+            var len = Math.Min(mMaxSideBranchLen, br.GetLength() + increLen);
 
-          }
-
-
+            tmpLst.Add(new Line(br.PointAtStart, dir * len).ToNurbsCurve());
+          };
+          node.mBranch = tmpLst;
         }
 
 
