@@ -653,6 +653,9 @@ namespace BeingAliveLanguage
         GrowStage4();
       }
 
+      // update radius
+      mSoloRadius = GetRadius();
+
       // scale 2D if tree size is too large (> 0.5 nearest tree distance)
       ForestRescale();
 
@@ -904,9 +907,133 @@ namespace BeingAliveLanguage
 
     public void ForestRescale()
     {
-      double openingAngle = 0.5 * Math.PI;
+      HashSet<int> scaledBranches = new HashSet<int>();
 
-      // Collect all branches and measure the max Radius
+      // Traverse branches from phase 1 to 8
+      for (int phase = 8; phase <= 8; phase++)
+      {
+        var branchesInPhase = mAllNode.Where(node => node.mNodePhase == phase && !scaledBranches.Contains(node.mID)).ToList();
+
+        foreach (var branch in branchesInPhase)
+        {
+          if (scaledBranches.Contains(branch.mID))
+            continue;
+
+          double scaleFactor = CalculateScaleFactor(branch);
+
+          if (scaleFactor < 1.0)
+          {
+            // Scale this branch and all its sub-branches
+            ScaleBranchAndSubBranches(branch, scaleFactor, scaledBranches);
+          }
+        }
+      }
+    }
+
+    private double CalculateScaleFactor(BranchNode3D node)
+    {
+      double openingAngle =  Math.PI;
+      double nearestTreeDist = double.MaxValue;
+      double furthestBranchDist = 0;
+
+      // Calculate the radius to the furthest branch endpoint
+      Queue<BranchNode3D> branchQueue = new Queue<BranchNode3D>();
+      branchQueue.Enqueue(node);
+      HashSet<int> visitedBranches = new HashSet<int>();
+
+      while (branchQueue.Count > 0)
+      {
+        var currentBranch = branchQueue.Dequeue();
+        if (visitedBranches.Contains(currentBranch.mID))
+          continue;
+
+        visitedBranches.Add(currentBranch.mID);
+
+        foreach (var branchCurve in currentBranch.mBranch)
+        {
+          double distToEnd = node.GetPos().DistanceTo(branchCurve.PointAtEnd);
+          furthestBranchDist = Math.Max(furthestBranchDist, distToEnd);
+        }
+
+        // Add sub-branches to the queue
+        if (mBranchRelation.ContainsKey(currentBranch.mID))
+        {
+          foreach (var childId in mBranchRelation[currentBranch.mID])
+          {
+            branchQueue.Enqueue(mAllNode[childId]);
+          }
+        }
+      }
+
+      // Calculate the direction of the main branch
+      Vector3d branchDir = node.mBranch[0].PointAtEnd - node.mBranch[0].PointAtStart;
+      Vector3d branchDir2D = new Vector3d(branchDir.X, branchDir.Y, 0);
+      branchDir2D.Unitize();
+
+      // Find the nearest tree within the opening angle
+      foreach (var treePt in mNearestTrees)
+      {
+        Vector3d dirToTree = treePt - node.GetPos();
+        Vector3d treeDir2D = new Vector3d(dirToTree.X, dirToTree.Y, 0);
+        double dist = treeDir2D.Length;
+        treeDir2D.Unitize();
+
+        double angle = Vector3d.VectorAngle(branchDir2D, treeDir2D);
+        angle %= Math.PI;
+
+        if (angle <= openingAngle / 2)
+        {
+          if (dist < nearestTreeDist)
+          {
+            nearestTreeDist = dist;
+          }
+        }
+      }
+
+      // Calculate scaling factor
+      if (furthestBranchDist > nearestTreeDist - mSoloRadius)
+      {
+        return Math.Max((nearestTreeDist - mSoloRadius) / furthestBranchDist, 0);
+      }
+
+      return 1.0;
+    }
+
+    private void ScaleBranchAndSubBranches(BranchNode3D branch, double scaleFactor, HashSet<int> scaledBranches)
+    {
+      Queue<BranchNode3D> branchesToScale = new Queue<BranchNode3D>();
+      branchesToScale.Enqueue(branch);
+
+      while (branchesToScale.Count > 0)
+      {
+        var currentBranch = branchesToScale.Dequeue();
+
+        if (scaledBranches.Contains(currentBranch.mID))
+          continue;
+
+        // Scale the current branch
+        foreach (var branchCurve in currentBranch.mBranch)
+        {
+          var xform = Transform.Scale(mPln, scaleFactor, scaleFactor, 1);
+          branchCurve.Transform(xform);
+        }
+
+        scaledBranches.Add(currentBranch.mID);
+
+        // Add sub-branches to the queue
+        if (mBranchRelation.ContainsKey(currentBranch.mID))
+        {
+          foreach (var childId in mBranchRelation[currentBranch.mID])
+          {
+            var childNode = mAllNode.First(n => n.mID == childId);
+            branchesToScale.Enqueue(childNode);
+          }
+        }
+      }
+    }
+
+    public double GetRadius()
+    {
       List<double> rCollection = new List<double>();
       foreach (var node in mAllNode)
       {
@@ -922,49 +1049,74 @@ namespace BeingAliveLanguage
           rCollection.Add(distB);
         }
       }
-      var maxR = rCollection.Count > 0 ? rCollection.Max() : double.MaxValue;
+      var maxR = rCollection.Count > 0 ? rCollection.Max() : 0;
 
-      var primaryBranchToScale = mTrunkBranchNode.Concat(mBaseSplittedNode);
-
-      // Examine each main branch and scale if needed
-      foreach (var mainBranch in primaryBranchToScale)
-      {
-        // Project branch direction onto XY plane
-        Vector3d branchDir = mainBranch.mBranch[0].PointAtEnd - mainBranch.mBranch[0].PointAtStart;
-        Vector3d branchDir2D = new Vector3d(branchDir.X, branchDir.Y, 0);
-        branchDir2D.Unitize();
-
-        foreach (var treePt in mNearestTrees)
-        {
-          // Find the nearest tree within the opening angle
-          double nearestDist = double.MaxValue;
-
-          Vector3d treeDir = treePt - mPln.Origin;
-          Vector3d treeDir2D = new Vector3d(treeDir.X, treeDir.Y, 0);
-          treeDir2D.Unitize();
-
-          double angle = Vector3d.VectorAngle(branchDir2D, treeDir2D);
-          angle %= Math.PI;
-
-          if (angle <= openingAngle / 2)
-          {
-            double dist = treeDir.Length;
-            if (dist < nearestDist)
-            {
-              nearestDist = dist;
-            }
-          }
-
-          // SCALE: when the branch if the nearest tree is smaller than 3x the branch lengths
-          if (nearestDist < branchDir.Length * 3)
-          {
-            double scaleFactor = Math.Min(nearestDist * 0.4 / maxR, 1.0);
-            ScaleBranchHierarchy(mainBranch, scaleFactor);
-          }
-        }
-      }
-
+      return maxR;
     }
+
+    //public void ForestRescale()
+    //{
+    //  double openingAngle = 0.5 * Math.PI;
+
+    //  // Collect all branches and measure the max Radius
+    //  List<double> rCollection = new List<double>();
+    //  foreach (var node in mAllNode)
+    //  {
+    //    foreach (var ln in node.mBranch)
+    //    {
+    //      mPln.RemapToPlaneSpace(ln.PointAtStart, out var ptStart);
+    //      mPln.RemapToPlaneSpace(ln.PointAtEnd, out var ptEnd);
+
+    //      var distA = Math.Sqrt(ptStart.X * ptStart.X + ptStart.Y * ptStart.Y);
+    //      var distB = Math.Sqrt(ptEnd.X * ptEnd.X + ptEnd.Y * ptEnd.Y);
+
+    //      rCollection.Add(distA);
+    //      rCollection.Add(distB);
+    //    }
+    //  }
+    //  var maxR = rCollection.Count > 0 ? rCollection.Max() : double.MaxValue;
+
+    //  var primaryBranchToScale = mTrunkBranchNode.Concat(mBaseSplittedNode);
+
+    //  // Examine each main branch and scale if needed
+    //  foreach (var mainBranch in primaryBranchToScale)
+    //  {
+    //    // Project branch direction onto XY plane
+    //    Vector3d branchDir = mainBranch.mBranch[0].PointAtEnd - mainBranch.mBranch[0].PointAtStart;
+    //    Vector3d branchDir2D = new Vector3d(branchDir.X, branchDir.Y, 0);
+    //    branchDir2D.Unitize();
+
+    //    foreach (var treePt in mNearestTrees)
+    //    {
+    //      // Find the nearest tree within the opening angle
+    //      double nearestDist = double.MaxValue;
+
+    //      Vector3d treeDir = treePt - mPln.Origin;
+    //      Vector3d treeDir2D = new Vector3d(treeDir.X, treeDir.Y, 0);
+    //      treeDir2D.Unitize();
+
+    //      double angle = Vector3d.VectorAngle(branchDir2D, treeDir2D);
+    //      angle %= Math.PI;
+
+    //      if (angle <= openingAngle / 2)
+    //      {
+    //        double dist = treeDir.Length;
+    //        if (dist < nearestDist)
+    //        {
+    //          nearestDist = dist;
+    //        }
+    //      }
+
+    //      // SCALE: when the branch if the nearest tree is smaller than 3x the branch lengths
+    //      if (nearestDist < branchDir.Length * 3)
+    //      {
+    //        double scaleFactor = Math.Min(nearestDist * 0.4 / maxR, 1.0);
+    //        ScaleBranchHierarchy(mainBranch, scaleFactor);
+    //      }
+    //    }
+    //  }
+
+    //}
 
     private void ScaleBranchHierarchy(BranchNode3D node, double scaleFactor)
     {
@@ -1100,6 +1252,7 @@ namespace BeingAliveLanguage
 
     // curve collection
     BranchNode3D mBaseNode;
+    double mSoloRadius;
 
     public List<Point3d> mNearestTrees = new List<Point3d>();
     public Dictionary<int, HashSet<int>> mBranchRelation = new Dictionary<int, HashSet<int>>();
