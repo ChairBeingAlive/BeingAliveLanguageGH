@@ -248,8 +248,8 @@ namespace BeingAliveLanguage
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
     {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
-      pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.", GH_ParamAccess.tree);
-      pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
+      pManager.AddCurveParameter("SingleBranch", "SB", "Tree side branch curves (non-split).", GH_ParamAccess.tree);
+      pManager.AddCurveParameter("SplitBranch", "TB", "Tree top branch and duplicated branch curves.", GH_ParamAccess.tree);
       pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
     }
 
@@ -410,6 +410,7 @@ namespace BeingAliveLanguage
 
       //! 1. determine horizontal scaling factor of the trees
       Dictionary<int, List<Curve>> branchCol = new Dictionary<int, List<Curve>>();
+      Dictionary<int, List<bool>> branchSplitFlagCol = new Dictionary<int, List<bool>>();
       Dictionary<int, List<Curve>> trunkCol = new Dictionary<int, List<Curve>>();
 
       if (plnLst.Count == 0)
@@ -438,8 +439,8 @@ namespace BeingAliveLanguage
       }
 
       DataTree<Curve> trCrv = new DataTree<Curve>(); // trunk
-      DataTree<Curve> sideBrCrv = new DataTree<Curve>(); // side branches
-      DataTree<Curve> topBrCrv = new DataTree<Curve>(); // top branches
+      DataTree<Curve> singleBrCrv = new DataTree<Curve>(); // side branches
+      DataTree<Curve> splitBrCrv = new DataTree<Curve>(); // top branches
       DataTree<TreeProperty> tInfoCol = new DataTree<TreeProperty>(); // tree info
 
       foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
@@ -451,27 +452,42 @@ namespace BeingAliveLanguage
         t.Generate(phaseLst[i], angLstMain[i], angLstTop[i], dupNumLst[i]);
 
         // collection branches
-        branchCol = t.GetBranch();
+        (branchCol, branchSplitFlagCol) = t.GetBranch();
         var maxBr = 0;
         foreach (var (br, id) in branchCol.Select((br, id) => (br, id)))
         {
           maxBr = Math.Max(maxBr, br.Key);
-          if (br.Key > 0 && br.Key <= 4)
-            sideBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
-          else
-            topBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
+          //if (br.Key > 0 && br.Key <= 4)
+          //  singleBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
+          //else
+          //  splitBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
+
+
+          var curPath = new GH_Path(new int[] { i, br.Key });
+          foreach (var (ln, id2) in br.Value.Select((ln, id2) => (ln, id2)))
+          {
+            if (branchSplitFlagCol[id][id2])
+              splitBrCrv.Add(ln, curPath);
+            else
+              singleBrCrv.Add(ln, curPath);
+          }
+          //if (!branchSplitFlagCol[br.Key])
+          //  singleBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
+          //else
+          //  splitBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
         }
+
 
         for (int id = 0; id <= maxBr; id++)
         {
           var path = new GH_Path(i, id);
-          if (!sideBrCrv.PathExists(path))
+          if (!singleBrCrv.PathExists(path))
           {
-            sideBrCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
+            singleBrCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
           }
-          else if (!topBrCrv.PathExists(path))
+          else if (!splitBrCrv.PathExists(path))
           {
-            topBrCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
+            splitBrCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
           }
         }
 
@@ -503,8 +519,8 @@ namespace BeingAliveLanguage
       }
 
       DA.SetDataTree(0, trCrv);
-      DA.SetDataTree(1, sideBrCrv);
-      DA.SetDataTree(2, topBrCrv);
+      DA.SetDataTree(1, singleBrCrv);
+      DA.SetDataTree(2, splitBrCrv);
       DA.SetDataTree(3, tInfoCol);
     }
   }

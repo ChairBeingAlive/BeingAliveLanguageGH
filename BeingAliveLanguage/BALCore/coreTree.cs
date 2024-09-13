@@ -527,15 +527,6 @@ namespace BeingAliveLanguage
       mNodePhase = phase;
     }
 
-    public BranchNode3D(int id, int phase, in Point3d node, bool permanent = false)
-    {
-      mNode = node;
-
-      mID = id;
-      mNodePhase = phase;
-      flagPermanent = permanent;
-    }
-
     public void AddBranchAlong(Vector3d vec)
     {
       var tmpLen = new Line(mNode, mNode + vec).ToNurbsCurve();
@@ -545,29 +536,6 @@ namespace BeingAliveLanguage
         mBranch.Add(tmpLen);
       }
     }
-
-    //public void GrowToPhase(int phase)
-    //{
-    //  int phaseDiff = phase - mNodePhase;
-
-    //  if (!flagPermanent)
-    //  {
-    //    if (phaseDiff <= 0)
-    //    {
-    //      return;
-    //    }
-
-    //    if (phaseDiff <= 3)
-    //    {
-    //      mBranch = mBranch.Select(x => new Line(x.PointAtStart, x.PointAtStart + Math.Pow(1.2, phaseDiff) * (x.PointAtEnd - x.PointAtStart)).ToNurbsCurve() as Curve).ToList();
-    //    }
-
-    //    if (phaseDiff > 3)
-    //    {
-    //      mBranch.Clear();
-    //    }
-    //  }
-    //}
 
     /// <summary>
     ///  Iteratively turn off the display from the given nodes
@@ -598,15 +566,6 @@ namespace BeingAliveLanguage
       return totalAffectedBranch;
     }
 
-    public void TogglePermanent()
-    {
-      flagPermanent = !flagPermanent;
-    }
-
-    //public void ToggleEndNode()
-    //{
-    //  flagEndNode = !flagEndNode;
-    //}
 
     public void ToggleSplitable()
     {
@@ -622,10 +581,9 @@ namespace BeingAliveLanguage
     public int mNodePhase = -1;
 
     public int mID = -1;
-    public bool flagPermanent { get; set; } = false;
-    //public bool flagEndNode { get; set; } = true;
     public bool flagShow = true;
     public bool flagSplittable = false;
+    public List<bool> flagBranchSplit = new List<bool>();
 
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
@@ -682,12 +640,6 @@ namespace BeingAliveLanguage
 
       if (mPhase > mStage1)
       {
-        // lock nodes that started from phase 3 to be eternal node
-        foreach (var node in mAllNode)
-        {
-          node.TogglePermanent();
-        }
-
         GrowStage2(dupNum);
       }
 
@@ -737,6 +689,7 @@ namespace BeingAliveLanguage
       }
       mBaseNode.mBranch.Clear();
       mBaseNode.AddBranchAlong(mTrunkSegments.Last().To - mTrunkSegments.First().From);
+      mBaseNode.flagBranchSplit.Add(false);
       mAllNode.Add(mBaseNode);
 
       mTrunkBranchNode.Clear();
@@ -777,6 +730,7 @@ namespace BeingAliveLanguage
             curDir.Rotate(horRotRadian, mPln.ZAxis);
 
             node.AddBranchAlong(curDir * branchLen);
+            node.flagBranchSplit.Add(false);
             mTrunkBranchNode.Add(node); // add the node to the trunckNode lst
 
             AddNodeToTree(mBaseNode, node);
@@ -796,7 +750,8 @@ namespace BeingAliveLanguage
       // we need to add a virtual branch on the top to match the same branching mechanism as the side branches
       var topNode = new BranchNode3D(
         mAllNode.Count, auxPhaseS1, mBaseNode.mBranch[0].PointAtEnd);
-      topNode.AddBranchAlong(mPln.ZAxis * 0.1);
+      topNode.AddBranchAlong(mPln.ZAxis * 0.01);
+      topNode.flagBranchSplit.Add(true);
       topNode.ToggleSplitable();
 
       AddNodeToTree(mBaseNode, topNode);
@@ -836,21 +791,21 @@ namespace BeingAliveLanguage
           }
         }
 
-
         // for each end node, branch out several new branches
         var startNodeId = mAllNode.Count;
-        var nodesToBranch = mAllNode.Where(node => node.flagSplittable == true).ToList();
+        var nodesToSplit = mAllNode.Where(node => node.flagSplittable == true).ToList();
 
-        // Select additional side branches to grow
+        // Select additional side branches to grow (only the 1st phase of stage 2)
         if (curPhase == mStage1 + 1)
         {
           var sideNodeToBranch = SelectTopUnbranchedNodes(dupNum);
           sideNodeToBranch.ForEach(x => x.ToggleSplitable());
-          nodesToBranch.AddRange(sideNodeToBranch);
+          nodesToSplit.AddRange(sideNodeToBranch);
         }
 
-        foreach (var node in nodesToBranch)
+        foreach (var node in nodesToSplit)
         {
+          node.flagBranchSplit = node.mBranch.Select(x => true).ToList();
           // auxilary line from Curve -> Line
           var parentLn = new Line(node.mBranch[0].PointAtStart, node.mBranch[0].PointAtEnd);
 
@@ -876,19 +831,19 @@ namespace BeingAliveLanguage
             var newNode = new BranchNode3D(startNodeId++, curPhase, pt);
 
             newNode.AddBranchAlong(auxDir * newLenth);
+            newNode.flagBranchSplit.Add(true); // make sure new node labeled split
             newNode.ToggleSplitable();
             AddNodeToTree(node, newNode);
 
             // store the root splitted branches
             if (curPhase == mStage1 + 1)
             {
-              mTrunckSplittedNode.Add(newNode);
+              mBaseSplittedNode.Add(newNode);
             }
-            // todo: not sure should do here
-            newNode.TogglePermanent();
           }
+
+          // after the split, toggle it so that the next iteration will not split it again
           node.ToggleSplitable();
-          //node.ToggleEndNode();
         }
       }
     }
@@ -920,19 +875,10 @@ namespace BeingAliveLanguage
       var auxPhaseS4 = Math.Min(mPhase, mStage4);
 
       // for the final stage, remove all the side branches and several main branches
-      foreach (var node in mAllNode)
+      foreach (var node in mBaseSplittedNode)
       {
-        //if (node.mNodePhase == mStage1)
-        //{
-        //  if (node.mID % 2 != 0)
-        //    node.TurnOff(mBranchRelation, mAllNode);
-        //}
-
-        if (!node.flagSplittable && node.mNodePhase > 0 && node.mNodePhase <= mStage1)
-        {
+        if (node.mID % 3 != 0)
           node.TurnOff(mBranchRelation, mAllNode);
-        }
-
       }
     }
 
@@ -978,11 +924,9 @@ namespace BeingAliveLanguage
       }
       var maxR = rCollection.Count > 0 ? rCollection.Max() : double.MaxValue;
 
-      var primaryBranchToScale = mTrunkBranchNode.Concat(mTrunckSplittedNode);
+      var primaryBranchToScale = mTrunkBranchNode.Concat(mBaseSplittedNode);
 
       // Examine each main branch and scale if needed
-      //foreach (var mainBranch in mTrunkBranchNode)
-      //foreach (var mainBranch in mTrunckSplittedNode)
       foreach (var mainBranch in primaryBranchToScale)
       {
         // Project branch direction onto XY plane
@@ -1042,20 +986,34 @@ namespace BeingAliveLanguage
       }
     }
 
-    public Dictionary<int, List<Curve>> GetBranch()
+    /// <summary>
+    ///  branch collection based on phase, and splitable
+    /// </summary>
+    /// <returns></returns>
+    public (Dictionary<int, List<Curve>>, Dictionary<int, List<bool>>) GetBranch()
     {
       var branchCollection = new Dictionary<int, List<Curve>>();
+      var branchSplitFlagCollection = new Dictionary<int, List<bool>>();
+
       foreach (var node in mAllNode)
       {
         if (!node.flagShow)
           continue;
 
         if (branchCollection.ContainsKey(node.mNodePhase))
+        {
           branchCollection[node.mNodePhase].AddRange(node.mBranch);
+          branchSplitFlagCollection[node.mNodePhase].AddRange(node.flagBranchSplit);
+        }
         else
+        {
           branchCollection.Add(node.mNodePhase, node.mBranch);
+          branchSplitFlagCollection.Add(node.mNodePhase, node.flagBranchSplit);
+
+        }
+
       }
-      return branchCollection;
+      return (branchCollection, branchSplitFlagCollection);
     }
 
     public List<Curve> GetTrunk()
@@ -1149,7 +1107,7 @@ namespace BeingAliveLanguage
     // all node for branches, including the base node for trunck and all sub-nodes
     public List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
     public List<BranchNode3D> mTrunkBranchNode { get; set; } = new List<BranchNode3D>();
-    public List<BranchNode3D> mTrunckSplittedNode { get; set; } = new List<BranchNode3D>();
+    public List<BranchNode3D> mBaseSplittedNode { get; set; } = new List<BranchNode3D>();
 
     // all nodes that are attached to the trunck, only for 1st-level branches
     public List<Line> mTrunkSegments { get; private set; } = new List<Line>();
