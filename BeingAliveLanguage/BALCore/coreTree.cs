@@ -930,6 +930,11 @@ namespace BeingAliveLanguage
       }
     }
 
+    /// <summary>
+    /// calculate the scaling factor for the branch and all sub branches
+    /// </summary>
+    /// <param name="node"></param>
+    /// <returns></returns>
     private double CalculateScaleFactor(BranchNode3D node)
     {
       double openingAngle =  Math.PI;

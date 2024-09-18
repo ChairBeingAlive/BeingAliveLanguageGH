@@ -10,7 +10,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
-using MIConvexHull;
 
 namespace BeingAliveLanguage
 {
@@ -544,6 +543,9 @@ namespace BeingAliveLanguage
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
       pManager[0].Optional = true;
 
+      pManager.AddNumberParameter("TrunkRadius", "T-r", "Tree trunk radius, for creating different sized trunk.", GH_ParamAccess.tree, 1);
+      pManager[1].Optional = true;
+
       pManager.AddCurveParameter("Branch", "B", "Tree branch curves.", GH_ParamAccess.tree);
     }
 
@@ -559,6 +561,8 @@ namespace BeingAliveLanguage
       //var plnLst = new List<Plane>();
       if (!DA.GetDataTree("Trunk", out GH_Structure<GH_Curve> trunckCol))
       { return; }
+      if (!DA.GetDataTree("TrunkRadius", out GH_Structure<GH_Number> trunckRadiiCol))
+      { return; }
       if (!DA.GetDataTree("Branch", out GH_Structure<GH_Curve> branchCol))
       { return; }
 
@@ -568,26 +572,41 @@ namespace BeingAliveLanguage
       List<Mesh> trunkVolLst = new List<Mesh>();
       DataTree<Mesh> energyVolTree = new DataTree<Mesh>();
 
+      // take tree structure as input and generate energy canopy for each GH-tree-branch
       for (int i = 0; i < branchCol.PathCount; i++)
       {
-        var ptCol = new List<Point3d>();
         var pth = branchCol.Paths[i];
+        var brPtCol = new List<Point3d>();
+
         List<GH_Curve> brLst = branchCol.get_Branch(pth) as List<GH_Curve>;
         brLst.ForEach(x =>
         {
-          ptCol.Add(x.Value.PointAtStart);
-          ptCol.Add(x.Value.PointAtEnd);
+          brPtCol.Add(x.Value.PointAtStart);
+          brPtCol.Add(x.Value.PointAtEnd);
         });
 
+        var brMesh = BalCore.MeshUtils.CreateCvxHull(brPtCol);
+
+
+        Mesh energyMesh = new Mesh();
         if (trunckCol.PathExists(pth))
         {
           var trCrv = trunckCol.get_Branch(pth)[0] as GH_Curve;
-          ptCol.Add(trCrv.Value.PointAtStart);
-          ptCol.Add(trCrv.Value.PointAtEnd);
+          var trR = trunckRadiiCol.get_Branch(pth)[0] as GH_Number;
+
+          var trunkMesh = BalCore.MeshUtils.CreateCylinderMesh(trCrv.Value, trR.Value);
+          energyMesh = BalCore.MeshUtils.MergeMeshes(ref brMesh, ref trunkMesh);
+        }
+        else
+        {
+          energyMesh = brMesh;
         }
 
+
         // Energy Canopy
-        var energyMesh = BalCore.MeshUtils.CreateCvxHull(ptCol);
+        if (!energyMesh.IsValid)
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Canopy mesh is not valid. Please check.");
+
         energyVolTree.Add(energyMesh, new GH_Path(i));
         ;
       }

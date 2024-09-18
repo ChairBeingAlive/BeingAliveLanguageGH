@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MIConvexHull;
-using MathNet.Numerics.Optimization;
+using Rhino.Geometry.Intersect;
 
 namespace BeingAliveLanguage
 {
@@ -40,6 +40,118 @@ namespace BeingAliveLanguage
         return mesh;
       }
 
+
+      /// <summary>
+      /// Create a cylinder mesh based on a given line
+      /// </summary>
+      /// <param name="curve"></param>
+      /// <param name="radius"></param>
+      /// <returns></returns>
+      public static Mesh CreateCylinderMesh(Curve curve, double radius, int segments = 8)
+      {
+        if (curve == null || !curve.IsValid || radius <= 0)
+          return null;
+
+        Mesh cylinderMesh = new Mesh();
+
+        // Get start and end points of the curve
+        Point3d startPoint = curve.PointAtStart;
+        Point3d endPoint = curve.PointAtEnd;
+
+        // Create circles at start and end
+        Plane startPlane = new Plane(startPoint, curve.TangentAtStart);
+        Plane endPlane = new Plane(endPoint, curve.TangentAtEnd);
+        Circle startCircle = new Circle(startPlane, radius);
+        Circle endCircle = new Circle(endPlane, radius);
+
+        // Generate points for start and end circles
+        List<Point3d> startPoints = new List<Point3d>();
+        List<Point3d> endPoints = new List<Point3d>();
+
+        for (int i = 0; i < segments; i++)
+        {
+          double t = i * 2 * Math.PI / segments;
+          startPoints.Add(startCircle.PointAt(t));
+          endPoints.Add(endCircle.PointAt(t));
+        }
+
+        // Add vertices
+        cylinderMesh.Vertices.AddVertices(startPoints);
+        cylinderMesh.Vertices.AddVertices(endPoints);
+
+        // Add faces for the cylinder trunk
+        for (int i = 0; i < segments; i++)
+        {
+          int i1 = i;
+          int i2 = (i + 1) % segments;
+          int i3 = i + segments;
+          int i4 = ((i + 1) % segments) + segments;
+
+          cylinderMesh.Faces.AddFace(i1, i2, i4, i3);
+        }
+
+        // Add faces for start cap
+        for (int i = 1; i < segments - 1; i++)
+        {
+          cylinderMesh.Faces.AddFace(0, i, i + 1);
+        }
+
+        // Add faces for end cap
+        int endStart = segments;
+        for (int i = 1; i < segments - 1; i++)
+        {
+          cylinderMesh.Faces.AddFace(endStart, endStart + i + 1, endStart + i);
+        }
+
+        cylinderMesh.Normals.ComputeNormals();
+        cylinderMesh.Compact();
+
+        return cylinderMesh;
+      }
+
+      public static Mesh MergeMeshes(ref Mesh mesh1, ref Mesh mesh2)
+      {
+        // Ensure both meshes are valid
+        if (!mesh1.IsValid || !mesh2.IsValid)
+        {
+          throw new ArgumentException("Both input meshes must be valid.");
+        }
+
+        // Create a copy of the meshes to avoid modifying the originals
+        Mesh copyMesh1 = mesh1.DuplicateMesh();
+        Mesh copyMesh2 = mesh2.DuplicateMesh();
+
+        // Find the intersection of the two meshes
+        var intersectionCurves = Intersection.MeshMeshAccurate(copyMesh1, copyMesh2, 0.0001);
+
+        if (intersectionCurves.Length == 0)
+        {
+          throw new InvalidOperationException("The meshes do not intersect.");
+        }
+
+        // Split both meshes along the intersection curves
+        var cuttingCrv = intersectionCurves.Select(x => x.ToPolylineCurve());
+        var cuttedMesh1 = copyMesh1.SplitWithProjectedPolylines(cuttingCrv, 0.0001).OrderByDescending(mesh => mesh.Vertices.Count).FirstOrDefault();
+        var cuttedMesh2 = copyMesh2.SplitWithProjectedPolylines(cuttingCrv, 0.0001).OrderByDescending(mesh => mesh.Vertices.Count).FirstOrDefault();
+
+        // Combine the split meshes
+        //Mesh[] meshes = new Mesh[] { copyMesh1, copyMesh2 };
+        Mesh combinedMesh = new Mesh();
+        combinedMesh.Append(cuttedMesh1);
+        combinedMesh.Append(cuttedMesh2);
+
+        // Weld coincident vertices
+        combinedMesh.Weld(Math.PI);
+
+        // Remove internal faces
+        combinedMesh.RebuildNormals();
+        combinedMesh.ExtractNonManifoldEdges(true);
+
+        // Compact the mesh to remove any unused vertices
+        combinedMesh.Compact();
+
+        return combinedMesh;
+      }
     }
 
     static class MathUtils
