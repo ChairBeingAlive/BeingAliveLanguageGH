@@ -767,7 +767,6 @@ namespace BeingAliveLanguage
 
 
       // ! phase 5-10: branching phase
-      var numBranchPerBranch = 3;
       var splitInitLen = mScaledLen * 0.2;
 
       // Select nodes to branch: top nodes from previous phase and selected side branches
@@ -821,6 +820,7 @@ namespace BeingAliveLanguage
           initDir.Rotate(Utils.ToRadian(mAngleTop), perpVec);
           initDir.Rotate(mRnd.NextDouble(), parentLn.Direction);
 
+          var numBranchPerBranch = mRnd.Next(3, 6);
           for (int n = 0; n < numBranchPerBranch; n++)
           {
             initDir.Rotate(Math.PI * 2 / numBranchPerBranch, parentLn.Direction);
@@ -830,7 +830,7 @@ namespace BeingAliveLanguage
             var auxPerpDir = Vector3d.CrossProduct(initDir, mPln.ZAxis);
             auxDir.Rotate(Math.PI * 0.05, auxPerpDir);
 
-            var newLenth = splitInitLen * 0.67;
+            var newLenth = splitInitLen * Math.Pow(0.85, curPhase - mStage1);
             var newNode = new BranchNode3D(startNodeId++, curPhase, pt);
 
             newNode.AddBranchAlong(auxDir * newLenth);
@@ -937,7 +937,7 @@ namespace BeingAliveLanguage
     /// <returns></returns>
     private double CalculateScaleFactor(BranchNode3D node)
     {
-      double openingAngle =  Math.PI;
+      double openingAngle = Math.PI;
       double nearestTreeDist = double.MaxValue;
       double furthestBranchDist = 0;
 

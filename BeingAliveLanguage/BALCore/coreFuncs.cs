@@ -124,9 +124,14 @@ namespace BeingAliveLanguage
         // Find the intersection of the two meshes
         var intersectionCurves = Intersection.MeshMeshAccurate(copyMesh1, copyMesh2, 0.0001);
 
-        if (intersectionCurves.Length == 0)
+        if (intersectionCurves == null)
         {
-          throw new InvalidOperationException("The meshes do not intersect.");
+          ////throw new InvalidOperationException("The meshes do not intersect.");
+          Mesh jointMesh = new Mesh();
+          jointMesh.Append(copyMesh1);
+          jointMesh.Append(copyMesh2);
+
+          return jointMesh;
         }
 
         // Split both meshes along the intersection curves
