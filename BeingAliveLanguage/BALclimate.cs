@@ -18,7 +18,7 @@ namespace BeingAliveLanguage
     public BALETP()
       : base("Climate_Evapotranspiration", "balClimate_ETP",
           "Calculate the climate evapotranspiration related data for a given location.",
-          "BAL", "04::climate")
+          "BAL", "05::climate")
     {
     }
     protected override Bitmap Icon => Properties.Resources.balEvapotranspiration;
@@ -131,7 +131,7 @@ namespace BeingAliveLanguage
     public BALGaussen()
       : base("Climate_GaussenDiagram", "balClimate_Gaussen",
           "Automatically draw the Bagnouls-Gaussen diagram with given climate data.",
-          "BAL", "04::climate")
+          "BAL", "05::climate")
     {
     }
     protected override Bitmap Icon => Properties.Resources.balGaussen;

@@ -1,4 +1,4 @@
-﻿using Grasshopper.Kernel;
+using Grasshopper.Kernel;
 using System;
 using Rhino.Geometry;
 using System.Collections.Generic;
@@ -25,13 +25,11 @@ namespace BeingAliveLanguage
 
     // variables
     protected int mNum;
-    protected int mTotalNum;
     protected int mPhase;
+    protected double mScale;
     protected bool mSym;
     protected bool mActive;
     protected Plane mPln;
-    protected double mScale;
-    protected double mDistBelowSrf;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
@@ -39,7 +37,7 @@ namespace BeingAliveLanguage
       pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
       pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
       pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
-      //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+      pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -57,6 +55,7 @@ namespace BeingAliveLanguage
       mNum = 3;
       mPhase = 1;
       mScale = 1.0;
+      mSym = true;
       mPln = new Plane();
 
       if (!DA.GetData("Plane", ref mPln))
@@ -67,17 +66,13 @@ namespace BeingAliveLanguage
       { return; }
       if (!DA.GetData("Scale", ref mScale))
       { return; }
-      //if (!DA.GetData("Symmetric", ref mSym))
-      //{ return; }
+      if (!DA.GetData("Symmetric", ref mSym))
+      { return; }
 
       // compute current states
       mActive = mPhase % 2 == 0;
       DA.SetData("State", mActive ? "active" : "inactive");
-
-      // compute current total number of organs
-      mTotalNum = mNum + ((mPhase + 1) / 2 - 1) * 2;
     }
-
   }
 
   public class BALorganTuft : BALorganBase
@@ -91,48 +86,32 @@ namespace BeingAliveLanguage
     public override Guid ComponentGuid => new Guid("a7fdb09e-39e7-4ceb-a78f-b2b2ab71f572");
     public override GH_Exposure Exposure => GH_Exposure.primary;
 
-
-    protected override void RegisterInputParams(GH_InputParamManager pManager)
-    {
-      base.RegisterInputParams(pManager);
-    }
-
     protected override void SolveInstance(IGH_DataAccess DA)
     {
       base.SolveInstance(DA);
 
-      if (mNum < 3)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base number should be at least 3.");
-      }
-
-      double horizontalScale = 0.5;
-      double radius = 1;
-      var circle = new Circle(mPln, radius);
+      var horizontalScale = 0.5;
+      var circle = new Circle(mPln, 1.0);
       var horizontalSpacing = horizontalScale * mScale * 2; // radius = 1, D = 2
 
       var xform = Transform.Scale(mPln, horizontalScale * mScale, 1 * mScale, 1 * mScale);
       var geo = circle.ToNurbsCurve();
       geo.Transform(xform);
 
-      mDistBelowSrf = radius;
-      geo.Translate(-mPln.YAxis * mDistBelowSrf);
-
       var geoCol = new List<NurbsCurve>() { geo };
       var exiOrganLst = new List<NurbsCurve>();
       var newOrganLst = new List<NurbsCurve>();
 
-      mSym = true;
       if (mSym)
       {
         if (mNum % 2 == 0)
         {
           AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "When `sym==TRUE`, even count will be rounded to the nearest odd number.");
-          return;
+
         }
 
         // Core Organ part
-        for (int i = 0; i < mTotalNum / 2; i++)
+        for (int i = 0; i < mNum / 2; i++)
         {
           var newGeo = geo.Duplicate() as NurbsCurve;
           if (newGeo == null)
@@ -163,7 +142,7 @@ namespace BeingAliveLanguage
       }
       else
       {
-        for (int i = 0; i < mTotalNum; i++)
+        for (int i = 0; i < mNum; i++)
         {
           var newGeo = geo.Duplicate() as NurbsCurve;
           if (newGeo == null)
@@ -175,19 +154,11 @@ namespace BeingAliveLanguage
         }
 
         // no symmetry, only take 1 element as "new"
-        if (mActive)
-        {
-          exiOrganLst = geoCol.GetRange(0, geoCol.Count - 1);
-          newOrganLst = geoCol.GetRange(geoCol.Count - 1, 1);
-        }
-        else
-        {
-          exiOrganLst = geoCol;
-        }
+        exiOrganLst = geoCol.GetRange(0, geoCol.Count - 1);
+        newOrganLst = geoCol.GetRange(geoCol.Count - 1, 1);
       }
 
-      DA.SetDataList("ExistingOrgan", exiOrganLst);
-      DA.SetDataList("NewOrgan", newOrganLst);
+      DA.SetDataList("NewOrgan", geoCol);
 
     }
   }
