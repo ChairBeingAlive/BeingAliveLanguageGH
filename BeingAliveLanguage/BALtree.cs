@@ -566,6 +566,24 @@ namespace BeingAliveLanguage
       if (!DA.GetDataTree("Branch", out GH_Structure<GH_Curve> branchCol))
       { return; }
 
+      // Check if there is only one element in trunkRadiiCol
+      if (trunckRadiiCol.PathCount == 1)
+      {
+        var singleRadius = trunckRadiiCol.get_Branch(0)[0] as GH_Number;
+        trunckRadiiCol = new GH_Structure<GH_Number>();
+        for (int i = 0; i < trunckCol.PathCount; i++)
+        {
+          trunckRadiiCol.Append(singleRadius, new GH_Path(i));
+        }
+      }
+
+      // Check if the path count of branchCol matches that of trunckCol
+      if (branchCol.PathCount != trunckCol.PathCount)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The path count of Branch does not match the path count of Trunk.");
+        return;
+      }
+
       #endregion
 
       List<Mesh> canopyVolLst = new List<Mesh>();

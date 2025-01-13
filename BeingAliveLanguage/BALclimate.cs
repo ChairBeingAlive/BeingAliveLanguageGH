@@ -134,7 +134,7 @@ namespace BeingAliveLanguage
           "BAL", "05::climate")
     {
     }
-    private bool useMetric = true; // True for Metric, False for Imperial
+    private bool useSI = true; // True for Metric, False for Imperial
     protected override Bitmap Icon => Properties.Resources.balGaussen;
     public override Guid ComponentGuid => new Guid("3C5480D5-32B6-4EAD-A945-4F81D109EBEA");
 
@@ -143,10 +143,10 @@ namespace BeingAliveLanguage
       pManager.AddPlaneParameter("Plane", "pln", "The plane to draw the diagram.", GH_ParamAccess.item, Plane.WorldXY);
       pManager[0].Optional = true;
 
-      pManager.AddNumberParameter("Precipitation", "Prec", "Precipitation [mm] of given location in 12 months. Right click to switch between Metric (mm) and Imperial system [in].", GH_ParamAccess.list);
+      pManager.AddNumberParameter("Precipitation", "Prec", "Precipitation [mm] of given location in 12 months. Right click to switch between SI (mm) and Imperial system [in].", GH_ParamAccess.list);
       pManager[1].Optional = true;
 
-      pManager.AddNumberParameter("Temperature", "Temp", "Temperature of given location in 12 months. Right click to switch between Metric (°C) and Imperial system (°F).", GH_ParamAccess.list);
+      pManager.AddNumberParameter("Temperature", "Temp", "Temperature of given location in 12 months. Right click to switch between SI (°C) and Imperial system (°F).", GH_ParamAccess.list);
       pManager[2].Optional = true;
 
       pManager.AddNumberParameter("Scale", "s", "Scale of the diagram.", GH_ParamAccess.item, 1.0);
@@ -169,13 +169,13 @@ namespace BeingAliveLanguage
       base.AppendAdditionalComponentMenuItems(menu);
       Menu_AppendSeparator(menu);
 
-      var metricItem = Menu_AppendItem(menu, "Metric Units", ToggleUnitSystem, true, useMetric);
-      var imperialItem = Menu_AppendItem(menu, "Imperial Units", ToggleUnitSystem, true, !useMetric);
+      var metricItem = Menu_AppendItem(menu, "Metric Units", ToggleUnitSystem, true, useSI);
+      var imperialItem = Menu_AppendItem(menu, "Imperial Units", ToggleUnitSystem, true, !useSI);
     }
 
     private void ToggleUnitSystem(object sender, EventArgs e)
     {
-      useMetric = !useMetric;
+      useSI = !useSI;
       ExpireSolution(true);
     }
 
@@ -226,7 +226,7 @@ namespace BeingAliveLanguage
       var tempLoc = new Plane(tempLocPt, -pln.YAxis, pln.XAxis);
       var tempText = "Temperature (°C)";
 
-      if (!useMetric)
+      if (!useSI)
       {
         parcText = "Precipitation (in)";
         tempText = "Temperature (°F)";
@@ -260,10 +260,10 @@ namespace BeingAliveLanguage
       // automatically determin between three precipitation range:
       // high: 100, 200, 300, 500 
       // low:  0
-      var high_0 = useMetric ? 100 : Utils.MmToInch(100);
-      var high_1 = useMetric ? 200 : Utils.MmToInch(200);
-      var high_2 = useMetric ? 300 : Utils.MmToInch(300);
-      var high_3 = useMetric ? 500 : Utils.MmToInch(500);
+      var high_0 = useSI ? 100 : Utils.MmToInch(100);
+      var high_1 = useSI ? 200 : Utils.MmToInch(200);
+      var high_2 = useSI ? 300 : Utils.MmToInch(300);
+      var high_3 = useSI ? 500 : Utils.MmToInch(500);
       double maxPrec = (precLst.Max() > high_0 ? precLst.Max() > high_1 ? precLst.Max() > high_2 ? high_3 : high_2 : high_1 : high_0);
       List<double> precHeight = precLst.Select(x => Utils.remap(x, 0, maxPrec, diagramVertL, diagramVertH)).ToList();
 
@@ -286,8 +286,8 @@ namespace BeingAliveLanguage
       // low: -30, -20, -10, 0, 10 
       // high:  30, 40, 50
       int tempNum = 7;
-      var lowTemps = new List<double> { -30, -20, -10, 0, 10, 20 }.Select(x => useMetric ? x : Utils.ToFahrenheit(x)).ToList();
-      var highTemps = new List<double> { 30, 40, 50 }.Select(x => useMetric ? x : Utils.ToFahrenheit(x)).ToList();
+      var lowTemps = new List<double> { -30, -20, -10, 0, 10, 20 }.Select(x => useSI ? x : Utils.ToFahrenheit(x)).ToList();
+      var highTemps = new List<double> { 30, 40, 50 }.Select(x => useSI ? x : Utils.ToFahrenheit(x)).ToList();
 
       var maxTemp = (tempLst.Max() > highTemps[0] ? tempLst.Max() > highTemps[1] ? highTemps[2] : highTemps[1] : highTemps[0]);
       var minTemp = (tempLst.Min() < lowTemps[5] ? tempLst.Min() < lowTemps[4] ? tempLst.Min() < lowTemps[3] ? tempLst.Min() < lowTemps[2] ? tempLst.Min() < lowTemps[1] ? lowTemps[0] : lowTemps[1] : lowTemps[2] : lowTemps[3] : lowTemps[4] : lowTemps[5]);
