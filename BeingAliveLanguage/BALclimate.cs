@@ -92,7 +92,7 @@ namespace BeingAliveLanguage
       var decemberRes = maxReserve;
       for (int i = 0; i < 12; i++)
       {
-        var previousRes = (i == 0 ? decemberRes: reserve[i - 1]);
+        var previousRes = (i == 0 ? decemberRes : reserve[i - 1]);
         var curETR = Math.Min(etpCorrected[i], precipitation[i] + previousRes);
         var curRes = Math.Min(previousRes + precipitation[i] - curETR, maxReserve);
         reserve.Add(curRes);
@@ -134,6 +134,7 @@ namespace BeingAliveLanguage
           "BAL", "05::climate")
     {
     }
+    private bool useMetric = true; // True for Metric, False for Imperial
     protected override Bitmap Icon => Properties.Resources.balGaussen;
     public override Guid ComponentGuid => new Guid("3C5480D5-32B6-4EAD-A945-4F81D109EBEA");
 
@@ -142,10 +143,10 @@ namespace BeingAliveLanguage
       pManager.AddPlaneParameter("Plane", "pln", "The plane to draw the diagram.", GH_ParamAccess.item, Plane.WorldXY);
       pManager[0].Optional = true;
 
-      pManager.AddNumberParameter("Precipitation", "Prec", "Precipitation (mm) of given location in 12 months.", GH_ParamAccess.list);
+      pManager.AddNumberParameter("Precipitation", "Prec", "Precipitation [mm] of given location in 12 months. Right click to switch between Metric (mm) and Imperial system [in].", GH_ParamAccess.list);
       pManager[1].Optional = true;
 
-      pManager.AddNumberParameter("Temperature", "Temp", "Temperature (°C) of given location in 12 months.", GH_ParamAccess.list);
+      pManager.AddNumberParameter("Temperature", "Temp", "Temperature of given location in 12 months. Right click to switch between Metric (°C) and Imperial system (°F).", GH_ParamAccess.list);
       pManager[2].Optional = true;
 
       pManager.AddNumberParameter("Scale", "s", "Scale of the diagram.", GH_ParamAccess.item, 1.0);
@@ -161,6 +162,21 @@ namespace BeingAliveLanguage
       pManager.AddPlaneParameter("LabelLocation", "TxtLoc", "The label location of the Gaussen diagram.", GH_ParamAccess.tree);
       pManager.AddGenericParameter("Label", "Txt", "The label text of the Gaussen diagram.", GH_ParamAccess.tree);
       //pManager.AddPlaneParameter("testPln", "tP", "xxxx", GH_ParamAccess.item);
+    }
+
+    protected override void AppendAdditionalComponentMenuItems(System.Windows.Forms.ToolStripDropDown menu)
+    {
+      base.AppendAdditionalComponentMenuItems(menu);
+      Menu_AppendSeparator(menu);
+
+      var metricItem = Menu_AppendItem(menu, "Metric Units", ToggleUnitSystem, true, useMetric);
+      var imperialItem = Menu_AppendItem(menu, "Imperial Units", ToggleUnitSystem, true, !useMetric);
+    }
+
+    private void ToggleUnitSystem(object sender, EventArgs e)
+    {
+      useMetric = !useMetric;
+      ExpireSolution(true);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -210,6 +226,18 @@ namespace BeingAliveLanguage
       var tempLoc = new Plane(tempLocPt, -pln.YAxis, pln.XAxis);
       var tempText = "Temperature (°C)";
 
+      if (!useMetric)
+      {
+        parcText = "Precipitation (in)";
+        tempText = "Temperature (°F)";
+
+        // ! No need to convert. Input are also in the same system.
+        // Convert precipitation from inches to millimeters
+        //precLst = precLst.Select(x => Utils.MmToInch(x)).ToList();
+
+        // Convert temperature from Fahrenheit to Celsius
+        //tempLst = tempLst.Select(x => Utils.ToFahrenheit(x)).ToList();
+      }
 
       int locIdx = 0;
       DataTree<Plane> labelLoc = new DataTree<Plane>();
@@ -230,9 +258,13 @@ namespace BeingAliveLanguage
       double diagramVertH = unitLen * scale * 0.9;
 
       // automatically determin between three precipitation range:
-      // high: 100, 300, 500 
+      // high: 100, 200, 300, 500 
       // low:  0
-      double maxPrec = (precLst.Max() > 100 ? precLst.Max() > 200 ? precLst.Max() > 300 ? 500 : 300 : 200 : 100);
+      var high_0 = useMetric ? 100 : Utils.MmToInch(100);
+      var high_1 = useMetric ? 200 : Utils.MmToInch(200);
+      var high_2 = useMetric ? 300 : Utils.MmToInch(300);
+      var high_3 = useMetric ? 500 : Utils.MmToInch(500);
+      double maxPrec = (precLst.Max() > high_0 ? precLst.Max() > high_1 ? precLst.Max() > high_2 ? high_3 : high_2 : high_1 : high_0);
       List<double> precHeight = precLst.Select(x => Utils.remap(x, 0, maxPrec, diagramVertL, diagramVertH)).ToList();
 
       // label loc, text
@@ -244,7 +276,7 @@ namespace BeingAliveLanguage
       + pln.YAxis * Utils.remap(x, 0, maxPrec, diagramVertL, diagramVertH)).ToList();
 
       labelLoc.AddRange(precLabelLoc.Select(x => new Plane(x, pln.XAxis, pln.YAxis)).ToList(), new GH_Path(locIdx++));
-      labelTxt.AddRange(precLabelInterval.Select(x => x.ToString()), new GH_Path(labelIdx++));
+      labelTxt.AddRange(precLabelInterval.Select(x => x.ToString("F1")), new GH_Path(labelIdx++));
 
       // actual curve.
       var percCrvPt = monthPt.Select(x => x + pln.YAxis * precHeight[monthPt.ToList().IndexOf(x)]).ToList();
@@ -253,18 +285,23 @@ namespace BeingAliveLanguage
       // automatically determin between three temperature range:
       // low: -30, -20, -10, 0, 10 
       // high:  30, 40, 50
+      int tempNum = 7;
+      var lowTemps = new List<double> { -30, -20, -10, 0, 10, 20 }.Select(x => useMetric ? x : Utils.ToFahrenheit(x)).ToList();
+      var highTemps = new List<double> { 30, 40, 50 }.Select(x => useMetric ? x : Utils.ToFahrenheit(x)).ToList();
 
-      int maxTemp = (tempLst.Max() > 30 ? tempLst.Max() > 40 ? 50 : 40 : 30);
-      int minTemp = (tempLst.Min() < 20 ? tempLst.Min() < 10 ? tempLst.Min() < 0 ? tempLst.Min() < -10 ? -20 : -10 : 0 : 10 : 20);
+      var maxTemp = (tempLst.Max() > highTemps[0] ? tempLst.Max() > highTemps[1] ? highTemps[2] : highTemps[1] : highTemps[0]);
+      var minTemp = (tempLst.Min() < lowTemps[5] ? tempLst.Min() < lowTemps[4] ? tempLst.Min() < lowTemps[3] ? tempLst.Min() < lowTemps[2] ? tempLst.Min() < lowTemps[1] ? lowTemps[0] : lowTemps[1] : lowTemps[2] : lowTemps[3] : lowTemps[4] : lowTemps[5]);
 
-      List<double> tempLabelInterval = new List<double>();
-      foreach (var px in precLabelInterval)
-      {
-        if (px * 0.5 <= maxTemp)
-        {
-          tempLabelInterval.Add(px * 0.5);
-        }
-      }
+      //List<double> tempLabelInterval = new List<double>();
+      //foreach (var px in precLabelInterval)
+      //{
+      //  if (px * 0.5 <= maxTemp)
+      //  {
+      //    tempLabelInterval.Add(px * 0.5);
+      //  }
+      //}
+
+      List<double> tempLabelInterval = Enumerable.Range(0, tempNum).Select(x => (double)x * maxTemp / (tempNum - 1)).ToList();
 
       var tempLabelLoc = precLabelLoc.Take(tempLabelInterval.Count).Select(x =>
       x - verAxis1.From + verAxis2.From
@@ -274,7 +311,7 @@ namespace BeingAliveLanguage
       List<double> tempHeight = tempLst.Select(x => Utils.remap(x, minTemp, tempLabelInterval.Max(), diagramVertL, tempHeightUpperLimit)).ToList();
 
       labelLoc.AddRange(tempLabelLoc.Select(x => new Plane(x, pln.XAxis, pln.YAxis)).ToList(), new GH_Path(locIdx++));
-      labelTxt.AddRange(tempLabelInterval.Select(x => x.ToString()), new GH_Path(labelIdx++));
+      labelTxt.AddRange(tempLabelInterval.Select(x => x.ToString("F1")), new GH_Path(labelIdx++));
 
       // actual curve.
       var tempCrvPt = monthPt.Select(x => x + pln.YAxis * tempHeight[monthPt.ToList().IndexOf(x)]).ToList();

@@ -294,6 +294,8 @@ namespace BeingAliveLanguage
     // radian <=> degree
     public static double ToDegree(double x) => x / Math.PI * 180;
     public static double ToRadian(double x) => x * Math.PI / 180;
+    public static double MmToInch(double x) => x / 25.4;
+    public static double ToFahrenheit(double x) => x * 9 / 5 + 32;
 
     // get a signed angle value from two vectors given a normal vector
     public static Func<Vector3d, Vector3d, Vector3d, double> SignedVecAngle = (v0, v1, vN) =>
