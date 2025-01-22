@@ -27,11 +27,14 @@ namespace BeingAliveLanguage
     protected int mNum;
     protected int mTotalNum;
     protected int mPhase;
-    protected bool mSym;
     protected bool mActive;
     protected Plane mPln;
     protected double mScale;
     protected double mDistBelowSrf;
+
+    // property
+    protected virtual bool mSym { get; set; }
+    protected virtual double horizontalScale { get; set; }
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
@@ -49,6 +52,7 @@ namespace BeingAliveLanguage
       pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
       pManager.AddCurveParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
       pManager.AddCurveParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -74,11 +78,41 @@ namespace BeingAliveLanguage
       mActive = mPhase % 2 == 0;
       DA.SetData("State", mActive ? "active" : "inactive");
 
-      // compute current total number of organs
-      mTotalNum = mNum + ((mPhase + 1) / 2 - 1) * 2;
+      // compute current total number of organs (based on symmetric or not)
+      mTotalNum = mSym == true ? mNum + ((mPhase + 1) / 2 - 1) * 2 : mNum + ((mPhase + 1) / 2 - 1);
     }
 
+    /// <summary>
+    /// Function to draw the root or grass part of an organ
+    /// </summary>
+    /// <param name="pivot"></param>
+    /// <param name="dir"></param>
+    /// <param name="num"></param>
+    /// <param name="proximateLen"></param>
+    /// <param name="openingAngle"></param>
+    /// <returns></returns>
+    protected List<Line> DrawGrassOrRoot(Point3d pivot, Vector3d dir, int num, double proximateLen, double openingAngle = 10)
+    {
+      var res = new List<Line>();
+
+      double[] lengths = { proximateLen * 0.9, proximateLen * 1.1, proximateLen * 1 };
+      double[] angleVariations = { -10, 10, 0 };
+
+      // draw the grass/root part. Notice the sequence when constructing the param above
+      for (int i = 0; i < num; i++)
+      {
+        double length = lengths[i];
+        double angleVariation = angleVariations[i];
+        var direction = mPln.YAxis;
+        direction.Rotate(angleVariation * Math.PI / 180, mPln.ZAxis);
+        var endPt = pivot + direction * length;
+        res.Add(new Line(pivot, endPt));
+      }
+
+      return res;
+    }
   }
+
 
   public class BALorganTuft : BALorganBase
   {
@@ -87,10 +121,17 @@ namespace BeingAliveLanguage
     {
     }
 
+    public BALorganTuft(string name, string nickname, string description, string category, string subcategory) : base(name, nickname, description, category, subcategory)
+    {
+    }
+
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
     public override Guid ComponentGuid => new Guid("a7fdb09e-39e7-4ceb-a78f-b2b2ab71f572");
     public override GH_Exposure Exposure => GH_Exposure.primary;
 
+    // Symmetry, scaling properties
+    protected override bool mSym => true;
+    protected override double horizontalScale => 0.5;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
@@ -101,28 +142,35 @@ namespace BeingAliveLanguage
     {
       base.SolveInstance(DA);
 
-      if (mNum < 3)
+      if (mNum < 1)
       {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base number should be at least 3.");
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base number should be at least 1.");
       }
 
-      double horizontalScale = 0.5;
       double radius = 1;
       var circle = new Circle(mPln, radius);
       var horizontalSpacing = horizontalScale * mScale * 2; // radius = 1, D = 2
 
       var xform = Transform.Scale(mPln, horizontalScale * mScale, 1 * mScale, 1 * mScale);
       var geo = circle.ToNurbsCurve();
+      geo.Domain = new Interval(0, 1);
       geo.Transform(xform);
 
       mDistBelowSrf = radius;
       geo.Translate(-mPln.YAxis * mDistBelowSrf);
 
+      //// get the top/bottom points for grass and root drawing
+      //var topPt = geo.PointAt(0.25);
+      //var botPt = geo.PointAt(0.75);
+
       var geoCol = new List<NurbsCurve>() { geo };
       var exiOrganLst = new List<NurbsCurve>();
       var newOrganLst = new List<NurbsCurve>();
+      var exiGrassLst = new List<Line>();
+      var newGrassLst = new List<Line>();
+      var rootLst = new List<Line>();
 
-      mSym = true;
+
       if (mSym)
       {
         if (mNum % 2 == 0)
@@ -151,14 +199,38 @@ namespace BeingAliveLanguage
         {
           exiOrganLst = geoCol.GetRange(0, geoCol.Count - 2);
           newOrganLst = geoCol.GetRange(geoCol.Count - 2, 2);
+
+
+          // Existing organ: long grass, with roots
+          foreach (var crv in exiOrganLst)
+          {
+            var topPt = crv.PointAt(0.25);
+            DrawGrassOrRoot(topPt, mPln.YAxis, 2, radius * 10);
+
+            // root part (active): only on existing organs
+            var botPt = crv.PointAt(0.75);
+            DrawGrassOrRoot(botPt, -mPln.YAxis, 3, radius * 3.5);
+          }
+
+          // New organ: short grass, no roots
+          foreach (var crv in newOrganLst)
+          {
+            var topPt = crv.PointAt(0.25);
+            DrawGrassOrRoot(topPt, mPln.YAxis, 2, radius * 2, 15);
+          }
+
         }
         else
         {
           exiOrganLst = geoCol;
+
+          // root part (inactive): on all organs
+          foreach (var crv in exiOrganLst)
+          {
+            var botPt = crv.PointAt(0.75);
+            DrawGrassOrRoot(botPt, -mPln.YAxis, 3, radius * 3.5);
+          }
         }
-
-        // Grassy part
-
 
       }
       else
@@ -191,4 +263,21 @@ namespace BeingAliveLanguage
 
     }
   }
+
+  public class BALorganRhizome : BALorganTuft
+  {
+    public BALorganRhizome()
+      : base("Organ_Rhizome", "balOrganRhizome", "Organ of resistance -- 'rhizome.", "BAL", "04::organ")
+    {
+    }
+
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    public override Guid ComponentGuid => new Guid("50264c56-b65f-4181-a49e-25ad9815771d");
+
+    protected override bool mSym => false;
+    protected override double horizontalScale => 1.2;
+
+  }
+
+
 }
