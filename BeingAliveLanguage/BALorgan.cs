@@ -34,7 +34,8 @@ namespace BeingAliveLanguage
 
     // property
     protected virtual bool mSym { get; set; }
-    protected virtual double horizontalScale { get; set; }
+    protected virtual double mHorizontalScale { get; set; }
+    protected virtual double mBelowSurfaceRatio { get; set; } // the ratio to radius
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
@@ -50,9 +51,9 @@ namespace BeingAliveLanguage
       pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
       pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
       pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
-      pManager.AddCurveParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
-      pManager.AddCurveParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
-      pManager.AddCurveParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
+      pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+      pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+      pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -71,8 +72,6 @@ namespace BeingAliveLanguage
       { return; }
       if (!DA.GetData("Scale", ref mScale))
       { return; }
-      //if (!DA.GetData("Symmetric", ref mSym))
-      //{ return; }
 
       // compute current states
       mActive = mPhase % 2 == 0;
@@ -91,19 +90,20 @@ namespace BeingAliveLanguage
     /// <param name="proximateLen"></param>
     /// <param name="openingAngle"></param>
     /// <returns></returns>
-    protected List<Line> DrawGrassOrRoot(Point3d pivot, Vector3d dir, int num, double proximateLen, double openingAngle = 10)
+    protected List<Line> DrawGrassOrRoot(Point3d pivot, Vector3d dir,
+                                        int num = 2, double scale = 1, double proximateLen = 10, double openingAngle = 10)
     {
       var res = new List<Line>();
 
-      double[] lengths = { proximateLen * 0.9, proximateLen * 1.1, proximateLen * 1 };
-      double[] angleVariations = { -10, 10, 0 };
+      double[] lengths = { proximateLen * 0.9 * scale, proximateLen * 1.1 * scale, proximateLen * 1.5 * scale };
+      double[] angleVariations = { -openingAngle, openingAngle, 0 };
 
       // draw the grass/root part. Notice the sequence when constructing the param above
       for (int i = 0; i < num; i++)
       {
         double length = lengths[i];
         double angleVariation = angleVariations[i];
-        var direction = mPln.YAxis;
+        var direction = dir;
         direction.Rotate(angleVariation * Math.PI / 180, mPln.ZAxis);
         var endPt = pivot + direction * length;
         res.Add(new Line(pivot, endPt));
@@ -131,12 +131,8 @@ namespace BeingAliveLanguage
 
     // Symmetry, scaling properties
     protected override bool mSym => true;
-    protected override double horizontalScale => 0.5;
-
-    protected override void RegisterInputParams(GH_InputParamManager pManager)
-    {
-      base.RegisterInputParams(pManager);
-    }
+    protected override double mHorizontalScale => 0.5;
+    protected override double mBelowSurfaceRatio => 1;
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
@@ -149,19 +145,14 @@ namespace BeingAliveLanguage
 
       double radius = 1;
       var circle = new Circle(mPln, radius);
-      var horizontalSpacing = horizontalScale * mScale * 2; // radius = 1, D = 2
+      var horizontalSpacing = mHorizontalScale * mScale * 2; // radius = 1, D = 2
 
-      var xform = Transform.Scale(mPln, horizontalScale * mScale, 1 * mScale, 1 * mScale);
+      var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
       var geo = circle.ToNurbsCurve();
       geo.Domain = new Interval(0, 1);
+
       geo.Transform(xform);
-
-      mDistBelowSrf = radius;
-      geo.Translate(-mPln.YAxis * mDistBelowSrf);
-
-      //// get the top/bottom points for grass and root drawing
-      //var topPt = geo.PointAt(0.25);
-      //var botPt = geo.PointAt(0.75);
+      geo.Translate(-mPln.YAxis * radius * mScale * mBelowSurfaceRatio);
 
       var geoCol = new List<NurbsCurve>() { geo };
       var exiOrganLst = new List<NurbsCurve>();
@@ -199,37 +190,10 @@ namespace BeingAliveLanguage
         {
           exiOrganLst = geoCol.GetRange(0, geoCol.Count - 2);
           newOrganLst = geoCol.GetRange(geoCol.Count - 2, 2);
-
-
-          // Existing organ: long grass, with roots
-          foreach (var crv in exiOrganLst)
-          {
-            var topPt = crv.PointAt(0.25);
-            DrawGrassOrRoot(topPt, mPln.YAxis, 2, radius * 10);
-
-            // root part (active): only on existing organs
-            var botPt = crv.PointAt(0.75);
-            DrawGrassOrRoot(botPt, -mPln.YAxis, 3, radius * 3.5);
-          }
-
-          // New organ: short grass, no roots
-          foreach (var crv in newOrganLst)
-          {
-            var topPt = crv.PointAt(0.25);
-            DrawGrassOrRoot(topPt, mPln.YAxis, 2, radius * 2, 15);
-          }
-
         }
         else
         {
           exiOrganLst = geoCol;
-
-          // root part (inactive): on all organs
-          foreach (var crv in exiOrganLst)
-          {
-            var botPt = crv.PointAt(0.75);
-            DrawGrassOrRoot(botPt, -mPln.YAxis, 3, radius * 3.5);
-          }
         }
 
       }
@@ -258,8 +222,47 @@ namespace BeingAliveLanguage
         }
       }
 
+      // Global root/Grass build based on active state
+      if (mActive)
+      {
+        // Existing organ: long grass, with roots
+        foreach (var crv in exiOrganLst)
+        {
+          var topPt = crv.PointAt(0.25);
+          var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, radius * 10, 5);
+          exiGrassLst.AddRange(grassL);
+
+          // root part (active): only on existing organs
+          var botPt = crv.PointAt(0.75);
+          var rootL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, radius * 3);
+          rootLst.AddRange(rootL);
+        }
+
+        // New organ: short grass, no roots
+        foreach (var crv in newOrganLst)
+        {
+          var topPt = crv.PointAt(0.25);
+          var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, radius * 2, 15);
+          newGrassLst.AddRange(grassL);
+        }
+      }
+      else
+      {
+        // root part (inactive): on all organs
+        foreach (var crv in exiOrganLst)
+        {
+          var botPt = crv.PointAt(0.75);
+          var grassL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, radius * 3.5);
+          newGrassLst.AddRange(grassL);
+        }
+
+      }
+
       DA.SetDataList("ExistingOrgan", exiOrganLst);
       DA.SetDataList("NewOrgan", newOrganLst);
+      DA.SetDataList("ExistingGrassyPart", exiGrassLst);
+      DA.SetDataList("NewGrassyPart", newGrassLst);
+      DA.SetDataList("RootPart", rootLst);
 
     }
   }
@@ -275,7 +278,13 @@ namespace BeingAliveLanguage
     public override Guid ComponentGuid => new Guid("50264c56-b65f-4181-a49e-25ad9815771d");
 
     protected override bool mSym => false;
-    protected override double horizontalScale => 1.2;
+    protected override double mHorizontalScale => 1.2;
+    protected override double mBelowSurfaceRatio => 2; // the ratio to radius
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
+      base.SolveInstance(DA);
+    }
 
   }
 
