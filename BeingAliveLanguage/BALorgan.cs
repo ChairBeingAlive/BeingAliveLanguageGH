@@ -27,11 +27,15 @@ namespace BeingAliveLanguage
     protected int mNum;
     protected int mTotalNum;
     protected int mPhase;
-    protected bool mSym;
     protected bool mActive;
     protected Plane mPln;
     protected double mScale;
     protected double mDistBelowSrf;
+
+    // property
+    protected virtual bool mSym { get; set; }
+    protected virtual double mHorizontalScale { get; set; }
+    protected virtual double mBelowSurfaceRatio { get; set; } // the ratio to radius
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
@@ -47,8 +51,9 @@ namespace BeingAliveLanguage
       pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
       pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
       pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
-      pManager.AddCurveParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
-      pManager.AddCurveParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+      pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+      pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+      pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -67,18 +72,47 @@ namespace BeingAliveLanguage
       { return; }
       if (!DA.GetData("Scale", ref mScale))
       { return; }
-      //if (!DA.GetData("Symmetric", ref mSym))
-      //{ return; }
 
       // compute current states
       mActive = mPhase % 2 == 0;
       DA.SetData("State", mActive ? "active" : "inactive");
 
-      // compute current total number of organs
-      mTotalNum = mNum + ((mPhase + 1) / 2 - 1) * 2;
+      // compute current total number of organs (based on symmetric or not)
+      mTotalNum = mSym == true ? mNum + ((mPhase + 1) / 2 - 1) * 2 : mNum + ((mPhase + 1) / 2 - 1);
     }
 
+    /// <summary>
+    /// Function to draw the root or grass part of an organ
+    /// </summary>
+    /// <param name="pivot"></param>
+    /// <param name="dir"></param>
+    /// <param name="num"></param>
+    /// <param name="proximateLen"></param>
+    /// <param name="openingAngle"></param>
+    /// <returns></returns>
+    protected List<Line> DrawGrassOrRoot(Point3d pivot, Vector3d dir,
+                                        int num = 2, double scale = 1, double proximateLen = 10, double openingAngle = 10)
+    {
+      var res = new List<Line>();
+
+      double[] lengths = { proximateLen * 0.9 * scale, proximateLen * 1.1 * scale, proximateLen * 1.5 * scale };
+      double[] angleVariations = { -openingAngle, openingAngle, 0 };
+
+      // draw the grass/root part. Notice the sequence when constructing the param above
+      for (int i = 0; i < num; i++)
+      {
+        double length = lengths[i];
+        double angleVariation = angleVariations[i];
+        var direction = dir;
+        direction.Rotate(angleVariation * Math.PI / 180, mPln.ZAxis);
+        var endPt = pivot + direction * length;
+        res.Add(new Line(pivot, endPt));
+      }
+
+      return res;
+    }
   }
+
 
   public class BALorganTuft : BALorganBase
   {
@@ -87,42 +121,47 @@ namespace BeingAliveLanguage
     {
     }
 
+    public BALorganTuft(string name, string nickname, string description, string category, string subcategory) : base(name, nickname, description, category, subcategory)
+    {
+    }
+
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
     public override Guid ComponentGuid => new Guid("a7fdb09e-39e7-4ceb-a78f-b2b2ab71f572");
     public override GH_Exposure Exposure => GH_Exposure.primary;
 
-
-    protected override void RegisterInputParams(GH_InputParamManager pManager)
-    {
-      base.RegisterInputParams(pManager);
-    }
+    // Symmetry, scaling properties
+    protected override bool mSym => true;
+    protected override double mHorizontalScale => 0.5;
+    protected override double mBelowSurfaceRatio => 1;
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
       base.SolveInstance(DA);
 
-      if (mNum < 3)
+      if (mNum < 1)
       {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base number should be at least 3.");
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base number should be at least 1.");
       }
 
-      double horizontalScale = 0.5;
       double radius = 1;
       var circle = new Circle(mPln, radius);
-      var horizontalSpacing = horizontalScale * mScale * 2; // radius = 1, D = 2
+      var horizontalSpacing = mHorizontalScale * mScale * 2; // radius = 1, D = 2
 
-      var xform = Transform.Scale(mPln, horizontalScale * mScale, 1 * mScale, 1 * mScale);
+      var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
       var geo = circle.ToNurbsCurve();
-      geo.Transform(xform);
+      geo.Domain = new Interval(0, 1);
 
-      mDistBelowSrf = radius;
-      geo.Translate(-mPln.YAxis * mDistBelowSrf);
+      geo.Transform(xform);
+      geo.Translate(-mPln.YAxis * radius * mScale * mBelowSurfaceRatio);
 
       var geoCol = new List<NurbsCurve>() { geo };
       var exiOrganLst = new List<NurbsCurve>();
       var newOrganLst = new List<NurbsCurve>();
+      var exiGrassLst = new List<Line>();
+      var newGrassLst = new List<Line>();
+      var rootLst = new List<Line>();
 
-      mSym = true;
+
       if (mSym)
       {
         if (mNum % 2 == 0)
@@ -157,9 +196,6 @@ namespace BeingAliveLanguage
           exiOrganLst = geoCol;
         }
 
-        // Grassy part
-
-
       }
       else
       {
@@ -186,9 +222,71 @@ namespace BeingAliveLanguage
         }
       }
 
+      // Global root/Grass build based on active state
+      if (mActive)
+      {
+        // Existing organ: long grass, with roots
+        foreach (var crv in exiOrganLst)
+        {
+          var topPt = crv.PointAt(0.25);
+          var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, radius * 10, 5);
+          exiGrassLst.AddRange(grassL);
+
+          // root part (active): only on existing organs
+          var botPt = crv.PointAt(0.75);
+          var rootL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, radius * 3);
+          rootLst.AddRange(rootL);
+        }
+
+        // New organ: short grass, no roots
+        foreach (var crv in newOrganLst)
+        {
+          var topPt = crv.PointAt(0.25);
+          var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, radius * 2, 15);
+          newGrassLst.AddRange(grassL);
+        }
+      }
+      else
+      {
+        // root part (inactive): on all organs
+        foreach (var crv in exiOrganLst)
+        {
+          var botPt = crv.PointAt(0.75);
+          var grassL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, radius * 3.5);
+          newGrassLst.AddRange(grassL);
+        }
+
+      }
+
       DA.SetDataList("ExistingOrgan", exiOrganLst);
       DA.SetDataList("NewOrgan", newOrganLst);
+      DA.SetDataList("ExistingGrassyPart", exiGrassLst);
+      DA.SetDataList("NewGrassyPart", newGrassLst);
+      DA.SetDataList("RootPart", rootLst);
 
     }
   }
+
+  public class BALorganRhizome : BALorganTuft
+  {
+    public BALorganRhizome()
+      : base("Organ_Rhizome", "balOrganRhizome", "Organ of resistance -- 'rhizome.", "BAL", "04::organ")
+    {
+    }
+
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    public override Guid ComponentGuid => new Guid("50264c56-b65f-4181-a49e-25ad9815771d");
+
+    protected override bool mSym => false;
+    protected override double mHorizontalScale => 1.2;
+    protected override double mBelowSurfaceRatio => 2; // the ratio to radius
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
+      base.SolveInstance(DA);
+    }
+
+  }
+
+
 }

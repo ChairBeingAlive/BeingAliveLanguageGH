@@ -318,7 +318,7 @@ namespace BeingAliveLanguage
       x - verAxis1.From + verAxis2.From
       + pln.XAxis * scale).ToList();
 
-      var tempHeightUpperLimit = pln.ClosestPoint(precLabelLoc[tempLabelInterval.Count - 1]).Y;
+      var tempHeightUpperLimit = pln.ClosestPoint(precLabelLoc[tempLabelInterval.Count - 1]).Y - pln.Origin.Y;
       List<double> tempHeight = tempLst.Select(x => Utils.remap(x, minTemp, tempLabelInterval.Max(), diagramVertL, tempHeightUpperLimit)).ToList();
 
       labelLoc.AddRange(tempLabelLoc.Select(x => new Plane(x, pln.XAxis, pln.YAxis)).ToList(), new GH_Path(locIdx++));
