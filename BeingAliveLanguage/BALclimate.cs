@@ -296,7 +296,7 @@ namespace BeingAliveLanguage
       // automatically determin between three temperature range:
       // low: -30, -20, -10, 0, 10 
       // high:  30, 40, 50
-      int tempNum = 7;
+      //int tempNum = 7;
       var lowTemps = new List<double> { -30, -20, -10, 0, 10, 20 }.Select(x => useSI ? x : Utils.ToFahrenheit(x)).ToList();
       var highTemps = new List<double> { 30, 40, 50 }.Select(x => useSI ? x : Utils.ToFahrenheit(x)).ToList();
 
@@ -312,7 +312,31 @@ namespace BeingAliveLanguage
         minTemp = (tempLst.Min() < lowTemps[5] ? tempLst.Min() < lowTemps[4] ? tempLst.Min() < lowTemps[3] ? tempLst.Min() < lowTemps[2] ? tempLst.Min() < lowTemps[1] ? lowTemps[0] : lowTemps[1] : lowTemps[2] : lowTemps[3] : lowTemps[4] : lowTemps[5]);
       }
 
-      List<double> tempLabelInterval = Enumerable.Range(0, tempNum).Select(x => (double)x * maxTemp / (tempNum - 1)).ToList();
+      // Rule: Precipitation should always be 2x Temperature
+      List<double> tempLabelInterval = new List<double>();
+      if (useSI)
+      {
+        foreach (var px in precLabelInterval)
+        {
+          if (px * 0.5 <= maxTemp)
+            tempLabelInterval.Add(px * 0.5);
+        }
+      }
+      else
+      {
+        // Imperial Unit
+        foreach (var px in precLabelInterval)
+        {
+          var px_imperial = Utils.ToCelcius(px);
+          if (px_imperial * 0.5 <= Utils.ToCelcius(maxTemp))
+          {
+            tempLabelInterval.Add(px_imperial * 0.5);
+          }
+        }
+      }
+
+      // old
+      //List<double> tempLabelInterval = Enumerable.Range(0, tempNum).Select(x => (double)x * maxTemp / (tempNum - 1)).ToList();
 
       var tempLabelLoc = precLabelLoc.Take(tempLabelInterval.Count).Select(x =>
       x - verAxis1.From + verAxis2.From
