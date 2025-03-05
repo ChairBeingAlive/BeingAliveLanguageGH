@@ -26,7 +26,7 @@ namespace BeingAliveLanguage
     protected override Bitmap Icon => Properties.Resources.balGaussen;
     public override GH_Exposure Exposure => GH_Exposure.hidden;
     public override Guid ComponentGuid => new Guid("3C5480D5-32B6-4EAD-A945-4F81D109EBEA");
-    
+    public override GH_Exposure Exposure => GH_Exposure.hidden;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {

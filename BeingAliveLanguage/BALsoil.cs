@@ -995,6 +995,7 @@ namespace BeingAliveLanguage
 
       #endregion
 
+      // use the compact curve (a line on top of the soil) to compoase a compaction area.
       var p0 = compactCrv.PointAtStart;
       var p1 = compactCrv.PointAtEnd;
       var p0Down = p0 - sBase.pln.YAxis * cpDepth;
@@ -1030,7 +1031,7 @@ namespace BeingAliveLanguage
         var triBnd = soilTri[i];
 
         var cen = (triCore[0] + triCore[1] + triCore[2]) / 3;
-        if (compactBnd.Contains(cen, sBase.pln, 0.01) == PointContainment.Inside)
+        if (compactBnd.Contains(cen, sBase.pln, 0.001) == PointContainment.Inside)
         {
           // calculate distance to the compactCrv and convert the dir vector
           compactCrv.ClosestPoint(cen, out double t);
@@ -1065,10 +1066,13 @@ namespace BeingAliveLanguage
       {
         var dir = x.Value.Item1;
         dir.Unitize();
+
         // the local strength is based on the distance to the compactCrv and the size of the triangle
-        var transStrength = 3 - Utils.remap(x.Value.Item1.Length, remapMin, remapMax, 0, 3);
+        var transStrength = 1 - Utils.remap(x.Value.Item1.Length, remapMin, remapMax, 0, 1);
+        var adjustedScale = sBase.unitL;
+        
         var curCoreT = new Polyline(x.Value.Item3);
-        curCoreT.Transform(Transform.Translation(dir * transStrength * transStrength * globalStrength));
+        curCoreT.Transform(Transform.Translation(dir * transStrength * globalStrength * adjustedScale));
         coreTriCmpc.Add(curCoreT);
 
         // water offset depends on the local compression strength -- more it is compressed, less water it can hold
