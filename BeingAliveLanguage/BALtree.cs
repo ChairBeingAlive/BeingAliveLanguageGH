@@ -218,309 +218,347 @@ namespace BeingAliveLanguage
   /// <summary>
   /// The 3D version of the tree component.
   /// </summary>
-  public class BALtreeDrenou : GH_Component
+  /// <summary>
+  /// The first part of the 3D tree component - generates tree objects.
+  /// </summary>
+  public class BALtreeDrenouComposer : GH_Component
   {
-    public BALtreeDrenou()
-    : base("Tree_Drenou", "balTree_Drenou",
-          "Generate the BAL tree using Drenou's architectural model.",
+    public BALtreeDrenouComposer()
+    : base("Tree_Drenou_Composer", "balTree_DrenouGom",
+          "Compose tree objects using Drenou's architectural model.",
           "BAL", "03::plant")
     { }
 
-    //string modeUnitary = "non-unitary";
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
-    public override Guid ComponentGuid => new Guid("36c5e013-321b-4064-b007-b17880644ce4");
+    public override Guid ComponentGuid => new Guid("23af7e5d-7c82-48e6-9c7a-fb7d36e8451f");
 
-    protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+    protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
-      pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.list, Plane.WorldXY);
-      pManager.AddNumberParameter("GlobalScale", "globalS", "Global scale of the tree.", GH_ParamAccess.list, 1);
-      pManager.AddNumberParameter("TrunkScale", "trunkS", "Trunk scale of the tree.", GH_ParamAccess.list, 1);
-      pManager.AddNumberParameter("SpreadAngleMain", "angMain", "Spread angle of the primary tree branches.", GH_ParamAccess.list, 50);
-      pManager.AddNumberParameter("SpreadAngleTop", "angTop", "Spread angle of the secontary tree branches (the top part).", GH_ParamAccess.list, 35);
-      pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree's growth.", GH_ParamAccess.list);
-      pManager.AddIntegerParameter("Seed", "seed", "Seed for random number to varify the tree shape.", GH_ParamAccess.list, 0);
-      pManager.AddBooleanParameter("BranchRotation", "brRot", "Whether to rotate the branches sequentially.", GH_ParamAccess.list, false);
-      // duplication
-      pManager.AddIntegerParameter("DuplicateNumber", "dupNum", "[0-3] Number of top side branches for duplicate branching.", GH_ParamAccess.list, 0);
+      pManager.AddPlaneParameter("Plane", "P", "Base plane(s) where the tree(s) is drawn.", GH_ParamAccess.item, Plane.WorldXY);
+      pManager.AddNumberParameter("GlobalScale", "globalS", "Global scale of the tree.", GH_ParamAccess.item, 1);
+      pManager.AddNumberParameter("TrunkScale", "trunkS", "Trunk scale of the tree.", GH_ParamAccess.item, 1);
+      pManager.AddNumberParameter("SpreadAngleMain", "angMain", "Spread angle of the primary tree branches.", GH_ParamAccess.item, 50);
+      pManager.AddNumberParameter("SpreadAngleTop", "angTop", "Spread angle of the secontary tree branches (the top part).", GH_ParamAccess.item, 35);
+      pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree's growth.", GH_ParamAccess.item);
+      pManager.AddIntegerParameter("Seed", "seed", "Seed for random number to varify the tree shape.", GH_ParamAccess.item, 0);
+      pManager.AddBooleanParameter("BranchRotation", "brRot", "Whether to rotate the branches sequentially.", GH_ParamAccess.item, false);
+      pManager.AddIntegerParameter("DuplicateNumber", "dupNum", "[0-3] Number of top side branches for duplicate branching.", GH_ParamAccess.item, 0);
     }
 
-    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
-      pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
-      pManager.AddCurveParameter("SingleBranch", "SB", "Tree side branch curves (non-split).", GH_ParamAccess.tree);
-      pManager.AddCurveParameter("SplitBranch", "TB", "Tree top branch and duplicated branch curves (splitted).", GH_ParamAccess.tree);
-      pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.list);
+      pManager.AddGenericParameter("Tree Objects", "Tree_Out", "Tree objects that can be passed to renderer or interaction components.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
       #region Input Check
-      var plnLst = new List<Plane>();
-      if (!DA.GetDataList("Plane", plnLst))
+      var pln = new Plane();
+      if (!DA.GetData("Plane", ref pln))
+        return;
+
+      double gScale = 1;
+      if (!DA.GetData("GlobalScale", ref gScale))
+        return;
+      if (gScale <= 0)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Global scale should be positive.");
+        return;
+      }
+
+      double tScale = 1;
+      if (!DA.GetData("TrunkScale", ref gScale))
+        return;
+      if (tScale <= 0)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Trunk scale should be positive.");
+        return;
+      }
+
+      double angMain = 0;
+      if (!DA.GetData("SpreadAngleMain", ref angMain))
       { return; }
 
-      var gsLst = new List<double>();
-      if (!DA.GetDataList("GlobalScale", gsLst))
+      if (angMain < 0 || angMain > 90)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Angle should be within [0, 90].");
+        return;
+      }
+
+      double angTop = 0;
+      if (!DA.GetData("SpreadAngleTop", ref angTop))
       { return; }
 
-      foreach (var s in gsLst)
+      if (angTop < 0 || angTop > 90)
       {
-        if (s <= 0)
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Global scale should be positive.");
-          return;
-        }
-      };
-
-      if (gsLst.Count == 1)
-        gsLst = Enumerable.Repeat(gsLst[0], plnLst.Count).ToList();
-      else if (gsLst.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Global scale # does not match Plane #, please check.");
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Angle should be within [0, 90].");
+        return;
       }
 
-      var tsLst = new List<double>();
-      if (!DA.GetDataList("TrunkScale", tsLst))
+      int phase = 1;
+      if (!DA.GetData("Phase", ref phase))
       { return; }
 
-      foreach (var s in tsLst)
+      if (phase < 0)
       {
-        if (s <= 0)
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Trunk scale should be positive.");
-          return;
-        }
-      };
-      if (tsLst.Count == 1)
-        tsLst = Enumerable.Repeat(tsLst[0], plnLst.Count).ToList();
-      else if (tsLst.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Trunk scale # does not match Plane #, please check.");
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase should be non-negative.");
+        return;
       }
 
-      var angLstMain = new List<double>();
-      if (!DA.GetDataList("SpreadAngleMain", angLstMain))
+      int seed = 1;
+      if (!DA.GetData("Seed", ref seed))
       { return; }
 
-      foreach (var a in angLstMain)
+      if (seed < 0)
       {
-        if (a < 0 || a > 90)
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Angle should be within [0, 90].");
-          return;
-        }
-      };
-      if (angLstMain.Count == 1)
-        angLstMain = Enumerable.Repeat(angLstMain[0], plnLst.Count).ToList();
-      else if (angLstMain.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Spread angle # does not match Plane #, please check.");
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Seed should be non-negative.");
+        return;
       }
 
-      var angLstTop = new List<double>();
-      if (!DA.GetDataList("SpreadAngleTop", angLstTop))
+      bool brRot = false;
+      if (!DA.GetData("BranchRotation", ref brRot))
       { return; }
 
-      foreach (var a in angLstTop)
-      {
-        if (a < 0 || a > 90)
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Angle should be within [0, 90].");
-          return;
-        }
-      };
-      if (angLstTop.Count == 1)
-        angLstTop = Enumerable.Repeat(angLstTop[0], plnLst.Count).ToList();
-      else if (angLstTop.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Spread angle # does not match Plane #, please check.");
-      }
-
-      var phaseLst = new List<int>();
-      if (!DA.GetDataList("Phase", phaseLst))
+      int dupNum = 1;
+      if (!DA.GetData("DuplicateNumber", ref dupNum))
       { return; }
-
-      foreach (var p in phaseLst)
-      {
-        if (p < 0)
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase should be non-negative.");
-          return;
-        }
-      };
-      if (phaseLst.Count == 1)
-        phaseLst = Enumerable.Repeat(phaseLst[0], plnLst.Count).ToList();
-      else if (phaseLst.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase # does not match Plane #, please check.");
-      }
-
-      var seedLst = new List<int>();
-      if (!DA.GetDataList("Seed", seedLst))
-      { return; }
-
-      foreach (var s in seedLst)
-      {
-        if (s < 0)
-        {
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Seed should be non-negative.");
-          return;
-        }
-      };
-      if (seedLst.Count == 1)
-        seedLst = Enumerable.Repeat(seedLst[0], plnLst.Count).ToList();
-      else if (seedLst.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Seed # does not match Plane #, please check.");
-      }
-
-      var brRotLst = new List<bool>();
-      if (!DA.GetDataList("BranchRotation", brRotLst))
-      { return; }
-      if (brRotLst.Count == 1)
-        brRotLst = Enumerable.Repeat(brRotLst[0], plnLst.Count).ToList();
-      else if (brRotLst.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Branch rotation # does not match Plane #, please check.");
-      }
-
-      var dupNumLst = new List<int>();
-      if (!DA.GetDataList("DuplicateNumber", dupNumLst))
-      { return; }
-      if (dupNumLst.Count == 1)
-      {
-        if (dupNumLst[0] < 0 || dupNumLst[0] > 3)
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DuplicateNumber is out of range [1, 3], please check.");
-
-        dupNumLst = Enumerable.Repeat(dupNumLst[0], plnLst.Count).ToList();
-      }
-      else if (dupNumLst.Count != plnLst.Count)
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DuplicateNumber # does not match Plane #, please check.");
-      }
-      else
-      {
-        foreach (var n in dupNumLst)
-          if (n < 1 || n > 3)
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DuplicateNumber is out of range [1, 3], please check.");
-      }
+      if (dupNum < 0 || dupNum > 3)
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DuplicateNumber is out of range [0, 3], please check.");
 
       #endregion
 
-      //! 1. determine horizontal scaling factor of the trees
-      Dictionary<int, List<Curve>> branchCol = new Dictionary<int, List<Curve>>();
-      Dictionary<int, List<bool>> branchSplitFlagCol = new Dictionary<int, List<bool>>();
-      Dictionary<int, List<Curve>> trunkCol = new Dictionary<int, List<Curve>>();
+      // Calculate distance between trees
+      //var nearestTreeLst = new List<List<Point3d>>();
+      //if (plnLst.Count > 1)
+      //{
+      //  var distLst = new List<double>();
+      //  Utils.GetLstNearestDist(plnLst.Select(x => x.Origin).ToList(), out distLst);
+      //  Utils.GetLstNearestPoint(plnLst.Select(x => x.Origin).ToList(), out nearestTreeLst, 6);
 
-      if (plnLst.Count == 0)
-        return;
+      //  if (distLst.Min() < 1e-5)
+      //    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Trees are too close to each other or overlap, please check.");
+      //}
+      //// Single tree case, add a virtual tree in the far dist
+      //else
+      //{
+      //  var virtualLst = new List<Point3d> { new Point3d(double.MaxValue, double.MaxValue, double.MaxValue) };
+      //  nearestTreeLst = Enumerable.Repeat(virtualLst, plnLst.Count).ToList();
+      //}
 
-      // calculate distance between trees
-      // todo: currently, only consider distance  between trunks, phases are not considered
-      var distLst = new List<double>();
-      var nearestTreeLst = new List<List<Point3d>>();
-      if (plnLst.Count > 1)
+
+      //foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
+      //{
+      //  // Generate tree
+      //  var tree = new Tree3D(pln, gsLst[i], tScale[i], seedLst[i], brRot[i]);
+      //  tree.SetNearestTrees(nearestTreeLst[i]);
+      //  tree.Generate(phase[i], angLstMain[i], angTop[i], dupNum[i]);
+
+      //  // Wrap tree object with phase information
+      //  treeObjects.Add(new Tree3DWrapper(tree, phase[i]));
+      //}
+
+      // Generate tree objects
+      var curTree = new Tree3D(pln, gScale, tScale, seed, brRot);
+      curTree.Generate(phase, angMain, angTop, dupNum);
+
+      var treeObjects = new Tree3DWrapper(curTree, phase);
+      DA.SetData("Tree Objects", treeObjects);
+    }
+  }
+
+  /// <summary>
+  /// Wrapper class for Tree3D to hold additional information
+  /// </summary>
+  public class Tree3DWrapper : IGH_Goo
+  {
+    public Tree3D Tree { get; private set; }
+    public int Phase { get; private set; }
+
+    public Tree3DWrapper()
+    {
+      Tree = null;
+      Phase = 0;
+    }
+
+    public Tree3DWrapper(Tree3D tree, int phase)
+    {
+      Tree = tree;
+      Phase = phase;
+    }
+
+    #region IGH_Goo implementation
+    public bool IsValid => Tree != null;
+    public string IsValidWhyNot => Tree == null ? "Tree object is null" : string.Empty;
+    public string TypeName => "Tree3D Wrapper";
+    public string TypeDescription => "Wrapper for Tree3D objects with phase information";
+
+    public IGH_Goo Duplicate()
+    {
+      return new Tree3DWrapper(Tree, Phase);
+    }
+
+    public bool CastFrom(object source)
+    {
+      if (source is Tree3D tree)
       {
-        Utils.GetLstNearestDist(plnLst.Select(x => x.Origin).ToList(), out distLst);
-        Utils.GetLstNearestPoint(plnLst.Select(x => x.Origin).ToList(), out nearestTreeLst, 6);
-
-        if (distLst.Min() < 1e-5)
-          AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Trees are too close to each other or overlap, please check.");
-
+        Tree = tree;
+        return true;
       }
-      // single tree case, add a virtual tree in the far dist
-      else
+      if (source is Tree3DWrapper wrapper)
       {
-        //distLst = Enumerable.Repeat(double.MaxValue, plnLst.Count).ToList();
-
-        var virtualLst = new List<Point3d> { new Point3d(double.MaxValue, double.MaxValue, double.MaxValue) };
-        nearestTreeLst = Enumerable.Repeat(virtualLst, plnLst.Count).ToList();
+        Tree = wrapper.Tree;
+        Phase = wrapper.Phase;
+        return true;
       }
+      return false;
+    }
 
-      DataTree<Curve> trCrv = new DataTree<Curve>(); // trunk
-      DataTree<Curve> singleBrCrv = new DataTree<Curve>(); // side branches
-      DataTree<Curve> splitBrCrv = new DataTree<Curve>(); // top branches
-      DataTree<TreeProperty> tInfoCol = new DataTree<TreeProperty>(); // tree info
-
-      foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
+    public bool CastTo<T>(out T target)
+    {
+      if (typeof(T) == typeof(Tree3D))
       {
-        // generate tree
-        var t = new Tree3D(pln, gsLst[i], tsLst[i], seedLst[i], brRotLst[i]);
-        t.SetNearestTrees(nearestTreeLst[i]);
+        target = (T)(object)Tree;
+        return true;
+      }
+      target = default;
+      return false;
+    }
 
-        t.Generate(phaseLst[i], angLstMain[i], angLstTop[i], dupNumLst[i]);
+    public object ScriptVariable()
+    {
+      return Tree;
+    }
 
-        // collection branches
-        (branchCol, branchSplitFlagCol) = t.GetBranch();
-        var maxBr = 0;
-        foreach (var (br, id) in branchCol.Select((br, id) => (br, id)))
+    public override string ToString()
+    {
+      return $"Tree3D (Phase: {Phase})";
+    }
+
+    public IGH_GooProxy EmitProxy()
+    {
+      throw new NotImplementedException();
+    }
+
+    public bool Write(GH_IWriter writer)
+    {
+      throw new NotImplementedException();
+    }
+
+    public bool Read(GH_IReader reader)
+    {
+      throw new NotImplementedException();
+    }
+    #endregion
+  }
+
+  /// <summary>
+  /// The second part of the 3D tree component - renders tree objects.
+  /// </summary>
+  public class BALtreeDrenouRenderer : GH_Component
+  {
+    public BALtreeDrenouRenderer()
+    : base("Tree_Drenou_Renderer", "balTree_DrenouRender",
+          "Render tree objects generated in Denou's architectural model.",
+          "BAL", "03::plant")
+    { }
+
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    public override Guid ComponentGuid => new Guid("fb920ed6-7c50-466b-8645-04eb5658a7f1");
+
+    protected override void RegisterInputParams(GH_InputParamManager pManager)
+    {
+      pManager.AddGenericParameter("Tree Objects", "Tree_In", "Tree objects generated by to render.", GH_ParamAccess.item);
+    }
+
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+    {
+      pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("SingleBranch", "SB", "Tree side branch curves (non-split).", GH_ParamAccess.list);
+      pManager.AddCurveParameter("SplitBranch", "TB", "Tree top branch and duplicated branch curves (splitted).", GH_ParamAccess.list);
+      pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.", GH_ParamAccess.item);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
+      var treeObj = new Tree3DWrapper();
+      if (!DA.GetData("Tree Objects", ref treeObj))
+      { return; }
+
+      var singleBrCrv = new List<Curve>(); // side branches
+      var splitBrCrv = new List<Curve>(); // top branches
+      var trCrv = treeObj.Tree.GetTrunk();
+
+      var (branchCol, branchSplitFlagCol) = treeObj.Tree.GetBranch();
+
+      // Add branches to data trees based on split flag
+      foreach (var pair in branchCol)
+      {
+        var phase = pair.Key;
+        var branches = pair.Value;
+
+        var splitFlags = branchSplitFlagCol[phase];
+
+        for (int j = 0; j < branches.Count; j++)
         {
-          maxBr = Math.Max(maxBr, br.Key);
-          //if (br.Key > 0 && br.Key <= 4)
-          //  singleBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
-          //else
-          //  splitBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
-
-
-          var curPath = new GH_Path(new int[] { i, br.Key });
-          foreach (var (ln, id2) in br.Value.Select((ln, id2) => (ln, id2)))
-          {
-            if (branchSplitFlagCol[id][id2])
-              splitBrCrv.Add(ln, curPath);
-            else
-              singleBrCrv.Add(ln, curPath);
-          }
-          //if (!branchSplitFlagCol[br.Key])
-          //  singleBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
-          //else
-          //  splitBrCrv.AddRange(br.Value, new GH_Path(new int[] { i, br.Key }));
+          if (splitFlags[j])
+            splitBrCrv.Add(branches[j]);
+          else
+            singleBrCrv.Add(branches[j]);
         }
-
-
-        for (int id = 0; id <= maxBr; id++)
-        {
-          var path = new GH_Path(i, id);
-          if (!singleBrCrv.PathExists(path))
-          {
-            singleBrCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
-          }
-          else if (!splitBrCrv.PathExists(path))
-          {
-            splitBrCrv.AddRange(new List<Curve>(), new GH_Path(i, id));
-          }
-        }
-
-        // collection of trunk
-        var trC = t.GetTrunk();
-        trCrv.AddRange(trC, new GH_Path(new int[] { i }));
-
-        // Calculate tree height
-        var brPtCol = new List<Point3d>();
-        foreach (var (br, id) in branchCol.Select((br, id) => (br, id)))
-        {
-          foreach (var crv in br.Value)
-          {
-            t.mPln.RemapToPlaneSpace(crv.PointAtStart, out Point3d mappedPtStart);
-            t.mPln.RemapToPlaneSpace(crv.PointAtEnd, out Point3d mappedPtEnd);
-            brPtCol.Add(mappedPtStart);
-            brPtCol.Add(mappedPtEnd);
-          }
-        }
-
-        double tHeight = 0;
-        foreach (var pt in brPtCol)
-        {
-          var dir = (pt - t.mPln.Origin);
-          tHeight = Math.Max(Math.Abs(Vector3d.Multiply(dir, t.mPln.ZAxis)), tHeight);
-        }
-
-        tInfoCol.Add(new TreeProperty(t.mPln, tHeight, phaseLst[i]), new GH_Path(new int[] { i }));
       }
 
-      DA.SetDataTree(0, trCrv);
-      DA.SetDataTree(1, singleBrCrv);
-      DA.SetDataTree(2, splitBrCrv);
-      DA.SetDataTree(3, tInfoCol);
+      // Calculate tree height by calculating the distance between the tree's base plane and the furthest point
+      double tHeight = 0;
+      foreach (var pair in branchCol)
+      {
+        foreach (var crv in pair.Value)
+        {
+          treeObj.Tree.mPln.RemapToPlaneSpace(crv.PointAtStart, out Point3d mappedPtStart);
+          var dirPtStart = (mappedPtStart- treeObj.Tree.mPln.Origin);
+          var distPtStart = Math.Abs(Vector3d.Multiply(dirPtStart, treeObj.Tree.mPln.ZAxis));
+
+          treeObj.Tree.mPln.RemapToPlaneSpace(crv.PointAtEnd, out Point3d mappedPtEnd);
+          var dirPtEnd = (mappedPtEnd - treeObj.Tree.mPln.Origin);
+          var distPtEnd = Math.Abs(Vector3d.Multiply(dirPtEnd, treeObj.Tree.mPln.ZAxis));
+
+          tHeight = Math.Max(Math.Max(distPtStart, distPtEnd), tHeight);
+        }
+      }
+
+      // Add tree info to output
+      var tInfoCol = new TreeProperty(treeObj.Tree.mPln, tHeight, treeObj.Phase);
+
+      DA.SetDataList(0, trCrv);
+      DA.SetDataList(1, singleBrCrv);
+      DA.SetDataList(2, splitBrCrv);
+      DA.SetData(3, tInfoCol);
+    }
+  }
+
+
+  public class BALtreeInteraction : GH_Component
+  {
+    public BALtreeInteraction()
+      : base("Forest Interaction", "balForest",
+          "Create interactions between trees based on space, shading, etc. to simulate tree status in a forest.",
+          "BAL", "03::plant")
+    { }
+
+    //protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeInteraction;
+    public override Guid ComponentGuid => new Guid("31624b38-fb3c-4028-9b92-dfd654a8337f");
+
+    protected override void RegisterInputParams(GH_InputParamManager pManager)
+    {
+      pManager.AddGenericParameter("Tree Collection Before", "treeColIn", "Collections of trees in various species before interaction.", GH_ParamAccess.list);
+    }
+
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+    {
+      pManager.AddGenericParameter("Tree Collection After", "treeColOut", "Collections of trees in various species after interaction.", GH_ParamAccess.list);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA)
+    {
     }
   }
 

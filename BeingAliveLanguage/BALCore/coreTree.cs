@@ -586,7 +586,7 @@ namespace BeingAliveLanguage
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
 
-  class Tree3D
+  public class Tree3D
   {
     public Tree3D() { }
 
@@ -660,7 +660,7 @@ namespace BeingAliveLanguage
       return true;
     }
 
-    public void AddNodeToTree(BranchNode3D curNode, BranchNode3D newNode)
+    void AddNodeToTree(BranchNode3D curNode, BranchNode3D newNode)
     {
       mAllNode.Add(newNode);
       if (!mBranchRelation.ContainsKey(curNode.mID))
@@ -1261,9 +1261,9 @@ namespace BeingAliveLanguage
     public Dictionary<int, HashSet<int>> mBranchRelation = new Dictionary<int, HashSet<int>>();
 
     // all node for branches, including the base node for trunck and all sub-nodes
-    public List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
-    public List<BranchNode3D> mTrunkBranchNode { get; set; } = new List<BranchNode3D>();
-    public List<BranchNode3D> mBaseSplittedNode { get; set; } = new List<BranchNode3D>();
+    List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
+    List<BranchNode3D> mTrunkBranchNode { get; set; } = new List<BranchNode3D>();
+    List<BranchNode3D> mBaseSplittedNode { get; set; } = new List<BranchNode3D>();
 
     // all nodes that are attached to the trunck, only for 1st-level branches
     public List<Line> mTrunkSegments { get; private set; } = new List<Line>();
