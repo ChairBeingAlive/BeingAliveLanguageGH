@@ -327,41 +327,11 @@ namespace BeingAliveLanguage
 
       #endregion
 
-      // Calculate distance between trees
-      //var nearestTreeLst = new List<List<Point3d>>();
-      //if (plnLst.Count > 1)
-      //{
-      //  var distLst = new List<double>();
-      //  Utils.GetLstNearestDist(plnLst.Select(x => x.Origin).ToList(), out distLst);
-      //  Utils.GetLstNearestPoint(plnLst.Select(x => x.Origin).ToList(), out nearestTreeLst, 6);
-
-      //  if (distLst.Min() < 1e-5)
-      //    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Trees are too close to each other or overlap, please check.");
-      //}
-      //// Single tree case, add a virtual tree in the far dist
-      //else
-      //{
-      //  var virtualLst = new List<Point3d> { new Point3d(double.MaxValue, double.MaxValue, double.MaxValue) };
-      //  nearestTreeLst = Enumerable.Repeat(virtualLst, plnLst.Count).ToList();
-      //}
-
-
-      //foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
-      //{
-      //  // Generate tree
-      //  var tree = new Tree3D(pln, gsLst[i], tScale[i], seedLst[i], brRot[i]);
-      //  tree.SetNearestTrees(nearestTreeLst[i]);
-      //  tree.Generate(phase[i], angLstMain[i], angTop[i], dupNum[i]);
-
-      //  // Wrap tree object with phase information
-      //  treeObjects.Add(new Tree3DWrapper(tree, phase[i]));
-      //}
-
       // Generate tree objects
       var curTree = new Tree3D(pln, gScale, tScale, seed, brRot);
       curTree.Generate(phase, angMain, angTop, dupNum);
 
-      var treeObjects = new Tree3DWrapper(curTree, phase);
+      var treeObjects = new Tree3DWrapper(curTree);
       DA.SetData("Tree Objects", treeObjects);
     }
   }
@@ -380,10 +350,10 @@ namespace BeingAliveLanguage
       Phase = 0;
     }
 
-    public Tree3DWrapper(Tree3D tree, int phase)
+    public Tree3DWrapper(Tree3D tree)
     {
       Tree = tree;
-      Phase = phase;
+      Phase = tree.mPhase;
     }
 
     #region IGH_Goo implementation
@@ -394,7 +364,7 @@ namespace BeingAliveLanguage
 
     public IGH_Goo Duplicate()
     {
-      return new Tree3DWrapper(Tree, Phase);
+      return new Tree3DWrapper(Tree);
     }
 
     public bool CastFrom(object source)
@@ -514,7 +484,7 @@ namespace BeingAliveLanguage
         foreach (var crv in pair.Value)
         {
           treeObj.Tree.mPln.RemapToPlaneSpace(crv.PointAtStart, out Point3d mappedPtStart);
-          var dirPtStart = (mappedPtStart- treeObj.Tree.mPln.Origin);
+          var dirPtStart = (mappedPtStart - treeObj.Tree.mPln.Origin);
           var distPtStart = Math.Abs(Vector3d.Multiply(dirPtStart, treeObj.Tree.mPln.ZAxis));
 
           treeObj.Tree.mPln.RemapToPlaneSpace(crv.PointAtEnd, out Point3d mappedPtEnd);
@@ -544,21 +514,85 @@ namespace BeingAliveLanguage
           "BAL", "03::plant")
     { }
 
-    //protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeInteraction;
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
     public override Guid ComponentGuid => new Guid("31624b38-fb3c-4028-9b92-dfd654a8337f");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
-      pManager.AddGenericParameter("Tree Collection Before", "treeColIn", "Collections of trees in various species before interaction.", GH_ParamAccess.list);
+      pManager.AddGenericParameter("T -> Interaction", "tToInteract", "The collection of tree objects in various species before interaction.", GH_ParamAccess.list);
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
-      pManager.AddGenericParameter("Tree Collection After", "treeColOut", "Collections of trees in various species after interaction.", GH_ParamAccess.list);
+      pManager.AddGenericParameter("Interaction -> T", "tAfterInteract", "The collection of tree objects in various species after interaction.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
+      // Get the input tree objects
+      List<Tree3DWrapper> treeWrappers = new List<Tree3DWrapper>();
+      if (!DA.GetDataList("T -> Interaction", treeWrappers) || treeWrappers.Count == 0)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No tree objects provided.");
+        return;
+      }
+
+      // Extract Tree3D objects and collect their positions
+      List<Tree3D> trees = new List<Tree3D>();
+      List<Point3d> treePositions = new List<Point3d>();
+      List<Tree3DWrapper> processedTrees = new List<Tree3DWrapper>();
+
+      foreach (var wrapper in treeWrappers)
+      {
+        // check if wrapper is valid
+        if (wrapper != null && wrapper.IsValid)
+        {
+          trees.Add(wrapper.Tree);
+          treePositions.Add(wrapper.Tree.mPln.Origin);
+        }
+        else
+        {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "One or more tree objects are invalid, these trees are omitted.");
+        }
+
+        // Check for overlapping trees or trees that are too close
+        for (int i = 0; i < treePositions.Count; i++)
+        {
+          double minDist = 0.5 * trees[i].GetRadius();
+          for (int j = i + 1; j < treePositions.Count; j++)
+          {
+            if (treePositions[i].DistanceTo(treePositions[j]) < minDist)
+            {
+              AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                  $"Trees at positions {i} and {j} are too close or overlapping.");
+            }
+          }
+        }
+      }
+
+      // For each tree, find its nearest neighbors
+      List<List<Point3d>> nearestNeighbors = new List<List<Point3d>>();
+      Utils.GetLstNearestPoint(treePositions, out nearestNeighbors, 6);
+
+      // Apply the interaction effects
+      if (nearestNeighbors.Count == 0)
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No forest interaction happens. Either trees have no neighbour, or something wrong happens.");
+        processedTrees = treeWrappers;
+      }
+      else
+      {
+        for (int i = 0; i < trees.Count; i++)
+        {
+          // Set the nearest trees for this tree
+          trees[i].SetNearestTrees(nearestNeighbors[i]);
+          trees[i].ForestInteract();
+          processedTrees.Add(new Tree3DWrapper(trees[i]));
+        }
+      }
+
+      // Output the processed trees
+      DA.SetDataList("Interaction -> T", processedTrees);
     }
   }
 

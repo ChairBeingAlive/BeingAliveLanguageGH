@@ -655,7 +655,7 @@ namespace BeingAliveLanguage
       mSoloRadius = GetRadius();
 
       // scale 2D if tree size is too large (> 0.5 nearest tree distance)
-      ForestRescale();
+      //ForestRescale();
 
       return true;
     }
@@ -786,7 +786,8 @@ namespace BeingAliveLanguage
               var len = Math.Min(mMaxSideBranchLen, br.GetLength() + increLen);
 
               tmpLst.Add(new Line(br.PointAtStart, dir * len).ToNurbsCurve());
-            };
+            }
+            ;
             node.mBranch = tmpLst;
           }
         }
@@ -903,27 +904,25 @@ namespace BeingAliveLanguage
       return res.ToList();
     }
 
-    public void ForestRescale()
+    // Conduct Forest Interaction between trees 
+    public void ForestInteract()
     {
       HashSet<int> scaledBranches = new HashSet<int>();
 
-      // Traverse branches from phase 1 to 8
-      for (int phase = 8; phase <= 8; phase++)
+      var scaleBasePhase = 8;
+      var branchesInPhase = mAllNode.Where(node => node.mNodePhase == scaleBasePhase && !scaledBranches.Contains(node.mID)).ToList();
+
+      foreach (var branch in branchesInPhase)
       {
-        var branchesInPhase = mAllNode.Where(node => node.mNodePhase == phase && !scaledBranches.Contains(node.mID)).ToList();
+        if (scaledBranches.Contains(branch.mID))
+          continue;
 
-        foreach (var branch in branchesInPhase)
+        double scaleFactor = CalculateScaleFactor(branch);
+
+        // Scale this branch and all its sub-branches if trees nearby affect it
+        if (scaleFactor < 1.0)
         {
-          if (scaledBranches.Contains(branch.mID))
-            continue;
-
-          double scaleFactor = CalculateScaleFactor(branch);
-
-          if (scaleFactor < 1.0)
-          {
-            // Scale this branch and all its sub-branches
-            ScaleBranchAndSubBranches(branch, scaleFactor, scaledBranches);
-          }
+          ScaleBranchAndSubBranches(branch, scaleFactor, scaledBranches);
         }
       }
     }
