@@ -40,12 +40,17 @@ jobs:
       with:
         dotnet-version: '6.0.x'
         
+    # Install Rhino8 SDK via NuGet
+    - name: Install Rhino8 SDK
+      run: |
+        nuget install RhinoCommon -Version 8.0.* -OutputDirectory packages
+        nuget install Grasshopper -Version 8.0.* -OutputDirectory packages
+
     - name: Restore NuGet packages
       run: nuget restore ${{ env.Solution_Name }}
 
     - name: Install C++ dependencies
       run: vcpkg install libigl:x64-windows
-
       
     # Build C++ Project
     - name: Build C++ Project
