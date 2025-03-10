@@ -1,0 +1,94 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ test-action ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a release'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      Solution_Name: BeingAliveLanguage.sln
+      CPP_Project_Path: ./BeingAliveLanguageCppPort/BeingAliveLanguageCppPort.vcxproj
+      CSProj_Path: ./BeingAlivelanguage/BeingAliveLanguage.csproj
+      Configuration: Release
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.1
+      
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1.2.0
+    
+    - name: Setup .NET Framework
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '6.0.x'
+        
+    - name: Restore NuGet packages
+      run: nuget restore ${{ env.Solution_Name }}
+
+    - name: Install C++ dependencies
+      run: vcpkg install libigl:x64-windows
+
+      
+    # Build C++ Project
+    - name: Build C++ Project
+      run: msbuild ${{ env.CPP_Project_Path }} /p:Configuration=${{ env.Configuration }} /p:Platform=x64
+      
+    # Build C# Project
+    - name: Build C# Project 
+      run: msbuild ${{ env.CSProj_Path }} /p:Configuration=${{ env.Configuration }} /p:Platform=AnyCPU
+      
+    # Create artifact directory
+    - name: Create artifact directory
+      run: |
+        mkdir -Force artifacts/release
+      shell: pwsh
+        
+    # Copy build outputs to artifact directory
+    - name: Copy build outputs
+      run: |
+        # Copy C++ outputs
+        cp ${{ env.CPP_Project_Path }}/bin/x64/${{ env.Configuration }}/*.dll artifacts/release/
+        # Copy C# outputs
+        cp path/to/csharp/bin/${{ env.Configuration }}/*.dll artifacts/release/
+        cp path/to/csharp/bin/${{ env.Configuration }}/*.gha artifacts/release/
+        # cp path/to/csharp/bin/${{ env.Configuration }}/*.config artifacts/release/
+      shell: pwsh
+        
+    # Upload build artifacts
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: BeingAliveLanguage-Build
+        path: artifacts/release
+        
+    # Create GitHub Release
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: artifacts/release/*
+        name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
