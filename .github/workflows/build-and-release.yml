@@ -34,17 +34,23 @@ jobs:
       
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v1.2.0
-    
-    - name: Setup .NET Framework
+        
+    - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '6.0.x'
-        
+         dotnet-version: 7.0.x
+
     # Install Rhino8 SDK via NuGet
-    - name: Install Rhino8 SDK
-      run: |
-        nuget install RhinoCommon -Version 7.20.22193.9001 -OutputDirectory packages
-        nuget install Grasshopper -Version 7.20.22193.9001 -OutputDirectory packages
+    # - name: Install Rhino8 SDK
+    #   run: |
+    #     nuget install RhinoCommon -Version 7.20.22193.9001 -OutputDirectory packages
+    #     nuget install Grasshopper -Version 7.20.22193.9001 -OutputDirectory packages
+
+    - name: Install Rhino
+      uses: mcneel/setup-rhino3d@v2
+      id: setup_rhino
+      with:
+        email-address: ${{ secrets.EMAIL_ADDRESS }}
 
     - name: Restore NuGet packages
       run: nuget restore ${{ env.Solution_Name }}
