@@ -605,6 +605,113 @@ namespace BeingAliveLanguage
       mMinSideBranchLen = 0.25 * mScaledLen * mTScale / mStage1;
     }
 
+    public Tree3D Copy()
+    {
+      // Create a new instance with the same basic parameters
+      Tree3D copy = new Tree3D(
+          this.mPln.Clone(), // Clone the plane
+          this.mGScale,
+          this.mTScale,
+          this.mRnd.Next(),  // Use a new random seed derived from current random
+          this.mBranchRot
+      );
+
+      // Copy scalar properties
+      copy.mScaledLen = this.mScaledLen;
+      copy.mPhase = this.mPhase;
+      copy.mNumBranchPerLayer = this.mNumBranchPerLayer;
+      copy.mAngleMain = this.mAngleMain;
+      copy.mAngleTop = this.mAngleTop;
+      copy.mMaxSideBranchLen = this.mMaxSideBranchLen;
+      copy.mMinSideBranchLen = this.mMinSideBranchLen;
+      copy.mNearestTreeDist = this.mNearestTreeDist;
+      copy.mNearestTree = new Point3d(this.mNearestTree);
+      copy.mSoloRadius = this.mSoloRadius;
+
+      // Copy stage settings
+      copy.mStage1 = this.mStage1;
+      copy.mStage2 = this.mStage2;
+      copy.mStage3 = this.mStage3;
+      copy.mStage4 = this.mStage4;
+
+      // Deep copy of trunk segments
+      copy.mTrunkSegments = this.mTrunkSegments.Select(line => new Line(
+          new Point3d(line.From),
+          new Point3d(line.To)
+      )).ToList();
+
+      // Deep copy of nearest trees
+      copy.mNearestTrees = this.mNearestTrees.Select(pt => new Point3d(pt)).ToList();
+
+      // Deep copy of messages
+      copy.mMmsg = new List<string>(this.mMmsg);
+
+      // Create a mapping from original node IDs to new node IDs
+      Dictionary<int, int> nodeIdMap = new Dictionary<int, int>();
+
+      // Deep copy of all nodes
+      Dictionary<int, BranchNode3D> originalNodes = this.mAllNode.ToDictionary(node => node.mID);
+      foreach (BranchNode3D originalNode in this.mAllNode)
+      {
+        BranchNode3D newNode = new BranchNode3D(
+            originalNode.mID,
+            originalNode.mNodePhase,
+            new Point3d(originalNode.GetPos())
+        );
+
+        // Copy flags
+        newNode.flagShow = originalNode.flagShow;
+        newNode.flagSplittable = originalNode.flagSplittable;
+
+        // Deep copy branches
+        foreach (Curve branch in originalNode.mBranch)
+        {
+          newNode.mBranch.Add(branch.DuplicateCurve());
+        }
+
+        // Deep copy flag branch split list
+        newNode.flagBranchSplit = new List<bool>(originalNode.flagBranchSplit);
+
+        // Add to the new tree's node list
+        copy.mAllNode.Add(newNode);
+
+        // If this is the base node, set it
+        if (originalNode.mID == this.mBaseNode?.mID)
+        {
+          copy.mBaseNode = newNode;
+        }
+      }
+
+      // Deep copy of branch relations
+      foreach (var kvp in this.mBranchRelation)
+      {
+        copy.mBranchRelation[kvp.Key] = new HashSet<int>(kvp.Value);
+      }
+
+      // Deep copy of trunk branch nodes
+      foreach (BranchNode3D node in this.mTrunkBranchNode)
+      {
+        BranchNode3D copyNode = copy.mAllNode.FirstOrDefault(n => n.mID == node.mID);
+        if (copyNode != null)
+        {
+          copy.mTrunkBranchNode.Add(copyNode);
+        }
+      }
+
+      // Deep copy of base splitted nodes
+      foreach (BranchNode3D node in this.mBaseSplittedNode)
+      {
+        BranchNode3D copyNode = copy.mAllNode.FirstOrDefault(n => n.mID == node.mID);
+        if (copyNode != null)
+        {
+          copy.mBaseSplittedNode.Add(copyNode);
+        }
+      }
+
+      return copy;
+    }
+
+
     public void SetNearestDist(double dist)
     {
       mNearestTreeDist = dist;

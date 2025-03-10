@@ -552,7 +552,7 @@ namespace BeingAliveLanguage
         // check if wrapper is valid
         if (wrapper != null && wrapper.IsValid)
         {
-          trees.Add(wrapper.Tree);
+          trees.Add(wrapper.Tree.Copy());
           treePositions.Add(wrapper.Tree.mPln.Origin);
         }
         else
