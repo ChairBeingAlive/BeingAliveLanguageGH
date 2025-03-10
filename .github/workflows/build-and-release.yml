@@ -43,8 +43,8 @@ jobs:
     # Install Rhino8 SDK via NuGet
     - name: Install Rhino8 SDK
       run: |
-        nuget install RhinoCommon -Version 8.0.* -OutputDirectory packages
-        nuget install Grasshopper -Version 8.0.* -OutputDirectory packages
+        nuget install RhinoCommon -Version 7.20.22193.9001 -OutputDirectory packages
+        nuget install Grasshopper -Version 7.20.22193.9001 -OutputDirectory packages
 
     - name: Restore NuGet packages
       run: nuget restore ${{ env.Solution_Name }}
