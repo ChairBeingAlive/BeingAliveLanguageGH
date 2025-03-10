@@ -227,7 +227,7 @@ namespace BeingAliveLanguage
           "BAL", "03::plant")
     { }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeComposer;
     public override Guid ComponentGuid => new Guid("23af7e5d-7c82-48e6-9c7a-fb7d36e8451f");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
@@ -430,7 +430,7 @@ namespace BeingAliveLanguage
           "BAL", "03::plant")
     { }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeRenderer;
     public override Guid ComponentGuid => new Guid("fb920ed6-7c50-466b-8645-04eb5658a7f1");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
@@ -519,7 +519,7 @@ namespace BeingAliveLanguage
           "BAL", "03::plant")
     { }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTreeInteraction;
     public override Guid ComponentGuid => new Guid("31624b38-fb3c-4028-9b92-dfd654a8337f");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

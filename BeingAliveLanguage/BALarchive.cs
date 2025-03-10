@@ -745,6 +745,7 @@ namespace BeingAliveLanguage
     //string modeUnitary = "non-unitary";
     protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
     public override Guid ComponentGuid => new Guid("36c5e013-321b-4064-b007-b17880644ce4");
+    public override GH_Exposure Exposure => GH_Exposure.hidden;
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
     {
