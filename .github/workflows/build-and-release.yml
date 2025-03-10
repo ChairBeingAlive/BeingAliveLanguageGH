@@ -3,8 +3,8 @@ name: Build and Release
 on:
   push:
     branches: [ test-action ]
-    tags:
-      - 'v*'
+    # tags:
+    #   - 'v*'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -92,3 +92,28 @@ jobs:
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
