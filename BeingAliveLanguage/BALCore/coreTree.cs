@@ -586,7 +586,7 @@ namespace BeingAliveLanguage
     public List<Curve> mBranch { get; set; } = new List<Curve>();
   }
 
-  class Tree3D
+  public class Tree3D
   {
     public Tree3D() { }
 
@@ -604,6 +604,113 @@ namespace BeingAliveLanguage
       mMaxSideBranchLen = 0.5 * mScaledLen;
       mMinSideBranchLen = 0.25 * mScaledLen * mTScale / mStage1;
     }
+
+    public Tree3D Copy()
+    {
+      // Create a new instance with the same basic parameters
+      Tree3D copy = new Tree3D(
+          this.mPln.Clone(), // Clone the plane
+          this.mGScale,
+          this.mTScale,
+          this.mRnd.Next(),  // Use a new random seed derived from current random
+          this.mBranchRot
+      );
+
+      // Copy scalar properties
+      copy.mScaledLen = this.mScaledLen;
+      copy.mPhase = this.mPhase;
+      copy.mNumBranchPerLayer = this.mNumBranchPerLayer;
+      copy.mAngleMain = this.mAngleMain;
+      copy.mAngleTop = this.mAngleTop;
+      copy.mMaxSideBranchLen = this.mMaxSideBranchLen;
+      copy.mMinSideBranchLen = this.mMinSideBranchLen;
+      copy.mNearestTreeDist = this.mNearestTreeDist;
+      copy.mNearestTree = new Point3d(this.mNearestTree);
+      copy.mSoloRadius = this.mSoloRadius;
+
+      // Copy stage settings
+      copy.mStage1 = this.mStage1;
+      copy.mStage2 = this.mStage2;
+      copy.mStage3 = this.mStage3;
+      copy.mStage4 = this.mStage4;
+
+      // Deep copy of trunk segments
+      copy.mTrunkSegments = this.mTrunkSegments.Select(line => new Line(
+          new Point3d(line.From),
+          new Point3d(line.To)
+      )).ToList();
+
+      // Deep copy of nearest trees
+      copy.mNearestTrees = this.mNearestTrees.Select(pt => new Point3d(pt)).ToList();
+
+      // Deep copy of messages
+      copy.mMmsg = new List<string>(this.mMmsg);
+
+      // Create a mapping from original node IDs to new node IDs
+      Dictionary<int, int> nodeIdMap = new Dictionary<int, int>();
+
+      // Deep copy of all nodes
+      Dictionary<int, BranchNode3D> originalNodes = this.mAllNode.ToDictionary(node => node.mID);
+      foreach (BranchNode3D originalNode in this.mAllNode)
+      {
+        BranchNode3D newNode = new BranchNode3D(
+            originalNode.mID,
+            originalNode.mNodePhase,
+            new Point3d(originalNode.GetPos())
+        );
+
+        // Copy flags
+        newNode.flagShow = originalNode.flagShow;
+        newNode.flagSplittable = originalNode.flagSplittable;
+
+        // Deep copy branches
+        foreach (Curve branch in originalNode.mBranch)
+        {
+          newNode.mBranch.Add(branch.DuplicateCurve());
+        }
+
+        // Deep copy flag branch split list
+        newNode.flagBranchSplit = new List<bool>(originalNode.flagBranchSplit);
+
+        // Add to the new tree's node list
+        copy.mAllNode.Add(newNode);
+
+        // If this is the base node, set it
+        if (originalNode.mID == this.mBaseNode?.mID)
+        {
+          copy.mBaseNode = newNode;
+        }
+      }
+
+      // Deep copy of branch relations
+      foreach (var kvp in this.mBranchRelation)
+      {
+        copy.mBranchRelation[kvp.Key] = new HashSet<int>(kvp.Value);
+      }
+
+      // Deep copy of trunk branch nodes
+      foreach (BranchNode3D node in this.mTrunkBranchNode)
+      {
+        BranchNode3D copyNode = copy.mAllNode.FirstOrDefault(n => n.mID == node.mID);
+        if (copyNode != null)
+        {
+          copy.mTrunkBranchNode.Add(copyNode);
+        }
+      }
+
+      // Deep copy of base splitted nodes
+      foreach (BranchNode3D node in this.mBaseSplittedNode)
+      {
+        BranchNode3D copyNode = copy.mAllNode.FirstOrDefault(n => n.mID == node.mID);
+        if (copyNode != null)
+        {
+          copy.mBaseSplittedNode.Add(copyNode);
+        }
+      }
+
+      return copy;
+    }
+
 
     public void SetNearestDist(double dist)
     {
@@ -655,12 +762,12 @@ namespace BeingAliveLanguage
       mSoloRadius = GetRadius();
 
       // scale 2D if tree size is too large (> 0.5 nearest tree distance)
-      ForestRescale();
+      //ForestRescale();
 
       return true;
     }
 
-    public void AddNodeToTree(BranchNode3D curNode, BranchNode3D newNode)
+    void AddNodeToTree(BranchNode3D curNode, BranchNode3D newNode)
     {
       mAllNode.Add(newNode);
       if (!mBranchRelation.ContainsKey(curNode.mID))
@@ -786,7 +893,8 @@ namespace BeingAliveLanguage
               var len = Math.Min(mMaxSideBranchLen, br.GetLength() + increLen);
 
               tmpLst.Add(new Line(br.PointAtStart, dir * len).ToNurbsCurve());
-            };
+            }
+            ;
             node.mBranch = tmpLst;
           }
         }
@@ -903,27 +1011,25 @@ namespace BeingAliveLanguage
       return res.ToList();
     }
 
-    public void ForestRescale()
+    // Conduct Forest Interaction between trees 
+    public void ForestInteract()
     {
       HashSet<int> scaledBranches = new HashSet<int>();
 
-      // Traverse branches from phase 1 to 8
-      for (int phase = 8; phase <= 8; phase++)
+      var scaleBasePhase = 8;
+      var branchesInPhase = mAllNode.Where(node => node.mNodePhase == scaleBasePhase && !scaledBranches.Contains(node.mID)).ToList();
+
+      foreach (var branch in branchesInPhase)
       {
-        var branchesInPhase = mAllNode.Where(node => node.mNodePhase == phase && !scaledBranches.Contains(node.mID)).ToList();
+        if (scaledBranches.Contains(branch.mID))
+          continue;
 
-        foreach (var branch in branchesInPhase)
+        double scaleFactor = CalculateScaleFactor(branch);
+
+        // Scale this branch and all its sub-branches if trees nearby affect it
+        if (scaleFactor < 1.0)
         {
-          if (scaledBranches.Contains(branch.mID))
-            continue;
-
-          double scaleFactor = CalculateScaleFactor(branch);
-
-          if (scaleFactor < 1.0)
-          {
-            // Scale this branch and all its sub-branches
-            ScaleBranchAndSubBranches(branch, scaleFactor, scaledBranches);
-          }
+          ScaleBranchAndSubBranches(branch, scaleFactor, scaledBranches);
         }
       }
     }
@@ -1057,69 +1163,24 @@ namespace BeingAliveLanguage
       return maxR;
     }
 
-    //public void ForestRescale()
-    //{
-    //  double openingAngle = 0.5 * Math.PI;
+    public double GetHeight()
+    {
+      double maxHeight = 0;
+      var pln = this.mPln;
 
-    //  // Collect all branches and measure the max Radius
-    //  List<double> rCollection = new List<double>();
-    //  foreach (var node in mAllNode)
-    //  {
-    //    foreach (var ln in node.mBranch)
-    //    {
-    //      mPln.RemapToPlaneSpace(ln.PointAtStart, out var ptStart);
-    //      mPln.RemapToPlaneSpace(ln.PointAtEnd, out var ptEnd);
+      var allBranches = this.GetBranch().Item1;
 
-    //      var distA = Math.Sqrt(ptStart.X * ptStart.X + ptStart.Y * ptStart.Y);
-    //      var distB = Math.Sqrt(ptEnd.X * ptEnd.X + ptEnd.Y * ptEnd.Y);
+      foreach (var crv in allBranches.SelectMany(b => b.Value))
+      {
+        pln.RemapToPlaneSpace(crv.PointAtStart, out Point3d start);
+        pln.RemapToPlaneSpace(crv.PointAtEnd, out Point3d end);
 
-    //      rCollection.Add(distA);
-    //      rCollection.Add(distB);
-    //    }
-    //  }
-    //  var maxR = rCollection.Count > 0 ? rCollection.Max() : double.MaxValue;
-
-    //  var primaryBranchToScale = mTrunkBranchNode.Concat(mBaseSplittedNode);
-
-    //  // Examine each main branch and scale if needed
-    //  foreach (var mainBranch in primaryBranchToScale)
-    //  {
-    //    // Project branch direction onto XY plane
-    //    Vector3d branchDir = mainBranch.mBranch[0].PointAtEnd - mainBranch.mBranch[0].PointAtStart;
-    //    Vector3d branchDir2D = new Vector3d(branchDir.X, branchDir.Y, 0);
-    //    branchDir2D.Unitize();
-
-    //    foreach (var treePt in mNearestTrees)
-    //    {
-    //      // Find the nearest tree within the opening angle
-    //      double nearestDist = double.MaxValue;
-
-    //      Vector3d treeDir = treePt - mPln.Origin;
-    //      Vector3d treeDir2D = new Vector3d(treeDir.X, treeDir.Y, 0);
-    //      treeDir2D.Unitize();
-
-    //      double angle = Vector3d.VectorAngle(branchDir2D, treeDir2D);
-    //      angle %= Math.PI;
-
-    //      if (angle <= openingAngle / 2)
-    //      {
-    //        double dist = treeDir.Length;
-    //        if (dist < nearestDist)
-    //        {
-    //          nearestDist = dist;
-    //        }
-    //      }
-
-    //      // SCALE: when the branch if the nearest tree is smaller than 3x the branch lengths
-    //      if (nearestDist < branchDir.Length * 3)
-    //      {
-    //        double scaleFactor = Math.Min(nearestDist * 0.4 / maxR, 1.0);
-    //        ScaleBranchHierarchy(mainBranch, scaleFactor);
-    //      }
-    //    }
-    //  }
-
-    //}
+        double yStart = start.Z;
+        double yEnd = end.Z;
+        maxHeight = new[] { maxHeight, yStart, yEnd }.Max();
+      }
+      return maxHeight;
+    }
 
     private void ScaleBranchHierarchy(BranchNode3D node, double scaleFactor)
     {
@@ -1261,9 +1322,9 @@ namespace BeingAliveLanguage
     public Dictionary<int, HashSet<int>> mBranchRelation = new Dictionary<int, HashSet<int>>();
 
     // all node for branches, including the base node for trunck and all sub-nodes
-    public List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
-    public List<BranchNode3D> mTrunkBranchNode { get; set; } = new List<BranchNode3D>();
-    public List<BranchNode3D> mBaseSplittedNode { get; set; } = new List<BranchNode3D>();
+    List<BranchNode3D> mAllNode { get; set; } = new List<BranchNode3D>();
+    List<BranchNode3D> mTrunkBranchNode { get; set; } = new List<BranchNode3D>();
+    List<BranchNode3D> mBaseSplittedNode { get; set; } = new List<BranchNode3D>();
 
     // all nodes that are attached to the trunck, only for 1st-level branches
     public List<Line> mTrunkSegments { get; private set; } = new List<Line>();

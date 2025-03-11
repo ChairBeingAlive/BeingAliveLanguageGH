@@ -303,6 +303,36 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap balTreeComposer {
+            get {
+                object obj = ResourceManager.GetObject("balTreeComposer", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap balTreeInteraction {
+            get {
+                object obj = ResourceManager.GetObject("balTreeInteraction", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap balTreeRenderer {
+            get {
+                object obj = ResourceManager.GetObject("balTreeRenderer", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap balTreeRoot {
             get {
                 object obj = ResourceManager.GetObject("balTreeRoot", resourceCulture);

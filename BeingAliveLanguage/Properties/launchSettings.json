@@ -5,7 +5,7 @@
       "executablePath": "C:\\Program Files\\Rhino 8\\System\\Rhino.exe",
       "commandLineArgs": "/netfx",
       "workingDirectory": "..\\bin\\Debug",
-      "nativeDebugging": true
+      "nativeDebugging": false
     },
     "Rhino8-NetCore": {
       "commandName": "Executable",
