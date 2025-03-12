@@ -1,16 +1,12 @@
 ﻿using Grasshopper.Kernel;
 using System;
-using System.Drawing;
+using BeingAliveLanguage.BalCore;
 
 namespace BeingAliveLanguage
 {
   public class BeingAliveLanguageInfo : GH_AssemblyInfo
   {
     public override string Name => "BeingAliveLanguage";
-
-    //Return a 24x24 pixel bitmap to represent this GHA library.
-    public override Bitmap Icon => Properties.Resources.pluginIcon;
-    public override Bitmap AssemblyIcon => Properties.Resources.pluginIcon;
 
     //Return a short string describing the purpose of this GHA library.
     public override string Description =>
@@ -28,7 +24,8 @@ namespace BeingAliveLanguage
     public override string AuthorContact => "https://beingalivelanguage.arch.ethz.ch";
     public override GH_LibraryLicense License => GH_LibraryLicense.opensource;
 
-    public override string Version => "0.7.5";
+    //Return a string representing the version.  This returns the same version as the assembly.
+    public override string AssemblyVersion => GetType().Assembly.GetName().Version.ToString();
   }
 
   // update plugin icons in the tab
@@ -36,8 +33,8 @@ namespace BeingAliveLanguage
   {
     public override GH_LoadingInstruction PriorityLoad()
     {
-      Grasshopper.Instances.ComponentServer.AddCategoryIcon("BAL", Properties.Resources.pluginIcon);
       Grasshopper.Instances.ComponentServer.AddCategorySymbolName("BAL", 'B');
+      Grasshopper.Instances.ComponentServer.AddCategoryIcon("BAL", SysUtils.cvtByteBitmap(Properties.Resources.pluginIcon));
       return GH_LoadingInstruction.Proceed;
     }
   }

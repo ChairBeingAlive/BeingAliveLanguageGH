@@ -7,8 +7,7 @@ using System.Linq;
 using Rhino.Geometry;
 using Grasshopper;
 using Grasshopper.Kernel.Data;
-using GH_IO.Types;
-using Rhino.UI.Controls;
+using BeingAliveLanguage.BalCore;
 
 
 namespace BeingAliveLanguage
@@ -21,7 +20,7 @@ namespace BeingAliveLanguage
           "BAL", "05::climate")
     {
     }
-    protected override Bitmap Icon => Properties.Resources.balEvapotranspiration;
+    protected override Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balEvapotranspiration);
     public override Guid ComponentGuid => new Guid("F99420CC-DFFB-4538-9207-83F24AA57FF9");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
@@ -135,7 +134,7 @@ namespace BeingAliveLanguage
     {
     }
     private bool useSI = true; // True for Metric, False for Imperial
-    protected override Bitmap Icon => Properties.Resources.balGaussen;
+    protected override Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balGaussen);
     public override Guid ComponentGuid => new Guid("8184F7FD-5A24-49F2-A12E-9E5AAC7998DA");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

@@ -2,10 +2,7 @@
 using System;
 using Rhino.Geometry;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Grasshopper.Kernel.Types;
+using BeingAliveLanguage.BalCore;
 
 namespace BeingAliveLanguage
 {
@@ -19,7 +16,7 @@ namespace BeingAliveLanguage
     {
     }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
     public override Guid ComponentGuid => new Guid("b1a34eee-cb0f-4607-bf9f-037d65113be0");
     public override GH_Exposure Exposure => GH_Exposure.hidden;
 
@@ -125,7 +122,7 @@ namespace BeingAliveLanguage
     {
     }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
     public override Guid ComponentGuid => new Guid("a7fdb09e-39e7-4ceb-a78f-b2b2ab71f572");
     public override GH_Exposure Exposure => GH_Exposure.primary;
 
@@ -274,7 +271,7 @@ namespace BeingAliveLanguage
     {
     }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
     public override Guid ComponentGuid => new Guid("50264c56-b65f-4181-a49e-25ad9815771d");
 
     protected override bool mSym => false;

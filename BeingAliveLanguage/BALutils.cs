@@ -3,6 +3,7 @@ using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BeingAliveLanguage.BalCore;
 
 namespace BeingAliveLanguage
 {
@@ -15,7 +16,7 @@ namespace BeingAliveLanguage
     { }
 
     public override GH_Exposure Exposure => GH_Exposure.primary;
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilInfo;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilInfo);
     public override Guid ComponentGuid => new Guid("af64a14a-6795-469c-b044-7db972d5bd84");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
@@ -55,7 +56,7 @@ namespace BeingAliveLanguage
     { }
 
     public override GH_Exposure Exposure => GH_Exposure.primary;
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilMorphFan;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilMorphFan);
     public override Guid ComponentGuid => new Guid("e08cd0fa-c27d-4d1b-85fc-da0353bda292");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

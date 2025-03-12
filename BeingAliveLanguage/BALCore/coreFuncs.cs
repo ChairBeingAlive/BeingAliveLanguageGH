@@ -10,6 +10,17 @@ namespace BeingAliveLanguage
 {
   namespace BalCore
   {
+    static class SysUtils
+    {
+      public static System.Drawing.Bitmap cvtByteBitmap(byte[] byteBitmap)
+      {
+        using (var stream = new System.IO.MemoryStream(byteBitmap))
+        {
+          return new System.Drawing.Bitmap(stream: stream);
+        }
+      }
+    }
+
     static class MeshUtils
     {
       // create a convex hull mesh from a list of points
