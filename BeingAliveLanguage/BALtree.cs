@@ -222,7 +222,7 @@ namespace BeingAliveLanguage
   public class BALtreeDrenouComposer : GH_Component
   {
     public BALtreeDrenouComposer()
-    : base("Tree_Drenou_Composer", "balTree_DrenouGom",
+    : base("Tree_Drenou_Composer", "balTree_DrenouCom",
           "Compose tree objects using Drenou's architectural model.",
           "BAL", "03::plant")
     { }
