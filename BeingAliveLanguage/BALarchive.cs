@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-
+using BeingAliveLanguage.BalCore;
 
 namespace BeingAliveLanguage
 {
@@ -23,7 +23,7 @@ namespace BeingAliveLanguage
     {
     }
     private bool useSI = true; // True for Metric, False for Imperial
-    protected override Bitmap Icon => Properties.Resources.balGaussen;
+    protected override Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balGaussen);
     public override GH_Exposure Exposure => GH_Exposure.hidden;
     public override Guid ComponentGuid => new Guid("3C5480D5-32B6-4EAD-A945-4F81D109EBEA");
 
@@ -227,7 +227,7 @@ namespace BeingAliveLanguage
     }
 
     public override GH_Exposure Exposure => GH_Exposure.hidden;
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv_win;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilDiv_win);
     public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -378,7 +378,7 @@ namespace BeingAliveLanguage
 
     }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilWaterVis;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilWaterVis);
     public override Guid ComponentGuid => new Guid("F6D8797A-674F-442B-B1BF-606D18B5277A");
   }
 
@@ -392,7 +392,7 @@ namespace BeingAliveLanguage
     }
 
     public override Guid ComponentGuid => new Guid("140A327A-B36E-4D39-86C5-317D7C24E7FE");
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilBase;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilBase);
 
     public override GH_Exposure Exposure => GH_Exposure.hidden;
 
@@ -495,7 +495,7 @@ namespace BeingAliveLanguage
     }
 
     string formMode = "multi";  // s-single, m-multi
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balRootSectional);
     public override Guid ComponentGuid => new Guid("A0E63559-41E8-4353-B78E-510E3FCEB577");
   }
 
@@ -514,7 +514,7 @@ namespace BeingAliveLanguage
     string formMode = "single";  // none, single, multi
     public override GH_Exposure Exposure => GH_Exposure.hidden;
     public override Guid ComponentGuid => new Guid("E2D1F590-4BE8-4AAD-812E-4BF682F786A4");
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balRootSectional;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balRootSectional);
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
     {
@@ -663,7 +663,7 @@ namespace BeingAliveLanguage
     }
 
     public override GH_Exposure Exposure => GH_Exposure.hidden;
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv_win;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilDiv_win);
     public override Guid ComponentGuid => new Guid("8634cd28-f37e-4204-b60b-d36b16181d7b");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -743,7 +743,7 @@ namespace BeingAliveLanguage
     { }
 
     //string modeUnitary = "non-unitary";
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balTree3D;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
     public override Guid ComponentGuid => new Guid("36c5e013-321b-4064-b007-b17880644ce4");
     public override GH_Exposure Exposure => GH_Exposure.hidden;
 

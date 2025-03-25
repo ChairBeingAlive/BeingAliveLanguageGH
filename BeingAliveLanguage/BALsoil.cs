@@ -1,16 +1,14 @@
 using GH_IO.Serialization;
-using Grasshopper.GUI;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
-using Rhino.Render;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using BeingAliveLanguage.BalCore;
 
 namespace BeingAliveLanguage
 {
@@ -24,7 +22,7 @@ namespace BeingAliveLanguage
     {
     }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilAnalysis;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilAnalysis);
     public override Guid ComponentGuid => new Guid("F12AEDCA-4FE1-4734-8E71-249C9D90CBA1");
     public override GH_Exposure Exposure => GH_Exposure.primary;
 
@@ -75,7 +73,7 @@ namespace BeingAliveLanguage
     }
 
     public override Guid ComponentGuid => new Guid("27d616d0-c23c-4ae6-8108-ecbcb3d9125a");
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilBase;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilBase);
 
     public string resMode = "vertical";
 
@@ -181,7 +179,7 @@ namespace BeingAliveLanguage
     }
 
     public override GH_Exposure Exposure => GH_Exposure.secondary;
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilDiv);
     public override Guid ComponentGuid => new Guid("9ffd9134-0d95-4e4d-859d-753df5b8dd4a");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -244,7 +242,7 @@ namespace BeingAliveLanguage
     }
 
     public override GH_Exposure Exposure => GH_Exposure.secondary;
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilDiv_rnd;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilDiv_rnd);
     public override Guid ComponentGuid => new Guid("cadf094b-a4a0-4dc3-b971-1d00612d99c3");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -500,7 +498,7 @@ namespace BeingAliveLanguage
 
     }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilUrban;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilUrban);
 
     public override Guid ComponentGuid => new Guid("4f0a934c-dd27-447c-a67b-a478940c2d6e");
   }
@@ -516,7 +514,7 @@ namespace BeingAliveLanguage
 
     public override GH_Exposure Exposure => GH_Exposure.tertiary;
     public override Guid ComponentGuid => new Guid("320a54cc-ca9a-44a2-b313-2ba08035cb1c");
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilWaterVis;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilWaterVis);
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
@@ -652,7 +650,7 @@ namespace BeingAliveLanguage
       DA.SetData(1, omProp);
     }
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsInner;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilOrganicsInner);
     public override Guid ComponentGuid => new Guid("B781B9DE-6953-4E8E-A71A-801592B99CBD");
   }
 
@@ -771,7 +769,7 @@ namespace BeingAliveLanguage
 
     private string omSize = "S"; // om sizing: 0-small, 1-middle, 2-big
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsTop;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilOrganicsTop);
     public override Guid ComponentGuid => new Guid("6BE29C7A-7BE9-4DBD-9202-61FC5201E79F");
   }
 
@@ -884,7 +882,7 @@ namespace BeingAliveLanguage
 
     private string omSize = "S"; // om sizing: 0-small, 1-middle, 2-big
 
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilOrganicsTopDep;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilOrganicsTopDep);
     public override Guid ComponentGuid => new Guid("fde1d789-19ea-41aa-8330-0176f4289d1e");
   }
 
@@ -898,7 +896,7 @@ namespace BeingAliveLanguage
 
     //string appMode = "global";  // none, single, multi
     public override Guid ComponentGuid => new Guid("31d4d750-45be-444c-9255-7f68e5aa05ac");
-    protected override System.Drawing.Bitmap Icon => Properties.Resources.balSoilCompact;
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilCompact);
     public override GH_Exposure Exposure => GH_Exposure.tertiary;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

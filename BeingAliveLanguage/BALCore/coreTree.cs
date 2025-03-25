@@ -590,7 +590,7 @@ namespace BeingAliveLanguage
   {
     public Tree3D() { }
 
-    public Tree3D(Plane pln, double globalScale, double trunkScale, int seed = 0, bool branchRot = false)
+    public Tree3D(Plane pln, double globalScale, double trunkScale, int seed = 0, bool branchRot = false, string id = "")
     {
       mPln = pln;
       mGScale = globalScale;
@@ -603,6 +603,8 @@ namespace BeingAliveLanguage
 
       mMaxSideBranchLen = 0.5 * mScaledLen;
       mMinSideBranchLen = 0.25 * mScaledLen * mTScale / mStage1;
+
+      mId = id;
     }
 
     public Tree3D Copy()
@@ -613,7 +615,8 @@ namespace BeingAliveLanguage
           this.mGScale,
           this.mTScale,
           this.mRnd.Next(),  // Use a new random seed derived from current random
-          this.mBranchRot
+          this.mBranchRot,
+          this.mId
       );
 
       // Copy scalar properties
@@ -1304,6 +1307,7 @@ namespace BeingAliveLanguage
     public double mAngleTop;
     public double mMaxSideBranchLen;
     public double mMinSideBranchLen;
+    public string mId;
 
     public double mNearestTreeDist = double.MaxValue;
     public Point3d mNearestTree = new Point3d();
