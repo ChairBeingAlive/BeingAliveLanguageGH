@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime;
 using System.Threading.Tasks;
 
 namespace BeingAliveLanguage
@@ -564,35 +565,53 @@ namespace BeingAliveLanguage
       List<Polyline> res = new List<Polyline>();
 
       // tap root
-      var tapRootLen = mTreeHeight * 0.4;
+      var ratio = Math.Min(mPhase, 3.0) / 3.0;
+      var tapRootLen = mTreeHeight * 0.4 * ratio;
       var tapRoot = GrowAlongVec(mAnchor, tapRootLen, -basePln.ZAxis);
       var tapRootNrb = tapRoot.ToNurbsCurve();
       tapRootNrb.Domain = new Interval(0, 1);
       mRootTap.Add(tapRoot);
 
-
-      // lv1 horizontal roots
       var lv1HorizontalRoot = new List<Polyline>();
       var lv1TapRoots = new List<Polyline>();
+      var sideRoots = new List<Polyline>();
+
+      // Phase 1
+      if (mPhase <= 1)
+        return;
+
+      // lv1 horizontal roots
       Point3d lv1RootAnchor = tapRootNrb.PointAt(0.1);
       vecLst = GenerateVecLst(basePln, mDivN, true);
-      GrowAlongDirections(lv1RootAnchor, mTreeHeight * 0.12, vecLst, out lv1HorizontalRoot);
+      GrowAlongDirections(lv1RootAnchor, mTreeHeight * 0.1, vecLst, out lv1HorizontalRoot);
 
+      mRootMain.AddRange(lv1HorizontalRoot);
+
+      // Phase 2
+      if (mPhase == 2)
+        return;
 
       // Additional side branch lv1 roots
-      List<Polyline> sideRoots = new List<Polyline>();
       foreach (var root in lv1HorizontalRoot)
       {
         List<Polyline> sideBranches = BranchOnSide(root, mTreeHeight * 0.1, false);
         sideRoots.AddRange(sideBranches);
       }
+      mRootMain.AddRange(sideRoots);
+
+      // Phase 3
+      if (mPhase <= 3)
+        return;
 
       // Branch the lv1 horizontal roots
       List<Polyline> currentLevelRoots = new List<Polyline>(lv1HorizontalRoot);
+      var newLv1HorizontalRoot = new List<Polyline>();
+      var newSideRoot = new List<Polyline>();
       double remainingLength = mTreeHeight * 0.35; // Adjust this factor as needed
 
       List<double> lv1LengthParam = new List<double> { 0.1, 0.2, 0.3 };
-      for (int branchLevel = 0; branchLevel < 3; branchLevel++)
+      var maxBranchLevel = Math.Min(mPhase - 3, 3);
+      for (int branchLevel = 0; branchLevel < maxBranchLevel; branchLevel++)
       {
         List<Polyline> nextLevelRoots = new List<Polyline>();
         List<Polyline> surroundTapRoots = new List<Polyline>();
@@ -609,11 +628,11 @@ namespace BeingAliveLanguage
         foreach (var root in nextLevelRoots)
         {
           List<Polyline> sideBranches = BranchOnSide(root, mTreeHeight * 0.1, true);
-          sideRoots.AddRange(sideBranches);
+          newSideRoot.AddRange(sideBranches);
         }
 
         // collection
-        lv1HorizontalRoot.AddRange(nextLevelRoots);
+        newLv1HorizontalRoot.AddRange(nextLevelRoots);
         lv1TapRoots.AddRange(surroundTapRoots);
 
         currentLevelRoots = nextLevelRoots;
@@ -626,19 +645,23 @@ namespace BeingAliveLanguage
         var curSeg = GrowAlongVecInSeg(root.ToNurbsCurve().PointAtEnd, mTreeHeight * 3.3, root.ToNurbsCurve().TangentAtEnd, 4);
         lv1HorizontalAdditional.AddRange(curSeg);
       }
-      lv1HorizontalRoot.AddRange(lv1HorizontalAdditional);
 
-      mRootMain.AddRange(lv1HorizontalRoot);
-      mRootMain.AddRange(sideRoots);
+      newLv1HorizontalRoot.AddRange(lv1HorizontalAdditional);
+      mRootMain.AddRange(newLv1HorizontalRoot);
+      mRootMain.AddRange(newSideRoot);
       mRootTap.AddRange(lv1TapRoots);
 
+
+      // Phase 4-7
+      if (mPhase <= 7)
+        return;
 
       // depth2 horizontal roots
       var lv2HorizontalRoot = new List<Polyline>();
       Point3d lv2RootAnchor = tapRootNrb.PointAt(0.5);
       vecLst = GenerateVecLst(basePln, mDivN - 1, true);
       GrowAlongDirections(lv2RootAnchor, maxLength * 0.2, vecLst, out lv2HorizontalRoot);
-      mRootMain.AddRange(lv2HorizontalRoot);
+      //mRootMain.AddRange(lv2HorizontalRoot);
 
 
       // depth3 horizontal roots
@@ -646,7 +669,7 @@ namespace BeingAliveLanguage
       Point3d lv3RootAnchor = tapRootNrb.PointAt(0.9);
       vecLst = GenerateVecLst(basePln, mDivN - 2, true);
       GrowAlongDirections(lv3RootAnchor, maxLength * 0.1, vecLst, out lv3HorizontalRoot);
-      mRootMain.AddRange(lv3HorizontalRoot);
+      //mRootMain.AddRange(lv3HorizontalRoot);
 
 
       // exploration roots
@@ -673,7 +696,7 @@ namespace BeingAliveLanguage
 
 
       // debug
-      debugPt = lv1RootAnchor;
+      //debugPt = lv1RootAnchor;
 
     }
 
@@ -694,6 +717,8 @@ namespace BeingAliveLanguage
       {
         double theta = startAngle + (i * angleIncrement);
         Vector3d baseVec = basePln.XAxis * Math.Cos(theta) + basePln.YAxis * Math.Sin(theta);
+        baseVec.Unitize();
+
         vecLst.Add(baseVec);
       }
 

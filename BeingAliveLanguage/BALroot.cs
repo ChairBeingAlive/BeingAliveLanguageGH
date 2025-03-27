@@ -1108,7 +1108,7 @@ namespace BeingAliveLanguage
       pManager.AddGeometryParameter("Root3dNew", "root3dN", "Secondary roots in 3D.", GH_ParamAccess.list);
       pManager.AddLineParameter("Root3dDead", "root3dD", "Dead roots in later phases of a tree's life in 3D.", GH_ParamAccess.list);
 
-      pManager.AddPointParameter("DebugPt", "debugPt", "Debugging points.", GH_ParamAccess.item);
+      //pManager.AddPointParameter("DebugPt", "debugPt", "Debugging points.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
