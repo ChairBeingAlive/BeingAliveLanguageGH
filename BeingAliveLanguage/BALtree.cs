@@ -174,7 +174,7 @@ namespace BeingAliveLanguage
       //! 6. compose tree info for downstream compoment usage
       foreach (var t in treeCol)
       {
-        tInfoLst.Add(new TreeProperty(t.mPln, t.mHeight, t.mCurPhase));
+        tInfoLst.Add(new TreeProperty(t.mPln, t.mCurPhase, t.mHeight, 1));
       }
 
       DA.SetDataList("Circumference", circ);
@@ -267,7 +267,7 @@ namespace BeingAliveLanguage
       }
 
       double tScale = 1;
-      if (!DA.GetData("TrunkScale", ref gScale))
+      if (!DA.GetData("TrunkScale", ref tScale))
         return;
       if (tScale <= 0)
       {
@@ -347,17 +347,20 @@ namespace BeingAliveLanguage
   {
     public Tree3D Tree { get; private set; }
     public int Phase { get; private set; }
+    public double Height { get; private set; }
 
     public Tree3DWrapper()
     {
       Tree = null;
       Phase = 0;
+      Height = 0;
     }
 
     public Tree3DWrapper(Tree3D tree)
     {
       Tree = tree;
       Phase = tree.mPhase;
+      Height = tree.mHeight;
     }
 
     #region IGH_Goo implementation
@@ -512,8 +515,7 @@ namespace BeingAliveLanguage
           }
 
           // Calculate tree height
-          double height = treeWrapper.Tree.GetHeight();
-          treeInfoTree.Add(new TreeProperty(treeWrapper.Tree.mPln, height, treeWrapper.Phase), treePath);
+          treeInfoTree.Add(new TreeProperty(treeWrapper.Tree.mPln, treeWrapper.Phase, treeWrapper.Height, treeWrapper.Tree.mScaledLen), treePath);
         }
       }
 

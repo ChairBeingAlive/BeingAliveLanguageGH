@@ -23,7 +23,7 @@
 		<AutoGenerateBindingRedirects>False</AutoGenerateBindingRedirects>
 		<Version>$(AssemblyVersion)</Version>
 		<PackageProjectUrl>https://beingalivelanguage.arch.ethz.ch</PackageProjectUrl>
-		<AssemblyVersion>0.7.6</AssemblyVersion>
+		<AssemblyVersion>0.8.2</AssemblyVersion>
 	</PropertyGroup>
 
 	<ItemGroup>

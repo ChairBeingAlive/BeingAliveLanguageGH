@@ -146,13 +146,15 @@ namespace BeingAliveLanguage
   {
     public Plane pln;
     public double height;
+    public double unitLen;
     public int phase;
 
-    public TreeProperty(in Plane plane, double h, int phase)
+    public TreeProperty(in Plane plane, int phase, double h, double unitLen)
     {
       this.pln = plane;
-      this.height = h;
       this.phase = phase;
+      this.height = h;
+      this.unitLen = unitLen;
     }
   }
 
