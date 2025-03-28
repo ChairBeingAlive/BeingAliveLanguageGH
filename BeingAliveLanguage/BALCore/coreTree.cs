@@ -597,7 +597,7 @@ namespace BeingAliveLanguage
       mTScale = trunkScale;
 
       var baseLen = 10;
-      mScaledLen = baseLen * mGScale;
+      mScaledLen = baseLen * mGScale * mGScale;
       mRnd = new Random(seed);
       mBranchRot = branchRot;
 
@@ -761,8 +761,9 @@ namespace BeingAliveLanguage
         GrowStage4();
       }
 
-      // update radius
+      // update radius and height
       mSoloRadius = GetRadius();
+      mHeight = GetHeight();
 
       // scale 2D if tree size is too large (> 0.5 nearest tree distance)
       //ForestRescale();
@@ -1307,6 +1308,7 @@ namespace BeingAliveLanguage
     public double mAngleTop;
     public double mMaxSideBranchLen;
     public double mMinSideBranchLen;
+    public double mHeight;
     public string mId;
 
     public double mNearestTreeDist = double.MaxValue;

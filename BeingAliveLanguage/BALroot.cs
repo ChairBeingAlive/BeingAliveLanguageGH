@@ -1101,14 +1101,14 @@ namespace BeingAliveLanguage
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
     {
-      pManager.AddLineParameter("All Roots", "rootAll", "The planar root drawing, collection of all level roots.", GH_ParamAccess.list);
+      //pManager.AddLineParameter("All Roots", "rootAll", "The planar root drawing, collection of all level roots.", GH_ParamAccess.list);
 
-      pManager.AddGeometryParameter("Root3dMain", "root3dM", "Primary horizontal roots in 3D.", GH_ParamAccess.list);
-      pManager.AddGenericParameter("Root3dTap", "root3dT", "Tap roots in 3D.", GH_ParamAccess.list);
-      pManager.AddGeometryParameter("Root3dNew", "root3dN", "Secondary roots in 3D.", GH_ParamAccess.list);
-      pManager.AddLineParameter("Root3dDead", "root3dD", "Dead roots in later phases of a tree's life in 3D.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Root3dTap", "root3dT", "Tap roots in 3D.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Root3dMaster", "root3dM", "Master horizontal roots in 3D.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Root3dExplorer", "root3dE", "Explorer horizontal roots in 3D.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("Root3dDead", "root3dD", "Dead roots in various phases of a tree's life in 3D.", GH_ParamAccess.list);
 
-      pManager.AddPointParameter("DebugPt", "debugPt", "Debugging points.", GH_ParamAccess.item);
+      //pManager.AddPointParameter("DebugPt", "debugPt", "Debugging points.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -1124,31 +1124,24 @@ namespace BeingAliveLanguage
       if (!DA.GetData("SoilMap3d", ref sMap3d))
       { return; }
 
-      //if (sMap3d.mPln != tInfo.pln)
-      //{
-      //  AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Tree plane and SoilMap plane does not match. This may cause issues for the root drawing.");
-      //}
-
       // ! get anchor additional info 
       //var anchorPt = sMap3d.GetNearestPoint(tInfo.pln.Origin);
       var anchorPt = tInfo.pln.Origin;
       var curPhase = tInfo.phase;
       var curHeight = tInfo.height;
-      //if (anchorPt.DistanceTo(tInfo.pln.Origin) > sMap)
-      //{
-      //  AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tree anchor point is too far from the soil. Please plant your tree near the soil grid.");
-      //}
+      var curUnitLen = tInfo.unitLen;
       #endregion
 
       //Draw Roots based on the current phase
-      var rootTree3D = new RootTree3D(sMap3d, anchorPt, curHeight, curPhase, 6);
+      var rootTree3D = new RootTree3D(sMap3d, anchorPt, curUnitLen, curPhase, 6);
       rootTree3D.GrowRoot();
 
       // Output data
-      DA.SetData("DebugPt", rootTree3D.debugPt);
-      DA.SetDataList("Root3dMain", rootTree3D.GetRootMain());
+      //DA.SetData("DebugPt", rootTree3D.debugPt);
       DA.SetDataList("Root3dTap", rootTree3D.GetRootTap());
-      DA.SetDataList("Root3dNew", rootTree3D.GetRootExplore());
+      DA.SetDataList("Root3dMaster", rootTree3D.GetRootMaster());
+      DA.SetDataList("Root3dExplorer", rootTree3D.GetRootExplorer());
+      DA.SetDataList("Root3dDead", rootTree3D.GetRootDead());
 
     }
   }

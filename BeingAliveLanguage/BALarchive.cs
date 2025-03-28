@@ -787,7 +787,8 @@ namespace BeingAliveLanguage
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Global scale should be positive.");
           return;
         }
-      };
+      }
+      ;
 
       if (gsLst.Count == 1)
         gsLst = Enumerable.Repeat(gsLst[0], plnLst.Count).ToList();
@@ -807,7 +808,8 @@ namespace BeingAliveLanguage
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Trunk scale should be positive.");
           return;
         }
-      };
+      }
+      ;
       if (tsLst.Count == 1)
         tsLst = Enumerable.Repeat(tsLst[0], plnLst.Count).ToList();
       else if (tsLst.Count != plnLst.Count)
@@ -826,7 +828,8 @@ namespace BeingAliveLanguage
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Angle should be within [0, 90].");
           return;
         }
-      };
+      }
+      ;
       if (angLstMain.Count == 1)
         angLstMain = Enumerable.Repeat(angLstMain[0], plnLst.Count).ToList();
       else if (angLstMain.Count != plnLst.Count)
@@ -845,7 +848,8 @@ namespace BeingAliveLanguage
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Angle should be within [0, 90].");
           return;
         }
-      };
+      }
+      ;
       if (angLstTop.Count == 1)
         angLstTop = Enumerable.Repeat(angLstTop[0], plnLst.Count).ToList();
       else if (angLstTop.Count != plnLst.Count)
@@ -864,7 +868,8 @@ namespace BeingAliveLanguage
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase should be non-negative.");
           return;
         }
-      };
+      }
+      ;
       if (phaseLst.Count == 1)
         phaseLst = Enumerable.Repeat(phaseLst[0], plnLst.Count).ToList();
       else if (phaseLst.Count != plnLst.Count)
@@ -883,7 +888,8 @@ namespace BeingAliveLanguage
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Seed should be non-negative.");
           return;
         }
-      };
+      }
+      ;
       if (seedLst.Count == 1)
         seedLst = Enumerable.Repeat(seedLst[0], plnLst.Count).ToList();
       else if (seedLst.Count != plnLst.Count)
@@ -1031,7 +1037,7 @@ namespace BeingAliveLanguage
           tHeight = Math.Max(Math.Abs(Vector3d.Multiply(dir, t.mPln.ZAxis)), tHeight);
         }
 
-        tInfoCol.Add(new TreeProperty(t.mPln, tHeight, phaseLst[i]), new GH_Path(new int[] { i }));
+        tInfoCol.Add(new TreeProperty(t.mPln, phaseLst[i], tHeight, 1), new GH_Path(new int[] { i }));
       }
 
       DA.SetDataTree(0, trCrv);
