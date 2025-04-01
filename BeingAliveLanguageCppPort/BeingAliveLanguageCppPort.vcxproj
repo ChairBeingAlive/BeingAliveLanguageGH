@@ -119,7 +119,7 @@ if %errorlevel% leq 1 exit 0 else exit %errorlevel%</Command>
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>robocopy $(TargetDir) $(SolutionDir)bin *CppPort.dll
+      <Command>robocopy $(TargetDir) $(SolutionDir)cppPrebuild *CppPort.dll
 if %errorlevel% leq 1 exit 0 else exit %errorlevel%</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

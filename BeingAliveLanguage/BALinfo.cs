@@ -24,8 +24,11 @@ namespace BeingAliveLanguage
     public override string AuthorContact => "https://beingalivelanguage.arch.ethz.ch";
     public override GH_LibraryLicense License => GH_LibraryLicense.opensource;
 
-    //Return a string representing the version.  This returns the same version as the assembly.
-    public override string AssemblyVersion => GetType().Assembly.GetName().Version.ToString();
+    //public override string AssemblyVersion => GetType().Assembly.GetName().Version.ToString();
+    public override string AssemblyVersion => "0.8.3";
+
+    // this is currently the variable used by McNeel for plugin system
+    public override string Version => AssemblyVersion;
   }
 
   // update plugin icons in the tab
