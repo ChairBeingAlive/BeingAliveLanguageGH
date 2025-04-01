@@ -65,12 +65,12 @@ jobs:
     # Build C# Project
     - name: Build C# Project 
       run: |
-        # Set solution directory explicitly
-        $solutionDir = "${{ github.workspace }}"
+        $solutionPath = "${{ github.workspace }}\BeingAliveLanguage.sln"
         msbuild ${{ env.CSProj_Path }} `
           /p:Configuration=${{ env.Configuration }} `
           /p:Platform=AnyCPU `
-          /p:SolutionDir="$solutionDir\"
+          /p:SolutionDir="${{ github.workspace }}\" `
+          /p:SolutionPath="$solutionPath"
       # run: msbuild ${{ env.CSProj_Path }} /p:Configuration=${{ env.Configuration }} /p:Platform=AnyCPU
       
     # Create artifact directory
