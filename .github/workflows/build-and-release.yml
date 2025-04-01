@@ -46,11 +46,11 @@ jobs:
     #     nuget install RhinoCommon -Version 7.20.22193.9001 -OutputDirectory packages
     #     nuget install Grasshopper -Version 7.20.22193.9001 -OutputDirectory packages
 
-    - name: Install Rhino
-      uses: mcneel/setup-rhino3d@v2
-      id: setup_rhino
-      with:
-        email-address: ${{ secrets.EMAIL_ADDRESS }}
+    # - name: Install Rhino
+    #   uses: mcneel/setup-rhino3d@v2
+    #   id: setup_rhino
+    #   with:
+    #     email-address: ${{ secrets.EMAIL_ADDRESS }}
 
     - name: Restore NuGet packages
       run: nuget restore ${{ env.Solution_Name }}
@@ -59,8 +59,8 @@ jobs:
       run: vcpkg install libigl:x64-windows
       
     # Build C++ Project
-    - name: Build C++ Project
-      run: msbuild ${{ env.CPP_Project_Path }} /p:Configuration=${{ env.Configuration }} /p:Platform=x64
+    # - name: Build C++ Project
+    #   run: msbuild ${{ env.CPP_Project_Path }} /p:Configuration=${{ env.Configuration }} /p:Platform=x64
       
     # Build C# Project
     - name: Build C# Project 
@@ -73,15 +73,15 @@ jobs:
       shell: pwsh
         
     # Copy build outputs to artifact directory
-    - name: Copy build outputs
-      run: |
-        # Copy C++ outputs
-        cp ${{ env.CPP_Project_Path }}/bin/x64/${{ env.Configuration }}/*.dll artifacts/release/
-        # Copy C# outputs
-        cp path/to/csharp/bin/${{ env.Configuration }}/*.dll artifacts/release/
-        cp path/to/csharp/bin/${{ env.Configuration }}/*.gha artifacts/release/
-        # cp path/to/csharp/bin/${{ env.Configuration }}/*.config artifacts/release/
-      shell: pwsh
+    # - name: Copy build outputs
+    #   run: |
+    #     # Copy C++ outputs
+    #     cp ${{ env.CPP_Project_Path }}/bin/x64/${{ env.Configuration }}/*.dll artifacts/release/
+    #     # Copy C# outputs
+    #     cp path/to/csharp/bin/${{ env.Configuration }}/*.dll artifacts/release/
+    #     cp path/to/csharp/bin/${{ env.Configuration }}/*.gha artifacts/release/
+    #     # cp path/to/csharp/bin/${{ env.Configuration }}/*.config artifacts/release/
+    #   shell: pwsh
         
     # Upload build artifacts
     - name: Upload build artifacts
