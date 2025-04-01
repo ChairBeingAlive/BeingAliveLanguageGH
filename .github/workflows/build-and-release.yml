@@ -64,7 +64,14 @@ jobs:
       
     # Build C# Project
     - name: Build C# Project 
-      run: msbuild ${{ env.CSProj_Path }} /p:Configuration=${{ env.Configuration }} /p:Platform=AnyCPU
+      run: |
+        # Set solution directory explicitly
+        $solutionDir = "${{ github.workspace }}"
+        msbuild ${{ env.CSProj_Path }} `
+          /p:Configuration=${{ env.Configuration }} `
+          /p:Platform=AnyCPU `
+          /p:SolutionDir="$solutionDir\"
+      # run: msbuild ${{ env.CSProj_Path }} /p:Configuration=${{ env.Configuration }} /p:Platform=AnyCPU
       
     # Create artifact directory
     - name: Create artifact directory
