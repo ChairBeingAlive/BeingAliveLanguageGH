@@ -646,7 +646,7 @@ namespace BeingAliveLanguage
         // collect the newly growed roots with phase interval
         nextLevelRoots.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 12))));
         surroundTapRoots.ForEach(x => mRootTap.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 11))));
-        explorerRoots.ForEach(x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, mPhase + 4))));
+        explorerRoots.ForEach(x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, mPhase + 4)))));
 
         // update currentLevel for the next iteration
         frontEndRoots = nextLevelRoots;
@@ -669,8 +669,8 @@ namespace BeingAliveLanguage
           exploiterCollection.AddRange(newExploiter);
         }
 
-        masterColletion.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 11))));
-        exploiterCollection.ForEach(x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 11))));
+        masterColletion.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 12))));
+        exploiterCollection.ForEach(x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, mPhase + 3)))));
 
         frontEndRoots = masterColletion;
       }
@@ -685,7 +685,7 @@ namespace BeingAliveLanguage
           exploiterCollection.AddRange(newExploiter);
         }
 
-        exploiterCollection.ForEach(x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 11))));
+        exploiterCollection.ForEach(x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, Math.Min(12, mPhase + 4)))));
       }
 
 
