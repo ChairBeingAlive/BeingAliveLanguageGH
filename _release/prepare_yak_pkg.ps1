@@ -11,10 +11,12 @@ echo "target folder:"
 echo $targetFolder
 echo "========================="
 
+# Download Yak.exe if not already present
+curl.exe -fSLo yak.exe https://files.mcneel.com/yak/tools/0.13.0/yak.exe
+
 #--------------------------------------
 # Rhino 8, net7.0
 #--------------------------------------
-
 if (Test-Path "releaseRH8"){
   Remove-Item releaseRH8 -Recurse
 }
@@ -27,15 +29,12 @@ if (Test-Path "manifest.yml")
   Remove-Item manifest.yml
 }
 
-# Download Yak.exe if not already present
-curl.exe -fSLo yak.exe https://files.mcneel.com/yak/tools/0.13.0/yak.exe
-
 Copy-Item -Path "${targetFolder}\bin\net48" -Destination "." -Recurse
 Copy-Item -Path "${targetFolder}\bin\net7.0" -Destination "." -Recurse
 Copy-Item -Path "${targetFolder}\bin\net7.0-windows" -Destination "." -Recurse
 
 Copy-Item -Path "${currentFolder}\icon_new.png" -Destination "." -Recurse
-./yak.exe spec; 
+./../yak.exe spec; 
 Add-Content manifest.yml "`nicon: icon_new.png"
 Add-Content manifest.yml "`nkeywords: `n - drawing `n - climate `n - soil `n - language"
 
@@ -44,7 +43,7 @@ Write-Host "Modified Manifest File for NetCore 7, Rhino 8"
 Write-Host "======================================="
 Get-Content manifest.yml
 
-./yak.exe build
+./../yak.exe build
 Copy-Item -Path ".\*.yak" -Destination "${currentFolder}" -Recurse
 
 Pop-Location
@@ -65,7 +64,7 @@ if (Test-Path "manifest.yml")
 Copy-Item -Path "${targetFolder}\bin\net48\*" -Destination "." -Recurse
 Copy-Item -Path "${currentFolder}\icon_new.png" -Destination "." -Recurse
 
-Yak spec; 
+./../yak.exe spec; 
 Add-Content manifest.yml "`nicon: icon_new.png"
 Add-Content manifest.yml "`nkeywords: `n - drawing `n - climate `n - soil `n - language"
 
@@ -74,7 +73,7 @@ Write-Host "Modified Manifest File for NetCore 7, Rhino 8"
 Write-Host "======================================="
 Get-Content manifest.yml
 
-&'C:\Program Files\Rhino 8\System\Yak.exe' build
+./../yak.exe build
 Copy-Item -Path ".\*.yak" -Destination "${currentFolder}" -Recurse
 Pop-Location
 
