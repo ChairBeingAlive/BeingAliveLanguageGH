@@ -93,7 +93,6 @@
 	</Target>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-	  <Exec Command="setlocal enableextensions enabledelayedexpansion&#xD;&#xA;&#xD;&#xA;:: Extract target framework from TargetDir&#xD;&#xA;set &quot;target_dir=$(TargetDir)&quot;&#xD;&#xA;:: Remove trailing backslash if present&#xD;&#xA;if &quot;!target_dir:~-1!&quot;==&quot;\&quot; set &quot;target_dir=!target_dir:~0,-1!&quot;&#xD;&#xA;for %25%25I in (&quot;!target_dir!&quot;) do set &quot;tfm=%25%25~nxI&quot;&#xD;&#xA;&#xD;&#xA;:: Create framework-specific output directory&#xD;&#xA;set &quot;output_dir=$(SolutionDir)bin\!tfm!\&quot;&#xD;&#xA;if not exist &quot;!output_dir!&quot; mkdir &quot;!output_dir!&quot;&#xD;&#xA;&#xD;&#xA;:: Copy build outputs&#xD;&#xA;copy /y &quot;$(TargetDir)*.dll&quot; &quot;!output_dir!&quot;&#xD;&#xA;copy /y &quot;$(TargetDir)*.gha&quot; &quot;!output_dir!&quot;&#xD;&#xA;&#xD;&#xA;:: Copy prebuilt C++ DLLs to the same target directory&#xD;&#xA;copy /y &quot;$(SolutionDir)cppPrebuild\*.dll&quot; &quot;!output_dir!&quot;&#xD;&#xA;&#xD;&#xA;endlocal" />
+	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)postbuild.ps1&quot; -TargetDir &quot;$(TargetDir)&quot; -SolutionDir &quot;$(SolutionDir)&quot;" />
 	</Target>
-
 </Project>
