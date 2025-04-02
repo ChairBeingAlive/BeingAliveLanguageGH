@@ -12,6 +12,7 @@
 		<TargetExt>.gha</TargetExt>
 		<NoWarn>NU1701;NETSDK1086</NoWarn>
 		<EnableWindowsTargeting>true</EnableWindowsTargeting>
+		<BaseOutputPath>bin</BaseOutputPath>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -19,7 +20,6 @@
 		<Title>BeingAliveLanguage</Title>
 		<Company>ETH Zurich</Company>
 		<Authors>Dr. Zhao MA</Authors>
-		<BaseOutputPath>bin</BaseOutputPath>
 		<AutoGenerateBindingRedirects>False</AutoGenerateBindingRedirects>
 		<Version>$(AssemblyVersion)</Version>
 		<PackageProjectUrl>https://beingalivelanguage.arch.ethz.ch</PackageProjectUrl>
@@ -70,9 +70,26 @@
 		</None>
 	</ItemGroup>
 
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>full</DebugType>
+		<Optimize>false</Optimize>
+		<OutputPath>bin\Debug\</OutputPath>
+		<DefineConstants>DEBUG;TRACE</DefineConstants>
+		<ErrorReport>prompt</ErrorReport>
+		<WarningLevel>4</WarningLevel>
 		<PlatformTarget>x64</PlatformTarget>
-		<OutputPath>bin\</OutputPath>
+		<UseWinFormsOutOfProcDesigner>True</UseWinFormsOutOfProcDesigner>
+	</PropertyGroup>
+
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+		<DebugType>pdbonly</DebugType>
+		<Optimize>true</Optimize>
+		<OutputPath>bin\Release\</OutputPath>
+		<DefineConstants>TRACE</DefineConstants>
+		<ErrorReport>prompt</ErrorReport>
+		<WarningLevel>4</WarningLevel>
+		<UseWinFormsOutOfProcDesigner>True</UseWinFormsOutOfProcDesigner>
 	</PropertyGroup>
 
 
