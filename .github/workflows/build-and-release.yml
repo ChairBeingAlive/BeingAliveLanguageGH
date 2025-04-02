@@ -63,7 +63,7 @@ jobs:
         Copy-Item -Path "${{ github.workspace }}\bin" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
         
         # Run Yak packaging script
-        $yakScriptPath = "${{ github.workspace }}\_release_prepare_yak_pkg.ps1"
+        $yakScriptPath = "${{ github.workspace }}\_release\prepare_yak_pkg.ps1"
         & "$yakScriptPath"
         
         # Copy Yak packages to artifacts
