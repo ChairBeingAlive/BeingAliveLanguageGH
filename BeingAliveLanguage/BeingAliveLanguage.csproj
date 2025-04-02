@@ -19,7 +19,7 @@
 		<Title>BeingAliveLanguage</Title>
 		<Company>ETH Zurich</Company>
 		<Authors>Dr. Zhao MA</Authors>
-		<BaseOutputPath>bin\$(Configuration)\</BaseOutputPath>
+		<BaseOutputPath>bin</BaseOutputPath>
 		<AutoGenerateBindingRedirects>False</AutoGenerateBindingRedirects>
 		<Version>$(AssemblyVersion)</Version>
 		<PackageProjectUrl>https://beingalivelanguage.arch.ethz.ch</PackageProjectUrl>
@@ -93,6 +93,12 @@
 	</Target>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)postbuild.ps1&quot; -TargetDir &quot;$(TargetDir)&quot; -SolutionDir &quot;$(SolutionDir)&quot;" />
+	  <PropertyGroup>
+		<!-- Remove any trailing backslashes using string replacement -->
+		<_SafeTargetDir>$(TargetDir.TrimEnd('\'))</_SafeTargetDir>
+		<_SafeSolutionDir>$(SolutionDir.TrimEnd('\'))</_SafeSolutionDir>
+	  </PropertyGroup>
+	  
+	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)postbuild.ps1&quot; -TargetDir &quot;$(_SafeTargetDir)&quot; -SolutionDir &quot;$(_SafeSolutionDir)&quot;" />
 	</Target>
 </Project>

@@ -7,16 +7,14 @@ param(
 Write-Host "++++++++++++++++++++++++++++++: $TargetDir"
 Write-Host "++++++++++++++++++++++++++++++: $SolutionDir"
 
-$TargetDir = $TargetDir.TrimEnd('\', '/')
-$SolutionDir = $SolutionDir.TrimEnd('\', '/')
-Write-Host "++++++++++++++++++++++++++++++: $TargetDir"
-Write-Host "++++++++++++++++++++++++++++++: $SolutionDir"
+# $TargetDir = $TargetDir.TrimEnd('\', '/')
+# $SolutionDir = $SolutionDir.TrimEnd('\', '/')
 
 # Extract target framework from path
 $tfm = Split-Path $TargetDir -Leaf
 
 # Set output directory
-$outputDir = Join-Path $SolutionDir "bin" $tfm
+$outputDir = Join-Path (Join-Path $SolutionDir "bin") $tfm
 $cppPrebuild = Join-Path $SolutionDir "cppPrebuild"
 
 # Create output directory
