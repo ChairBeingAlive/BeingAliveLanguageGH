@@ -21,3 +21,5 @@ _release/_releasePrepare/BeingAliveLanguage.gha
 _release/_releasePrepare/releasePkg
 _release/_releasePrepare/releaseRH8
 _release/_releasePrepare/releaseRH7
+_release/releaseRH7
+_release/releaseRH8

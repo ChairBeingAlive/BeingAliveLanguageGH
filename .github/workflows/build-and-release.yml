@@ -20,9 +20,9 @@ jobs:
     runs-on: windows-latest
     env:
       Solution_Name: BeingAliveLanguage.sln
-      CPP_Project_Path: ./BeingAliveLanguageCppPort/BeingAliveLanguageCppPort.vcxproj
       CSProj_Path: ./BeingAlivelanguage/BeingAliveLanguage.csproj
       Configuration: Release
+      ARTIFACTS_DIR: artifacts/release
 
     steps:
     - uses: actions/checkout@v3
@@ -40,12 +40,6 @@ jobs:
       with:
          dotnet-version: 7.0.x
 
-    # Install Rhino8 SDK via NuGet
-    # - name: Install Rhino8 SDK
-    #   run: |
-    #     nuget install RhinoCommon -Version 7.20.22193.9001 -OutputDirectory packages
-    #     nuget install Grasshopper -Version 7.20.22193.9001 -OutputDirectory packages
-
     - name: Restore NuGet packages
       run: nuget restore ${{ env.Solution_Name }}
 
@@ -58,29 +52,32 @@ jobs:
           /p:SolutionDir="${{ github.workspace }}\" `
           /p:SolutionPath="$solutionPath"
       
-    # Create artifact directory
-    - name: Create artifact directory
-      run: |
-        mkdir -Force artifacts/release
+
+    - name: Prepare Artifacts
       shell: pwsh
+      run: |
+        # Create artifacts directory
+        New-Item -ItemType Directory -Path ${{ env.ARTIFACTS_DIR }} -Force
         
-    # Copy build outputs to artifact directory
-    # - name: Copy build outputs
-    #   run: |
-    #     # Copy C++ outputs
-    #     cp ${{ env.CPP_Project_Path }}/bin/x64/${{ env.Configuration }}/*.dll artifacts/release/
-    #     # Copy C# outputs
-    #     cp path/to/csharp/bin/${{ env.Configuration }}/*.dll artifacts/release/
-    #     cp path/to/csharp/bin/${{ env.Configuration }}/*.gha artifacts/release/
-    #     # cp path/to/csharp/bin/${{ env.Configuration }}/*.config artifacts/release/
-    #   shell: pwsh
+        # Copy entire bin directory
+        Copy-Item -Path "${{ github.workspace }}\bin" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
         
-    # Upload build artifacts
-    - name: Upload build artifacts
+        # Run Yak packaging script
+        $yakScriptPath = "${{ github.workspace }}\_release_prepare_yak_pkg.ps1"
+        & "$yakScriptPath"
+        
+        # Copy Yak packages to artifacts
+        Copy-Item -Path "${{ github.workspace }}\_release\*.yak" -Destination ${{ env.ARTIFACTS_DIR }} -Force
+
+    - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: BeingAliveLanguage-Build
-        path: artifacts/release
+        name: release-packages
+        path: |
+          ${{ env.ARTIFACTS_DIR }}/**/*.dll
+          ${{ env.ARTIFACTS_DIR }}/**/*.gha
+          ${{ env.ARTIFACTS_DIR }}/**/*.yak
+          ${{ env.ARTIFACTS_DIR }}/bin/
         
     # Create GitHub Release
     - name: Create Release

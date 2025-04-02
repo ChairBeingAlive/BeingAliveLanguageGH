@@ -1,12 +1,12 @@
 # Description: Prepare the package for Yak
 
 # setting the path to the target folder
-$prepareFolder = Get-Location
-$targetFolder = (Get-Item $prepareFolder).Parent.Parent.FullName
+$currentFolder = Get-Location
+$targetFolder = (Get-Item $currentFolder).Parent.FullName
 
 echo "========================="
 echo "current folder:"
-echo $prepareFolder
+echo $currentFolder
 echo "target folder:"
 echo $targetFolder
 echo "========================="
@@ -27,12 +27,15 @@ if (Test-Path "manifest.yml")
   Remove-Item manifest.yml
 }
 
+# Download Yak.exe if not already present
+curl.exe -fSLo yak.exe https://files.mcneel.com/yak/tools/0.13.0/yak.exe
+
 Copy-Item -Path "${targetFolder}\bin\net48" -Destination "." -Recurse
 Copy-Item -Path "${targetFolder}\bin\net7.0" -Destination "." -Recurse
 Copy-Item -Path "${targetFolder}\bin\net7.0-windows" -Destination "." -Recurse
 
-Copy-Item -Path "${prepareFolder}\icon_new.png" -Destination "." -Recurse
-Yak spec; 
+Copy-Item -Path "${currentFolder}\icon_new.png" -Destination "." -Recurse
+./yak.exe spec; 
 Add-Content manifest.yml "`nicon: icon_new.png"
 Add-Content manifest.yml "`nkeywords: `n - drawing `n - climate `n - soil `n - language"
 
@@ -41,8 +44,8 @@ Write-Host "Modified Manifest File for NetCore 7, Rhino 8"
 Write-Host "======================================="
 Get-Content manifest.yml
 
-&'C:\Program Files\Rhino 8\System\Yak.exe' build
-Copy-Item -Path ".\*.yak" -Destination "${prepareFolder}" -Recurse
+./yak.exe build
+Copy-Item -Path ".\*.yak" -Destination "${currentFolder}" -Recurse
 
 Pop-Location
 
@@ -60,7 +63,7 @@ if (Test-Path "manifest.yml")
 }
 
 Copy-Item -Path "${targetFolder}\bin\net48\*" -Destination "." -Recurse
-Copy-Item -Path "${prepareFolder}\icon_new.png" -Destination "." -Recurse
+Copy-Item -Path "${currentFolder}\icon_new.png" -Destination "." -Recurse
 
 Yak spec; 
 Add-Content manifest.yml "`nicon: icon_new.png"
@@ -72,15 +75,8 @@ Write-Host "======================================="
 Get-Content manifest.yml
 
 &'C:\Program Files\Rhino 8\System\Yak.exe' build
-Copy-Item -Path ".\*.yak" -Destination "${prepareFolder}" -Recurse
+Copy-Item -Path ".\*.yak" -Destination "${currentFolder}" -Recurse
 Pop-Location
-
-
-#
-# echo "========================="
-# echo "Build Package:"
-# echo "========================="
-# &'C:\Program Files\Rhino 8\System\Yak.exe' login
 
 
 # then yak push xx.yak in the cmd line
