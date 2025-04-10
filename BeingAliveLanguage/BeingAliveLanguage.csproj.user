@@ -5,7 +5,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <ActiveDebugProfile>Rhino8-NetCore</ActiveDebugProfile>
-    <ActiveDebugFramework>net7.0</ActiveDebugFramework>
+    <ActiveDebugFramework>net7.0-windows</ActiveDebugFramework>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net7.0|AnyCPU'">
     <DebuggerFlavor>ProjectDebugger</DebuggerFlavor>

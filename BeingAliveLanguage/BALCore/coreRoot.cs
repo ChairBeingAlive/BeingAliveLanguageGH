@@ -552,10 +552,7 @@ namespace BeingAliveLanguage
     List<RootBranch> mRootMaster = new List<RootBranch>();
     List<RootBranch> mRootTap = new List<RootBranch>();
     List<RootBranch> mRootExplorer = new List<RootBranch>();
-    List<RootBranch> mRootNew = new List<RootBranch>();
-    List<RootBranch> mRootDead = new List<RootBranch>();
-
-    public Point3d debugPt;
+   public Point3d debugPt;
 
     public RootTree3D() { }
 
@@ -574,7 +571,7 @@ namespace BeingAliveLanguage
     /// when rootbranch in "start" phase, it falls into the "new" branch category
     /// when rootbranch in "end" phase, it falls into the "dead" branch category
     /// </summary>
-    public void GrowRoot()
+    public String GrowRoot()
     {
       // Get the directional vector based on divN
       Plane basePln = mMap3d.mPln;
@@ -592,6 +589,11 @@ namespace BeingAliveLanguage
       var tapRoot_2 = GrowAlongVec(tapRoot_1.PointAtEnd, tapRootLen * 0.4, -basePln.ZAxis).ToNurbsCurve();
       mRootTap.Add(new RootBranch(tapRoot_1, new Interval(1, 11)));
       mRootTap.Add(new RootBranch(tapRoot_2, new Interval(2, 11)));
+
+      if (tapRoot_1.GetLength() + tapRoot_2.GetLength() > tapRootLen * 1.5)
+      {
+        return String.Format("Soil context doesn't have enough points (density too low). Please increase the point number.");
+      }
 
       // join two segments for later usage
       var tapRoot = NurbsCurve.JoinCurves(new List<NurbsCurve> { tapRoot_1, tapRoot_2 }).First();
@@ -654,7 +656,7 @@ namespace BeingAliveLanguage
 
       // Phase 6-8: more steps growth of explorer without branching
       maxBranchLevel = Math.Min(3, mPhase - 5);
-      double lenParam = 0.5;
+      double lenParam = 0.4;
       for (int branchLv = 0; branchLv < maxBranchLevel; branchLv++)
       {
         var startPhase = 6;
@@ -697,11 +699,11 @@ namespace BeingAliveLanguage
       Point3d lv2RootAnchor = tapRoot.PointAt(0.4);
       vecLst = GenerateVecLst(basePln, mDivN - 1, false);
       List<Polyline> lv2HorizontalCore = new List<Polyline>();
-      GrowAlongDirections(lv2RootAnchor, mUnitLen * 0.2, vecLst, out lv2HorizontalCore);
+      GrowAlongDirections(lv2RootAnchor, mUnitLen * 0.15, vecLst, out lv2HorizontalCore);
       lv2HorizontalCore.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(4, 11))));
 
       // Iteratively grow the Master Rootsin Level 1 by bi-branching for max 3 times (Phase 5 - 6)
-      List<double> lv2LengthParam = new List<double> { 0.1, 0.2 };
+      List<double> lv2LengthParam = new List<double> { 0.1, 0.13 };
       frontEndRoots = new List<Polyline>(lv2HorizontalCore);
       maxBranchLevel = Math.Min(mPhase - 4, lv2LengthParam.Count);
       for (int branchLv = 0; branchLv < maxBranchLevel; branchLv++)
@@ -795,6 +797,8 @@ namespace BeingAliveLanguage
 
       // debug
       //debugPt = lv1RootAnchor;
+
+      return "Success";
     }
 
     public List<Vector3d> GenerateVecLst(Plane basePln, int totalVectors, bool randomizeStart = false)
@@ -1056,10 +1060,10 @@ namespace BeingAliveLanguage
         mainRootDirection.Unitize();
 
         // Grow two explorational roots in opposite directions
-        explorationDist = mainRoot.Length * MathUtils.remap(MathUtils.balRnd.NextDouble(), 0.0, 1.0, 0.05, 0.15);
+        explorationDist = mainRoot.Length * MathUtils.remap(MathUtils.balRnd.NextDouble(), 0.0, 1.0, 0.03, 0.08);
         explorationalRoots.Add(GrowSingleExplorationalRoot(pt, mainRootDirection, explorationDist, false));
 
-        explorationDist = mainRoot.Length * MathUtils.remap(MathUtils.balRnd.NextDouble(), 0.0, 1.0, 0.05, 0.15);
+        explorationDist = mainRoot.Length * MathUtils.remap(MathUtils.balRnd.NextDouble(), 0.0, 1.0, 0.03, 0.08);
         explorationalRoots.Add(GrowSingleExplorationalRoot(pt, mainRootDirection, explorationDist, true));
       }
 

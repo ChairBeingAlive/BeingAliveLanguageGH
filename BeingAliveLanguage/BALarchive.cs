@@ -1037,7 +1037,7 @@ namespace BeingAliveLanguage
           tHeight = Math.Max(Math.Abs(Vector3d.Multiply(dir, t.mPln.ZAxis)), tHeight);
         }
 
-        tInfoCol.Add(new TreeProperty(t.mPln, phaseLst[i], tHeight, 1), new GH_Path(new int[] { i }));
+        tInfoCol.Add(new TreeProperty(t.mPln, phaseLst[i], tHeight, tHeight, 1), new GH_Path(new int[] { i }));
       }
 
       DA.SetDataTree(0, trCrv);

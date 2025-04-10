@@ -474,6 +474,8 @@ namespace BeingAliveLanguage
     // tree core param
     public Plane mPln;
     public double mHeight;
+    // placeholder, not used for 2D cases
+    public double mRadius = 1;
     public int mCurPhase;
     bool mUnitary = false;
 
@@ -597,7 +599,7 @@ namespace BeingAliveLanguage
       mTScale = trunkScale;
 
       var baseLen = 10;
-      mScaledLen = baseLen * mGScale * mGScale;
+      mScaledLen = baseLen * mGScale * mTScale;
       mRnd = new Random(seed);
       mBranchRot = branchRot;
 
@@ -1322,7 +1324,7 @@ namespace BeingAliveLanguage
 
     // curve collection
     BranchNode3D mBaseNode;
-    double mSoloRadius;
+    public double mSoloRadius;
 
     public List<Point3d> mNearestTrees = new List<Point3d>();
     public Dictionary<int, HashSet<int>> mBranchRelation = new Dictionary<int, HashSet<int>>();

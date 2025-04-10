@@ -1129,12 +1129,17 @@ namespace BeingAliveLanguage
       var anchorPt = tInfo.pln.Origin;
       var curPhase = tInfo.phase;
       var curHeight = tInfo.height;
+      var curRadius = tInfo.radius;
       var curUnitLen = tInfo.unitLen;
       #endregion
 
       //Draw Roots based on the current phase
       var rootTree3D = new RootTree3D(sMap3d, anchorPt, curUnitLen, curPhase, 6);
-      rootTree3D.GrowRoot();
+      string msg = rootTree3D.GrowRoot();
+      if (msg != "Success")
+      {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, msg);
+      }
 
       // Output data
       //DA.SetData("DebugPt", rootTree3D.debugPt);

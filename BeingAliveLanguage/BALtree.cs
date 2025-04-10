@@ -174,7 +174,7 @@ namespace BeingAliveLanguage
       //! 6. compose tree info for downstream compoment usage
       foreach (var t in treeCol)
       {
-        tInfoLst.Add(new TreeProperty(t.mPln, t.mCurPhase, t.mHeight, 1));
+        tInfoLst.Add(new TreeProperty(t.mPln, t.mCurPhase, t.mHeight, t.mRadius, 1));
       }
 
       DA.SetDataList("Circumference", circ);
@@ -213,6 +213,7 @@ namespace BeingAliveLanguage
       return base.Read(reader);
     }
   }
+
 
   /// <summary>
   /// The 3D version of the tree component.
@@ -340,6 +341,7 @@ namespace BeingAliveLanguage
     }
   }
 
+
   /// <summary>
   /// Wrapper class for Tree3D to hold additional information
   /// </summary>
@@ -348,12 +350,14 @@ namespace BeingAliveLanguage
     public Tree3D Tree { get; private set; }
     public int Phase { get; private set; }
     public double Height { get; private set; }
+    public double Radius { get; private set; }
 
     public Tree3DWrapper()
     {
       Tree = null;
       Phase = 0;
       Height = 0;
+      Radius = 0;
     }
 
     public Tree3DWrapper(Tree3D tree)
@@ -361,6 +365,7 @@ namespace BeingAliveLanguage
       Tree = tree;
       Phase = tree.mPhase;
       Height = tree.mHeight;
+      Radius = tree.mSoloRadius;
     }
 
     #region IGH_Goo implementation
@@ -427,6 +432,7 @@ namespace BeingAliveLanguage
     }
     #endregion
   }
+
 
   /// <summary>
   /// The second part of the 3D tree component - renders tree objects.
@@ -515,7 +521,14 @@ namespace BeingAliveLanguage
           }
 
           // Calculate tree height
-          treeInfoTree.Add(new TreeProperty(treeWrapper.Tree.mPln, treeWrapper.Phase, treeWrapper.Height, treeWrapper.Tree.mScaledLen), treePath);
+          treeInfoTree.Add(new TreeProperty(
+            treeWrapper.Tree.mPln,
+            treeWrapper.Phase,
+            treeWrapper.Height,
+            treeWrapper.Radius,
+            treeWrapper.Tree.mScaledLen
+            ),
+            treePath);
         }
       }
 
