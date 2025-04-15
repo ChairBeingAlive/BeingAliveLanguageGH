@@ -70,15 +70,15 @@ jobs:
           ${{ env.ARTIFACTS_DIR }}/**/*.yak
           ${{ env.ARTIFACTS_DIR }}/bin/
         
-    # Create GitHub Release
-    - name: Create Release
-      if: github.ref_type == 'tag'
-      id: create_release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: artifacts/release/*
-        name: Release ${{ github.ref_name }}
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-
+    # # Create GitHub Release
+    # - name: Create Release
+    #   if: github.ref_type == 'tag'
+    #   id: create_release
+    #   uses: softprops/action-gh-release@v2
+    #   with:
+    #     files: artifacts/release/*
+    #     name: Release ${{ github.ref_name }}
+    #     draft: false
+    #     prerelease: false
+    #     generate_release_notes: true
+    #
