@@ -1,17 +1,15 @@
 # Description: Prepare the package for Yak
-
-# setting the path to the target folder
-$currentFolder = Get-Location
-$targetFolder = (Get-Item $currentFolder).Parent.FullName
-
-# Check if we're running in GitHub Actions and adjust paths accordingly
-if ($env:GITHUB_ACTIONS -eq "true") {
-    # In GitHub Actions, the bin folder is likely in the current directory
-    $binFolder = Join-Path -Path $currentFolder -ChildPath "bin"
-} else {
-    # Local environment - use parent folder path
-    $binFolder = Join-Path -Path $targetFolder -ChildPath "bin"
+#
+$scriptPath = $PSScriptRoot
+if (!$scriptPath) {
+    # Fallback for older PowerShell versions or when invoked differently
+    $scriptPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 }
+
+$currentFolder = $scriptPath
+# $currentFolder = Get-Location
+$targetFolder = (Get-Item $currentFolder).Parent.FullName
+$binFolder = Join-Path -Path $targetFolder -ChildPath "bin"
 
 echo "========================="
 echo "current folder:"
