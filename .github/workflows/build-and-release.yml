@@ -35,6 +35,7 @@ jobs:
         fetch-depth: 0
     
     # Setup vcpkg (required by the C++ project)
+    - uses: lukka/get-cmake@latest
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
       with:
