@@ -15,9 +15,11 @@ jobs:
           - os: windows-latest
             output-ext: '.dll'
             output-path: 'build/Release/GeoSharPlusCPP.dll'
+            triplet: 'x64-windows'
           - os: macos-latest
             output-ext: '.dylib'
             output-path: 'build/libGeoSharPlusCPP.dylib'
+            triplet: 'x64-osx'
     
     runs-on: ${{ matrix.os }}
     env:
@@ -35,16 +37,38 @@ jobs:
       with:
         vcpkgGitCommitId: 8eb57355a4ffb410a2e94c07b4dca2dffbee8e50
         
-    # Configure and build using CMake - fixed to use the correct CMakeLists.txt path
+    # Install vcpkg dependencies
+    - name: Install vcpkg dependencies
+      run: |
+        ${{ github.workspace }}/vcpkg/vcpkg install  --triplet=${{ matrix.triplet }}
+      shell: bash
+        
+    # Configure and build using CMake with proper vcpkg integration
     - name: Configure and Build with CMake
       uses: lukka/run-cmake@v10
       with:
         cmakeListsTxtPath: '${{ github.workspace }}/${{ env.CPP_Project }}/CMakeLists.txt'
         configurePreset: 'default'
         buildPreset: 'release'
-        configurePresetAdditionalArgs: "['-DCMAKE_BUILD_TYPE=Release', '-B', 'build']"
+        configurePresetAdditionalArgs: "['
+          -DCMAKE_BUILD_TYPE=Release', 
+          '-B', 'build', 
+          '-DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}',
+          '-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake' ]"
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+    # Debug output for macOS to help troubleshoot
+    - name: Debug Output (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        echo "CMake version:"
+        cmake --version
+        echo "Directory structure:"
+        find build -type f -name "*.dylib" | sort
+        echo "Dependencies:"
+        otool -L build/libGeoSharPlusCPP.dylib || true
+      shell: bash
 
     # Create platform-specific directory in cppPrebuild
     - name: Create platform directory
@@ -56,7 +80,13 @@ jobs:
     - name: Copy C++ artifacts
       shell: bash
       run: |
-        cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
+        if [ -f "${{ matrix.output-path }}" ]; then
+          cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
+        else
+          echo "ERROR: Built library not found at ${{ matrix.output-path }}"
+          find build -type f | sort
+          exit 1
+        fi
       
     # Upload C++ artifacts
     - name: Upload C++ artifacts
@@ -125,6 +155,10 @@ jobs:
         
         # Copy entire bin directory (includes DLLs from postbuild.ps1)
         Copy-Item -Path "${{ github.workspace }}\bin" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
+        
+        # Make sure both platform libraries are included
+        # (in case postbuild.ps1 didn't copy the macOS .dylib files)
+        Copy-Item -Path "${{ env.CPP_PREBUILD_DIR }}/*.*" -Destination "${{ env.ARTIFACTS_DIR }}/bin/Release" -Force
         
         # Run Yak packaging script
         $yakScriptPath = "${{ github.workspace }}\_release\prepare_yak_pkg.ps1"
