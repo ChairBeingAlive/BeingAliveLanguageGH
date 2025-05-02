@@ -19,7 +19,7 @@ jobs:
           - os: macos-latest
             output-ext: '.dylib'
             output-path: 'build/libGeoSharPlusCPP.dylib'
-            triplet: 'x64-osx'
+            triplet: 'arm64-osx'
     
     runs-on: ${{ matrix.os }}
     env:
@@ -34,8 +34,6 @@ jobs:
     # Setup vcpkg (required by the C++ project)
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: 8eb57355a4ffb410a2e94c07b4dca2dffbee8e50
         
     # Install vcpkg dependencies
     - name: Install vcpkg dependencies
