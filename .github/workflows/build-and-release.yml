@@ -40,7 +40,9 @@ jobs:
     # Install vcpkg dependencies
     - name: Install vcpkg dependencies
       run: |
-        ${{ github.workspace }}/vcpkg/vcpkg install  --triplet=${{ matrix.triplet }}
+        cd ${{ github.workspace }}/${{ env.CPP_Project }}
+        ls -la  # Debug: list files to confirm vcpkg.json is present
+        ${{ github.workspace }}/vcpkg/vcpkg install --triplet=${{ matrix.triplet }}
       shell: bash
         
     # Configure and build using CMake with proper vcpkg integration
