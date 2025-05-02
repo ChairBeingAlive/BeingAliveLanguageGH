@@ -2,18 +2,77 @@ name: Build and Release
 
 on:
   push:
-    branches: [ main ]
-    tags:
-      - 'v*'
+    branches: [ cppSDK-removal ]
+    # tags:
+    #   - 'v*'
 
 jobs:
-  build:
+  build-cpp:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            output-ext: '.dll'
+            output-path: 'build/Release/GeoSharPlusCPP.dll'
+          - os: macos-latest
+            output-ext: '.dylib'
+            output-path: 'build/libGeoSharPlusCPP.dylib'
+    
+    runs-on: ${{ matrix.os }}
+    env:
+      CPP_Project: GeoSharPlusCPP
+      CPP_PREBUILD_DIR: cppPrebuild
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    # Setup vcpkg (required by the C++ project)
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 8eb57355a4ffb410a2e94c07b4dca2dffbee8e50
+        
+    # Configure and build using CMake
+    - name: Configure and Build with CMake
+      uses: lukka/run-cmake@v10
+      with:
+        configurePreset: 'default'
+        buildPreset: 'release'
+        configurePresetAdditionalArgs: "['-DCMAKE_BUILD_TYPE=Release', '-S', '${{ env.CPP_Project }}', '-B', 'build']"
+      env:
+        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+    # Create platform-specific directory in cppPrebuild
+    - name: Create platform directory
+      shell: bash
+      run: |
+        mkdir -p ${{ env.CPP_PREBUILD_DIR }}
+      
+    # Copy the built libraries to the platform-specific directory
+    - name: Copy C++ artifacts
+      shell: bash
+      run: |
+        cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
+      
+    # Upload C++ artifacts
+    - name: Upload C++ artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: cpp-libs
+        path: ${{ env.CPP_PREBUILD_DIR }}
+        
+  build-csharp:
+    needs: build-cpp
     runs-on: windows-latest
     env:
       Solution_Name: BeingAliveLanguage.sln
       CSProj_Path: ./BeingAlivelanguage/BeingAliveLanguage.csproj
       Configuration: Release
       ARTIFACTS_DIR: artifacts/release
+      CPP_PREBUILD_DIR: cppPrebuild
 
     steps:
     - uses: actions/checkout@v3
@@ -31,9 +90,23 @@ jobs:
       with:
          dotnet-version: 7.0.x
 
+    # Download C++ artifacts
+    - name: Download C++ libs
+      uses: actions/download-artifact@v4
+      with:
+        name: cpp-libs
+        path: ${{ env.CPP_PREBUILD_DIR }}
+        
+    # List the downloaded C++ libraries for verification
+    - name: List C++ libraries
+      shell: pwsh
+      run: |
+        Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -Recurse
+
     - name: Restore NuGet packages
       run: nuget restore ${{ env.Solution_Name }}
 
+    # Build C# Project - does NOT rebuild C++
     - name: Build C# Project 
       run: |
         $solutionPath = "${{ github.workspace }}\BeingAliveLanguage.sln"
@@ -43,14 +116,13 @@ jobs:
           /p:SolutionDir="${{ github.workspace }}\" `
           /p:SolutionPath="$solutionPath"
       
-
     - name: Prepare Artifacts
       shell: pwsh
       run: |
         # Create artifacts directory
         New-Item -ItemType Directory -Path ${{ env.ARTIFACTS_DIR }} -Force
         
-        # Copy entire bin directory
+        # Copy entire bin directory (includes DLLs from postbuild.ps1)
         Copy-Item -Path "${{ github.workspace }}\bin" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
         
         # Run Yak packaging script
@@ -68,6 +140,7 @@ jobs:
           ${{ env.ARTIFACTS_DIR }}/**/*.dll
           ${{ env.ARTIFACTS_DIR }}/**/*.gha
           ${{ env.ARTIFACTS_DIR }}/**/*.yak
+          ${{ env.ARTIFACTS_DIR }}/**/*.dylib
           ${{ env.ARTIFACTS_DIR }}/bin/
         
     # Create GitHub Release
@@ -81,4 +154,3 @@ jobs:
         draft: false
         prerelease: false
         generate_release_notes: true
-
