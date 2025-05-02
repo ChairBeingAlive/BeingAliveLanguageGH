@@ -1,0 +1,9 @@
+{
+  "name": "geom-bridge",
+  "version": "0.1.0",
+  "dependencies": [
+    "eigen3",
+    "flatbuffers",
+    "libigl"
+  ]
+}
