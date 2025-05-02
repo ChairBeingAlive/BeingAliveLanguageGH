@@ -65,7 +65,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release', 
           '-B', 'build', 
           '-DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}',
-          '-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake' ]"
+          ]"
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
