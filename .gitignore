@@ -24,3 +24,6 @@ _release/_releasePrepare/releaseRH7
 _release/releaseRH7
 _release/releaseRH8
 _release/yak.exe
+GeoSharPlusCPP/build
+GeoSharPlusNET/obj
+generated

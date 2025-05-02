@@ -11,7 +11,6 @@ namespace BeingAliveLanguage
     {
       outPt = new List<Point3d>();
       BalFuncWrapper.SampleElim(inPt, generalArea, num, out outPt);
-      //BeingAliveLanguageRC.Utils.SampleElim(inPt, generalArea, num, out outPt);
     }
 
 
@@ -21,7 +20,6 @@ namespace BeingAliveLanguage
       genPt = new List<Point3d>();
       outPt = new List<Point3d>();
       BalFuncWrapper.SampleElim(bnd, num, out genPt, out outPt, seed, bndScale, initPtRange);
-      //BeingAliveLanguageRC.Utils.SampleElim(bnd, num, out genPt, out outPt, seed, bndScale, initPtRange);
     }
   }
 
