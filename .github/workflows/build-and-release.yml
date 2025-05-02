@@ -16,11 +16,14 @@ jobs:
             output-ext: '.dll'
             output-path: 'build/Release/GeoSharPlusCPP.dll'
             triplet: 'x64-windows'
+            configure-preset: 'windows-release'
+            build-preset: 'windows-release'
           - os: macos-latest
             output-ext: '.dylib'
             output-path: 'build/libGeoSharPlusCPP.dylib'
             triplet: 'arm64-osx'
-    
+            configure-preset: 'macos-release'
+            build-preset: 'macos-release' 
     runs-on: ${{ matrix.os }}
     env:
       CPP_Project: GeoSharPlusCPP
@@ -54,20 +57,15 @@ jobs:
         ls -la  # Debug: list files to confirm vcpkg.json is present
         "${{ github.workspace }}/vcpkg/vcpkg" install --triplet=${{ matrix.triplet }}
         
-    # Configure and build using CMake with proper vcpkg integration
+    # Configure and build using CMake with presets
     - name: Configure and Build with CMake
       uses: lukka/run-cmake@v10
       with:
         cmakeListsTxtPath: '${{ github.workspace }}/${{ env.CPP_Project }}/CMakeLists.txt'
-        configurePreset: 'default'
-        buildPreset: 'release'
-        configurePresetAdditionalArgs: "['
-          -DCMAKE_BUILD_TYPE=Release', 
-          '-B', 'build', 
-          '-DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}',
-          ]"
-      env:
-        VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+        configurePreset: ${{ matrix.configure-preset }}
+        buildPreset: ${{ matrix.build-preset }}
+
+        
 
     # Debug output for macOS to help troubleshoot
     - name: Debug Output (macOS)
