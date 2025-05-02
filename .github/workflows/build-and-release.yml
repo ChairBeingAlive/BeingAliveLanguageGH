@@ -35,13 +35,14 @@ jobs:
       with:
         vcpkgGitCommitId: 8eb57355a4ffb410a2e94c07b4dca2dffbee8e50
         
-    # Configure and build using CMake
+    # Configure and build using CMake - fixed to use the correct CMakeLists.txt path
     - name: Configure and Build with CMake
       uses: lukka/run-cmake@v10
       with:
+        cmakeListsTxtPath: '${{ github.workspace }}/${{ env.CPP_Project }}/CMakeLists.txt'
         configurePreset: 'default'
         buildPreset: 'release'
-        configurePresetAdditionalArgs: "['-DCMAKE_BUILD_TYPE=Release', '-S', '${{ env.CPP_Project }}', '-B', 'build']"
+        configurePresetAdditionalArgs: "['-DCMAKE_BUILD_TYPE=Release', '-B', 'build']"
       env:
         VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
