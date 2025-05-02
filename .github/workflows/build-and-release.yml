@@ -39,11 +39,20 @@ jobs:
         
     # Install vcpkg dependencies
     - name: Install vcpkg dependencies
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
       run: |
         cd ${{ github.workspace }}/${{ env.CPP_Project }}
-        ls -la  # Debug: list files to confirm vcpkg.json is present
-        ${{ github.workspace }}/vcpkg/vcpkg install --triplet=${{ matrix.triplet }}
+        Get-ChildItem -Path "." -Force  # Debug: list files to confirm vcpkg.json is present
+        ${{ github.workspace }}\vcpkg\vcpkg install --triplet=${{ matrix.triplet }}
+
+    - name: Install vcpkg dependencies (macOS)
+      if: matrix.os == 'macos-latest'
       shell: bash
+      run: |
+        cd "${{ github.workspace }}/${{ env.CPP_Project }}"
+        ls -la  # Debug: list files to confirm vcpkg.json is present
+        "${{ github.workspace }}/vcpkg/vcpkg" install --triplet=${{ matrix.triplet }}
         
     # Configure and build using CMake with proper vcpkg integration
     - name: Configure and Build with CMake
