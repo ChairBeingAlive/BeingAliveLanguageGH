@@ -84,26 +84,6 @@ jobs:
           fi
         else
           echo "ERROR: Built library not found at ${{ matrix.output-path }}"
-          # echo "Searching for the library file..."
-          
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            # Search for .dylib files in build directory and subdirectories
-            FOUND_LIB=$(find build -name "*.dylib" -type f | head -n 1)
-            
-            if [ -n "$FOUND_LIB" ]; then
-              echo "Found library at: $FOUND_LIB"
-              cp "$FOUND_LIB" ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
-              echo "Successfully copied library to ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}"
-            else
-              echo "No .dylib file found in build directory"
-              find build -type f | sort
-              exit 1
-            fi
-          else
-            For other platforms, just show what's in the build directory
-            find build -type f | sort
-            exit 1
-          fi
         fi
     # Upload C++ artifacts
     - name: Upload C++ artifacts
