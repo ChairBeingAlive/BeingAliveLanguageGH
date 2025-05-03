@@ -16,7 +16,7 @@ jobs:
             output-ext: '.dll'
             output-path: 'build/Release/GeoSharPlusCPP.dll'
             triplet: 'x64-windows'
-            configure-preset: 'windows-release'
+            configure-preset: 'windows-default'
             build-preset: 'windows-release'
           - os: macos-latest
             output-ext: '.dylib'

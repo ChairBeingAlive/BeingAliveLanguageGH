@@ -1,6 +1,14 @@
 #include "GeoSharPlusCPP/Serialization/GeoSerializer.h"
 
-#include <combaseapi.h>  // Add this include for CoTaskMemAlloc
+// With platform-specific guards:
+#ifdef _WIN32
+#include <combaseapi.h>  // Windows-only header
+#else
+// macOS/Linux alternative
+#include <stdlib.h>
+#define CoTaskMemAlloc malloc
+#define CoTaskMemFree free
+#endif
 
 #include "GSP_FB/cpp/mesh_generated.h"
 #include "GSP_FB/cpp/pointArray_generated.h"
