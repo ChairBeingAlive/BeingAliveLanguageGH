@@ -77,13 +77,17 @@ jobs:
       shell: bash
       run: |
         if [ -f "${{ matrix.output-path }}" ]; then
-          cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
+          else
+            cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
+          fi
         else
           echo "ERROR: Built library not found at ${{ matrix.output-path }}"
-          echo "Searching for the library file..."
+          # echo "Searching for the library file..."
           
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            # Search for .dylib files in build directory and subdirectories
+            Search for .dylib files in build directory and subdirectories
             FOUND_LIB=$(find build -name "*.dylib" -type f | head -n 1)
             
             if [ -n "$FOUND_LIB" ]; then
@@ -96,7 +100,7 @@ jobs:
               exit 1
             fi
           else
-            # For other platforms, just show what's in the build directory
+            For other platforms, just show what's in the build directory
             find build -type f | sort
             exit 1
           fi
