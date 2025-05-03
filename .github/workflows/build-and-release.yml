@@ -78,14 +78,14 @@ jobs:
       shell: pwsh
       run: |
         if [ -f "${{ matrix.output-path }}" ]; then
-          cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
+          cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}\GeoSharPlusCPP${{ matrix.output-ext }}
         else
           echo "ERROR: Built library not found at ${{ matrix.output-path }}"
         fi
 
     - name: Copy C++ artifacts (MacOS)
       if: matrix.os == 'macos-latest'
-      shell: pwsh
+      shell: bash
       run: |
         if [ -f "${{ matrix.output-path }}" ]; then
           cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
