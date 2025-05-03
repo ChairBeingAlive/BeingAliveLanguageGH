@@ -66,20 +66,6 @@ jobs:
         configurePreset: ${{ matrix.configure-preset }}
         buildPreset: ${{ matrix.build-preset }}
 
-        
-
-    # Debug output for macOS to help troubleshoot
-    - name: Debug Output (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        echo "CMake version:"
-        cmake --version
-        echo "Directory structure:"
-        find build -type f -name "*.dylib" | sort
-        echo "Dependencies:"
-        otool -L build/libGeoSharPlusCPP.dylib || true
-      shell: bash
-
     # Create platform-specific directory in cppPrebuild
     - name: Create platform directory
       shell: bash
