@@ -22,7 +22,7 @@ jobs:
             output-ext: '.dylib'
             output-path: 'build/libGeoSharPlusCPP.dylib'
             triplet: 'arm64-osx'
-            configure-preset: 'macos-release'
+            configure-preset: 'macos-default'
             build-preset: 'macos-release' 
     runs-on: ${{ matrix.os }}
     env:
