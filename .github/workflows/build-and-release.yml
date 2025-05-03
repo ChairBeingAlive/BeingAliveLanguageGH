@@ -87,7 +87,7 @@ jobs:
           # echo "Searching for the library file..."
           
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            Search for .dylib files in build directory and subdirectories
+            # Search for .dylib files in build directory and subdirectories
             FOUND_LIB=$(find build -name "*.dylib" -type f | head -n 1)
             
             if [ -n "$FOUND_LIB" ]; then
