@@ -42,7 +42,7 @@ jobs:
         vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b  # 2025-04-09 version
         
     # Install vcpkg dependencies
-    - name: Install vcpkg dependencies
+    - name: Install vcpkg dependencies (Windows)
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
@@ -73,25 +73,34 @@ jobs:
         mkdir -p ${{ env.CPP_PREBUILD_DIR }}
       
     # Copy the built libraries to the platform-specific directory
-    - name: Copy C++ artifacts
-      shell: bash
+    - name: Copy C++ artifacts (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
       run: |
         if [ -f "${{ matrix.output-path }}" ]; then
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
-          else
-            cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
-          fi
+          cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}
         else
           echo "ERROR: Built library not found at ${{ matrix.output-path }}"
         fi
+
+    - name: Copy C++ artifacts (MacOS)
+      if: matrix.os == 'macos-latest'
+      shell: pwsh
+      run: |
+        if [ -f "${{ matrix.output-path }}" ]; then
+          cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
+        else
+          echo "ERROR: Built library not found at ${{ matrix.output-path }}"
+        fi
+
     # Upload C++ artifacts
     - name: Upload C++ artifacts
       uses: actions/upload-artifact@v4
       with:
         name: cpp-libs
         path: ${{ env.CPP_PREBUILD_DIR }}
-        
+
+  # Build C# project
   build-csharp:
     needs: build-cpp
     runs-on: windows-latest
