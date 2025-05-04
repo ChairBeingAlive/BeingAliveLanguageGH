@@ -72,15 +72,39 @@ jobs:
       run: |
         mkdir -p ${{ env.CPP_PREBUILD_DIR }}
       
+    - name: List build directory contents
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        Write-Host "Contents of build directory:"
+        Get-ChildItem -Path "${{ github.workspace }}/${{ env.CPP_Project }}/build" -Recurse | ForEach-Object { Write-Host $_.FullName }
+        
+        Write-Host "Contents of cppPrebuild directory:"
+        Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -Recurse | ForEach-Object { Write-Host $_.FullName }
+
     # Copy the built libraries to the platform-specific directory
     - name: Copy C++ artifacts (Windows)
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
-        if (Test-Path "${{ matrix.output-path }}") {
-          Copy-Item "${{ matrix.output-path }}" -Destination "${{ env.CPP_PREBUILD_DIR }}\GeoSharPlusCPP${{ matrix.output-ext }}"
-        } else {
-          Write-Error "ERROR: Built library not found at ${{ matrix.output-path }}"
+        # First check if the file is already in cppPrebuild
+        if (Test-Path "${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}") {
+          Write-Host "DLL already exists in cppPrebuild directory, skipping copy"
+        }
+        # Then check build directory
+        elseif (Test-Path "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}") {
+          Copy-Item "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}" -Destination "${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}"
+        }
+        # Check for other potential locations
+        elseif (Test-Path "${{ github.workspace }}/${{ env.CPP_Project }}/build/GeoSharPlusCPP.dll") {
+          Copy-Item "${{ github.workspace }}/${{ env.CPP_Project }}/build/GeoSharPlusCPP.dll" -Destination "${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}"
+        } 
+        else {
+          # List all files in build directory to help diagnose
+          Write-Host "Searching for DLL in build directory..."
+          Get-ChildItem -Path "${{ github.workspace }}/${{ env.CPP_Project }}/build" -Recurse -Filter "*.dll" | ForEach-Object { Write-Host $_.FullName }
+          
+          Write-Error "ERROR: Built library not found at expected locations"
         }
 
     - name: Copy C++ artifacts (MacOS)
