@@ -121,7 +121,7 @@ jobs:
     - name: Upload C++ artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: cpp-libs
+        name: cpp-libs-${{ matrix.os }}  # Dynamic name based on OS
         path: ${{ env.CPP_PREBUILD_DIR }}
 
   # Build C# project
@@ -155,7 +155,7 @@ jobs:
     - name: Download C++ libs
       uses: actions/download-artifact@v4
       with:
-        name: cpp-libs
+        name: cpp-libs-${{ matrix.os }}
         path: ${{ env.CPP_PREBUILD_DIR }}
         
     # List the downloaded C++ libraries for verification
