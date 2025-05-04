@@ -30,4 +30,5 @@ Copy-Item -Path (Join-Path $TargetDir "*.gha") -Destination $outputDir -Force
 # Copy C++ DLLs if directory exists
 if (Test-Path $cppPrebuild) {
     Copy-Item -Path (Join-Path $cppPrebuild "*.dll") -Destination $outputDir -Force
+    Copy-Item -Path (Join-Path $cppPrebuild "*.dylib") -Destination $outputDir -Force
 }
