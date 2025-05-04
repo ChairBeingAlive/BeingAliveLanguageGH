@@ -151,11 +151,17 @@ jobs:
       with:
          dotnet-version: 7.0.x
 
-    # Download C++ artifacts
-    - name: Download C++ libs
+    # Download C++ artifacts for Windows and macOS
+    - name: Download Windows C++ libs
       uses: actions/download-artifact@v4
       with:
-        name: cpp-libs-${{ matrix.os }}
+        name: cpp-libs-windows-latest
+        path: ${{ env.CPP_PREBUILD_DIR }}
+
+    - name: Download macOS C++ libs
+      uses: actions/download-artifact@v4
+      with:
+        name: cpp-libs-macos-latest
         path: ${{ env.CPP_PREBUILD_DIR }}
         
     # List the downloaded C++ libraries for verification
