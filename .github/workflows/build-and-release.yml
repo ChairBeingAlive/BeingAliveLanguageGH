@@ -14,7 +14,7 @@ jobs:
         include:
           - os: windows-latest
             output-ext: '.dll'
-            output-path: 'build/Release/GeoSharPlusCPP.dll'
+            output-path: 'build/GeoSharPlusCPP.dll' # use ninja on github actions
             triplet: 'x64-windows'
             configure-preset: 'windows-default'
             build-preset: 'windows-release'
