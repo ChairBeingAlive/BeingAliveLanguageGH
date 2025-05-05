@@ -118,4 +118,8 @@
 	  
 	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)postbuild.ps1&quot; -TargetDir &quot;$(_SafeTargetDir)&quot; -SolutionDir &quot;$(_SafeSolutionDir)&quot;" />
 	</Target>
+
+	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(MSBuildThisFileDirectory)prebuild.ps1' -TargetDir '$(TargetDir)' -SolutionDir '$(SolutionDir)'&quot;" />
+	</Target>
 </Project>
