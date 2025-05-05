@@ -124,14 +124,11 @@
   <data name="balGaussen" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\balGaussen.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
-  <data name="balRootMap" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\balRootMap.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
   <data name="balRootOrganicMatter" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\balRootOrganicMatter.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balRootPlanar" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>iconImg\balRootPlanar.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\balRootPlanar.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balRootSectional" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\balRootSectional.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
@@ -154,6 +151,12 @@
   <data name="balSoilInfo" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\balSoilInfo.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="balSoilMap2D" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balsoilmap2D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="balSoilMap3D" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balSoilMap3D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
   <data name="balSoilMorphFan" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\balSoilMorphFan.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
@@ -173,7 +176,7 @@
     <value>..\Resources\balSoilWaterVis.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balTree2D" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>iconImg\balTree2D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\balTree2D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balTree3D" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\balTree3D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
@@ -182,22 +185,22 @@
     <value>..\Resources\balTree3DVolume.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balTreeComposer" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>iconImg\balTreeComposer.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\balTreeComposer.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balTreeInteraction" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>iconImg\balTreeInteraction.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\balTreeInteraction.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balTreeRenderer" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>iconImg\balTreeRenderer.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\balTreeRenderer.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balTreeRoot2D" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>iconImg\balTreeRoot2D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\balTreeRoot2D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="balTreeRoot3D" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>iconImg\balTreeRoot3D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\balTreeRoot3D.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="packageManagerIcon" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>iconImg\packageManagerIcon.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>..\Resources\packageManagerIcon.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="pluginIcon" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\pluginIcon.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>

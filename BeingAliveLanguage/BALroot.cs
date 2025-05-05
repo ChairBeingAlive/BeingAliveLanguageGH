@@ -27,7 +27,7 @@ namespace BeingAliveLanguage
     }
 
     public override GH_Exposure Exposure => GH_Exposure.primary;
-    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balRootMap);
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilMap2D);
     public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -112,7 +112,7 @@ namespace BeingAliveLanguage
     }
 
     public override GH_Exposure Exposure => GH_Exposure.primary;
-    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balRootMap);
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilMap3D);
     public override Guid ComponentGuid => new Guid("84929d36-71bd-4c96-ae00-6f39b1025455");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -1089,7 +1089,7 @@ namespace BeingAliveLanguage
     { }
 
     public override GH_Exposure Exposure => GH_Exposure.quarternary;
-    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTreeRoot2D); //todo: update img
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTreeRoot3D);
     public override Guid ComponentGuid => new Guid("3f18edbd-320a-49e8-b16f-6c19b5654301");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)

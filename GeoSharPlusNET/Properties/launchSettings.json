@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "GeoSharPlusNET": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

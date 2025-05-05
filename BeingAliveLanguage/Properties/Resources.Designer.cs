@@ -83,16 +83,6 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balRootMap {
-            get {
-                object obj = ResourceManager.GetObject("balRootMap", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
         internal static byte[] balRootOrganicMatter {
             get {
                 object obj = ResourceManager.GetObject("balRootOrganicMatter", resourceCulture);
@@ -176,6 +166,26 @@ namespace BeingAliveLanguage.Properties {
         internal static byte[] balSoilInfo {
             get {
                 object obj = ResourceManager.GetObject("balSoilInfo", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] balSoilMap2D {
+            get {
+                object obj = ResourceManager.GetObject("balSoilMap2D", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] balSoilMap3D {
+            get {
+                object obj = ResourceManager.GetObject("balSoilMap3D", resourceCulture);
                 return ((byte[])(obj));
             }
         }

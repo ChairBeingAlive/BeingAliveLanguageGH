@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <memory>
+#include <chrono>
 
 // GeoSharPlusCPP
 #include "GSP_FB/cpp/mesh_generated.h"
@@ -87,10 +88,11 @@ GEOSHARPLUS_API bool GEOSHARPLUS_CALL BALpossionDiskElimSample(
     inputPoints.emplace_back(point.x(), point.y(), point.z());
   }
 
+  auto start = std::chrono::high_resolution_clock::now();
+
   // elimination to the given number of pts
   cy::WeightedSampleElimination<cy::Vec3d, float, 3> wse;
   std::vector<cy::Vec3d> outputPoints(n);
-
   //! Important!
   // d_max is used to define the sampling dist param based on sampling area
   // http://www.cemyuksel.com/cyCodeBase/soln/poisson_disk_sampling.html
@@ -100,6 +102,11 @@ GEOSHARPLUS_API bool GEOSHARPLUS_CALL BALpossionDiskElimSample(
   // 3D points, sampling in 2D plane
   wse.Eliminate(inputPoints.data(), inputPoints.size(), outputPoints.data(),
                 outputPoints.size(), false, d_max, 2);
+
+  auto end = std::chrono::high_resolution_clock::now();
+  auto timeElapsed =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+          .count();
 
   // Convert outputPoints (cy::Vec3d) to std::vector<GeoSharPlusCPP::Vector3d>
   std::vector<GeoSharPlusCPP::Vector3d> sampledPoints(outputPoints.size());
