@@ -439,42 +439,13 @@ namespace BeingAliveLanguage
       unitLen = pt10.Select(x =>
       {
         var res = kdMap.GetNearestNeighbours(new[] { (float)x.X, (float)x.Y, (float)x.Z }, 2);
-        var nearest2Dist = res.Select(m => ptMap[m.Value].DistanceTo(x)).ToList();
+        // Check if result is null or empty to avoid potential exceptions
+        var nearest2Dist = res != null && res.Length > 0
+            ? res.Select(m => ptMap[m.Value].DistanceTo(x)).ToList()
+            : new List<double>() { 0 };
         return nearest2Dist.Max();
       }).Average();
     }
-
-    //public void BuildBound()
-    //{
-    //  List<double> uLst = new List<double>();
-    //  List<double> vLst = new List<double>();
-    //  foreach (var node in kdMap)
-    //  {
-    //    var pt3d = new Point3d(node.Point[0], node.Point[1], node.Point[2]);
-    //    double u, v;
-    //    if (mPln.ClosestParameter(pt3d, out u, out v))
-    //    {
-    //      uLst.Add(u);
-    //      vLst.Add(v);
-    //    }
-    //  }
-    //  mBndParam = new Tuple<double, double, double, double>(uLst.Min(), uLst.Max(), vLst.Min(), vLst.Max());
-    //}
-
-    //public bool IsOnBound(in Point3d pt)
-    //{
-    //  double u, v;
-    //  if (mPln.ClosestParameter(pt, out u, out v))
-    //  {
-    //    if ((mBndParam.Item1 - u) * (mBndParam.Item1 - u) < 1e-2
-    //        || (mBndParam.Item2 - u) * (mBndParam.Item2 - u) < 1e-2
-    //        || (mBndParam.Item3 - v) * (mBndParam.Item3 - v) < 1e-2
-    //        || (mBndParam.Item4 - v) * (mBndParam.Item4 - v) < 1e-2)
-    //      return true;
-    //  }
-
-    //  return false;
-    //}
 
     public Point3d GetNearestPoint(in Point3d pt)
     {

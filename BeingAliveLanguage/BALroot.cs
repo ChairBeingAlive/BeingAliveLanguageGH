@@ -122,7 +122,6 @@ namespace BeingAliveLanguage
       pManager.AddGenericParameter("Soil Volume", "soilVol", "Geometry volume that representing the soil.", GH_ParamAccess.item);
       pManager.AddIntegerParameter("Particle Number", "parN", "The number of particles to simulate the soil volume.", GH_ParamAccess.item, 1000);
       pManager[2].Optional = true;
-      //pManager.AddPointParameter("Additional Points", "pts", "Points representing additional soil particles for the soil map.", GH_ParamAccess.list);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
