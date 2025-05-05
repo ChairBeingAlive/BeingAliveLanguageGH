@@ -39,7 +39,6 @@ if (Test-Path "manifest.yml")
 }
 
 # Copy files - use the determined bin folder path
-Copy-Item -Path "${binFolder}\net48" -Destination "." -Recurse -ErrorAction SilentlyContinue
 Copy-Item -Path "${binFolder}\net7.0" -Destination "." -Recurse -ErrorAction SilentlyContinue
 Copy-Item -Path "${binFolder}\net7.0-windows" -Destination "." -Recurse -ErrorAction SilentlyContinue
 
@@ -57,35 +56,5 @@ Get-Content manifest.yml
 Copy-Item -Path ".\*.yak" -Destination "${currentFolder}" -Recurse
 
 Pop-Location
-
-# Rhino 7, net48
-if (Test-Path "releaseRH7"){
-  Remove-Item releaseRH7 -Recurse
-}
-New-Item -Path "releaseRH7" -ItemType Directory -Force
-
-Push-Location ".\releaseRH7"; 
-
-if (Test-Path "manifest.yml")
-{
-  Remove-Item manifest.yml
-}
-
-Copy-Item -Path "${binFolder}\net48\*" -Destination "." -Recurse -ErrorAction SilentlyContinue
-Copy-Item -Path "${currentFolder}\icon_new.png" -Destination "." -Recurse
-
-./../yak.exe spec; 
-Add-Content manifest.yml "`nicon: icon_new.png"
-Add-Content manifest.yml "`nkeywords: `n - drawing `n - climate `n - soil `n - language"
-
-Write-Host "======================================="
-Write-Host "Modified Manifest File for NetCore 7, Rhino 8"
-Write-Host "======================================="
-Get-Content manifest.yml
-
-./../yak.exe build
-Copy-Item -Path ".\*.yak" -Destination "${currentFolder}" -Recurse
-Pop-Location
-
 
 # then yak push xx.yak in the cmd line

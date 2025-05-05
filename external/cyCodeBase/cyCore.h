@@ -52,8 +52,14 @@
 #include <type_traits>
 #include <limits>
 
-#if !defined(CY_NO_INTRIN_H) && !defined(CY_NO_EMMINTRIN_H) && !defined(CY_NO_IMMINTRIN_H)
-# include <immintrin.h>
+//#if !defined(CY_NO_INTRIN_H) && !defined(CY_NO_EMMINTRIN_H) && !defined(CY_NO_IMMINTRIN_H)
+//# include <immintrin.h>
+//#endif
+// After (ARM-compatible):
+#if defined(__x86_64__) || defined(_M_X64)
+  #include <immintrin.h>  // Intel/AMD
+#elif defined(__aarch64__) || defined(__arm__)
+  #include <arm_neon.h>   // Apple Silicon/ARM
 #endif
 
 //-------------------------------------------------------------------------------
