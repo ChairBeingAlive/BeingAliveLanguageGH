@@ -16,7 +16,7 @@ namespace BeingAliveLanguage
 
     }
 
-    public RootSectional(in SoilMap map,
+    public RootSectional(in SoilMap2d map,
       in RootProp rProps, in EnvProp eProps = null, in int seed = -1)
 
     //in Point3d anchor,
@@ -304,7 +304,7 @@ namespace BeingAliveLanguage
 
     // internal variables
     ConcurrentDictionary<string, double> scoreMap = new ConcurrentDictionary<string, double>();
-    SoilMap mSoilMap = new SoilMap();
+    SoilMap2d mSoilMap = new SoilMap2d();
     RootNode mRootNode = null;
     Queue<RootNode> bfsQ = new Queue<RootNode>();
 
@@ -333,7 +333,7 @@ namespace BeingAliveLanguage
   {
     public RootPlanar() { }
 
-    public RootPlanar(in SoilMap soilmap, in Point3d anchor, double scale, int phase, int divN,
+    public RootPlanar(in SoilMap2d soilmap, in Point3d anchor, double scale, int phase, int divN,
         in List<Curve> envA = null, in List<Curve> envR = null, double envRange = 0.0, bool envToggle = false)
     {
       this.sMap = soilmap;
@@ -508,7 +508,7 @@ namespace BeingAliveLanguage
       return Utils.ExtendDirByAffector(pt, scaledDir, sMap, envT, envDetectingDist, envA, envR);
     }
 
-    protected SoilMap sMap = new SoilMap();
+    protected SoilMap2d sMap = new SoilMap2d();
     protected Point3d anchor = new Point3d();
     readonly double scale = 1.0;
     readonly int phase = 0;

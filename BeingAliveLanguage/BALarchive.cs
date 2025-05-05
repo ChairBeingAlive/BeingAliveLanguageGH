@@ -569,7 +569,7 @@ namespace BeingAliveLanguage
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
-      var sMap = new SoilMap();
+      var sMap = new SoilMap2d();
       var anchor = new Point3d();
       //double radius = 10.0;
       int steps = 10;

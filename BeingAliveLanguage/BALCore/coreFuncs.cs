@@ -1077,7 +1077,7 @@ namespace BeingAliveLanguage
     /// Otherwise, we accumulate weighted (dist-based) effect of all the attractor/repeller area.
     /// </summary>
     public static Point3d ExtendDirByAffector(in Point3d pt, in Vector3d scaledDir,
-        in SoilMap sMap, in bool envToggle = false,
+        in SoilMap2d sMap, in bool envToggle = false,
         in double envDectectDist = 0.0,
         in List<Curve> envA = null, in List<Curve> envR = null)
     {

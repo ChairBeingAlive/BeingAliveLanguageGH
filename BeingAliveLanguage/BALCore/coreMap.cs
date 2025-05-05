@@ -50,9 +50,9 @@ namespace BeingAliveLanguage
     }
   }
 
-  class SoilMap
+  class SoilMap2d
   {
-    public SoilMap()
+    public SoilMap2d()
     {
       this.mPln = Plane.WorldXY;
       this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);
@@ -62,7 +62,7 @@ namespace BeingAliveLanguage
     }
 
     //public SoilMap(in Plane pl, in string mapMode)
-    public SoilMap(in Plane pl)
+    public SoilMap2d(in Plane pl)
     {
       // kd-tree map
       this.kdMap = new KdTree<float, string>(3, new KdTree.Math.FloatMath(), AddDuplicateBehavior.Skip);

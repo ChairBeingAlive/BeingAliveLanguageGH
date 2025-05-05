@@ -1,17 +1,13 @@
 {
   "profiles": {
-    "Rhino8-NetFM": {
-      "commandName": "Executable",
-      "executablePath": "C:\\Program Files\\Rhino 8\\System\\Rhino.exe",
-      "commandLineArgs": "/netfx /runscript=\"_Grasshopper\"",
-      "workingDirectory": "$(ProjectDir)\\bin\\Debug",
-      "nativeDebugging": false
-    },
     "Rhino8-NetCore": {
       "commandName": "Executable",
       "executablePath": "C:\\Program Files\\Rhino 8\\System\\Rhino.exe",
       "commandLineArgs": "/netcore /runscript=\"_Grasshopper\"",
       "workingDirectory": "$(ProjectDir)\\bin\\Debug",
+      "environmentVariables": {
+        "RHINO_PACKAGE_DIRS": "$(ProjectDir)$(OutputPath)\\"
+      },
       "nativeDebugging": true
     },
     "Rhino7": {

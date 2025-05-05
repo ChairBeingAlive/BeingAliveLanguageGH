@@ -60,7 +60,7 @@ namespace BeingAliveLanguage
       var conPt = new ConcurrentBag<Point3d>();
       var conPoly = new ConcurrentBag<Polyline>();
       //SoilMap sMap = new SoilMap(pln, mapMode);
-      SoilMap sMap = new SoilMap(pln);
+      var sMap = new SoilMap2d(pln);
 
       // detecting the goo type and add it to the corresponding container
       Parallel.ForEach(inputGeo, goo =>
@@ -279,7 +279,7 @@ namespace BeingAliveLanguage
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
-      var sMap = new SoilMap();
+      var sMap = new SoilMap2d();
       var anchor = new Point3d();
       //double radius = 10.0;
       int steps = 10;
@@ -415,7 +415,7 @@ namespace BeingAliveLanguage
     protected override void SolveInstance(IGH_DataAccess DA)
     {
 
-      var sMap = new SoilMap();
+      var sMap = new SoilMap2d();
       DA.GetData(0, ref sMap);
 
       if (!DA.GetData(0, ref sMap))
@@ -520,7 +520,7 @@ namespace BeingAliveLanguage
     protected override void SolveInstance(IGH_DataAccess DA)
     {
       // ! 1. clean and remove duplicated segments
-      var sMap = new SoilMap();
+      var sMap = new SoilMap2d();
 
       var inLine = new List<Line>();
       var cleanLine = new List<Line>();
@@ -712,12 +712,12 @@ namespace BeingAliveLanguage
     {
       //! Get data
       var tInfo = new TreeProperty();
-      var sMap = new SoilMap();
+      var sMap = new SoilMap2d();
 
       if (!DA.GetData<TreeProperty>("TreeInfo", ref tInfo))
       { return; }
 
-      if (!DA.GetData<SoilMap>("SoilMap", ref sMap))
+      if (!DA.GetData<SoilMap2d>("SoilMap", ref sMap))
       { return; }
 
       //if (sMap.mapMode != "sectional")
