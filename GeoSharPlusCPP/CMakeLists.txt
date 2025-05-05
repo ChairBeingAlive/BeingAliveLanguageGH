@@ -71,7 +71,7 @@ set(COMMON_FLAGS
 # Platform-specific compiler flags
 if(MSVC)
     list(APPEND COMMON_FLAGS
-        /fp:precise     # Match original VS precision
+        /fp:fast        # Match original VS precision
         /Zc:inline      # Remove unused code
         /EHsc           # Exception handling
         /Gy             # Function-level linking
@@ -81,14 +81,14 @@ if(MSVC)
     )
     
     # Release optimization flags
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /Ob2 /Ot /GL")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O3 /Ob2 /Ot /GL")
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /LTCG")
     set(CMAKE_MODULE_LINKER_FLAGS_RELEASE "${CMAKE_MODULE_LINKER_FLAGS_RELEASE} /LTCG")
 elseif(APPLE)
     list(APPEND COMMON_FLAGS
         -fPIC           # Position-independent code
-        -ffp-model=precise
+        -fast-math
         -fstack-protector-strong
         -pthread
         -O3             # Equivalent to VS /O2 on Mac

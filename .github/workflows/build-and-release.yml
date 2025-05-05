@@ -2,7 +2,7 @@ name: Build and Release
 
 on:
   push:
-    branches: [ cppSDK-removal ]
+    branches: [ main ]
     tags:
       - 'v*'
 
