@@ -173,16 +173,6 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilDiv_win {
-            get {
-                object obj = ResourceManager.GetObject("balSoilDiv_win", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
         internal static byte[] balSoilInfo {
             get {
                 object obj = ResourceManager.GetObject("balSoilInfo", resourceCulture);
@@ -253,9 +243,9 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTree {
+        internal static byte[] balTree2D {
             get {
-                object obj = ResourceManager.GetObject("balTree", resourceCulture);
+                object obj = ResourceManager.GetObject("balTree2D", resourceCulture);
                 return ((byte[])(obj));
             }
         }
@@ -313,9 +303,19 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTreeRoot {
+        internal static byte[] balTreeRoot2D {
             get {
-                object obj = ResourceManager.GetObject("balTreeRoot", resourceCulture);
+                object obj = ResourceManager.GetObject("balTreeRoot2D", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] balTreeRoot3D {
+            get {
+                object obj = ResourceManager.GetObject("balTreeRoot3D", resourceCulture);
                 return ((byte[])(obj));
             }
         }

@@ -438,13 +438,15 @@ namespace BeingAliveLanguage
       var pt10 = ptCollection.OrderBy(x => Guid.NewGuid()).Take(tmpN).ToList();
       unitLen = pt10.Select(x =>
       {
+        // find the 2 nearest point and measure distance (0 and a p-p dist).
         var res = kdMap.GetNearestNeighbours(new[] { (float)x.X, (float)x.Y, (float)x.Z }, 2);
         // Check if result is null or empty to avoid potential exceptions
-        var nearest2Dist = res != null && res.Length > 0
-            ? res.Select(m => ptMap[m.Value].DistanceTo(x)).ToList()
-            : new List<double>() { 0 };
-        return nearest2Dist.Max();
-      }).Average();
+        var nearest2Dist = res.Where(m => m != null && m.Value != null && ptMap.ContainsKey(m.Value))
+                              .Select(m => ptMap[m.Value].DistanceTo(x))
+                              .ToList();
+
+        return nearest2Dist.Count > 0 ? nearest2Dist.Max() : 0.0;
+      }).Average(); // Apply Average() to convert IEnumerable<double> to double
     }
 
     public Point3d GetNearestPoint(in Point3d pt)

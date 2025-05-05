@@ -227,7 +227,7 @@ namespace BeingAliveLanguage
     }
 
     public override GH_Exposure Exposure => GH_Exposure.hidden;
-    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilDiv_win);
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilDiv);
     public override Guid ComponentGuid => new Guid("53411C7C-0833-49C8-AE71-B1948D2DCC6C");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
@@ -663,7 +663,7 @@ namespace BeingAliveLanguage
     }
 
     public override GH_Exposure Exposure => GH_Exposure.hidden;
-    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilDiv_win);
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilDiv);
     public override Guid ComponentGuid => new Guid("8634cd28-f37e-4204-b60b-d36b16181d7b");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)

@@ -688,7 +688,7 @@ namespace BeingAliveLanguage
     { }
 
     public override GH_Exposure Exposure => GH_Exposure.quarternary;
-    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTreeRoot);
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTreeRoot2D);
     public override Guid ComponentGuid => new Guid("27C279E0-08C9-4110-AE40-81A59C9D9EB8");
     private bool rootDense = false;
     private int scalingFactor = 1;
@@ -1089,7 +1089,7 @@ namespace BeingAliveLanguage
     { }
 
     public override GH_Exposure Exposure => GH_Exposure.quarternary;
-    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTreeRoot); //todo: update img
+    protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTreeRoot2D); //todo: update img
     public override Guid ComponentGuid => new Guid("3f18edbd-320a-49e8-b16f-6c19b5654301");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
