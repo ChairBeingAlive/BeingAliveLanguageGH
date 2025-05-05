@@ -12,7 +12,10 @@
       "executablePath": "C:\\Program Files\\Rhino 8\\System\\Rhino.exe",
       "commandLineArgs": "/netcore /runscript=\"_Grasshopper\"",
       "workingDirectory": "$(ProjectDir)\\bin\\Debug",
-      "nativeDebugging": false
+      "environmentVariables": {
+        "RHINO_PACKAGE_DIRS": "$(ProjectDir)$(OutputPath)\\"
+      },
+      "nativeDebugging": true
     },
     "Rhino7": {
       "commandName": "Executable",
