@@ -679,11 +679,11 @@ namespace BeingAliveLanguage
   /// <summary>
   /// Draw tree roots 
   /// </summary>
-  public class BALtreeRoot2D : GH_Component
+  public class BALtreeRoot2d : GH_Component
   {
-    public BALtreeRoot2D()
+    public BALtreeRoot2d()
     : base("TreeRoot2D", "balTreeRoot2D",
-          "Generate the 2D version of BAL tree-root drawing using the BAL tree and soil information.",
+          "Generate the BAL tree-root drawing in 2D using the BAL tree and soil information.",
           "BAL", "02::root")
     { }
 
@@ -1083,7 +1083,7 @@ namespace BeingAliveLanguage
   public class BALtreeRoot3d : GH_Component
   {
     public BALtreeRoot3d()
-    : base("TreeRoot3d", "balTreeRoot3d",
+    : base("TreeRoot3D", "balTreeRoot3D",
           "Generate the BAL tree-root drawing in 3D using the BAL tree and soil information.",
         "BAL", "02::Root")
     { }
