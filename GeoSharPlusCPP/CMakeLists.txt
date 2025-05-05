@@ -71,7 +71,7 @@ set(COMMON_FLAGS
 # Platform-specific compiler flags
 if(MSVC)
     list(APPEND COMMON_FLAGS
-        /fp:fast        # Match original VS precision
+        /fp:precise     # Match original VS precision
         /Zc:inline      # Remove unused code
         /EHsc           # Exception handling
         /Gy             # Function-level linking
@@ -88,7 +88,7 @@ if(MSVC)
 elseif(APPLE)
     list(APPEND COMMON_FLAGS
         -fPIC           # Position-independent code
-        -fast-math
+        -ffp-model=precise
         -fstack-protector-strong
         -pthread
         -O3             # Equivalent to VS /O2 on Mac
