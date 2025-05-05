@@ -8,6 +8,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GeoSharPlusCPP", "GeoSharPlusCPP\build\GeoSharPlusCPP.vcxproj", "{652524AD-3BCD-3A66-A7E4-312A2117B455}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GeoSharPlusNET", "GeoSharPlusNET\GeoSharPlusNET.csproj", "{3B28B1D8-B5C5-797E-E33D-B8C763F758CD}"
+	ProjectSection(ProjectDependencies) = postProject
+		{652524AD-3BCD-3A66-A7E4-312A2117B455} = {652524AD-3BCD-3A66-A7E4-312A2117B455}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

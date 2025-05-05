@@ -109,7 +109,7 @@ GEOSHARPLUS_API bool GEOSHARPLUS_CALL BALpossionDiskElimSample(
           .count();
 
   // Convert outputPoints (cy::Vec3d) to std::vector<GeoSharPlusCPP::Vector3d>
-  std::vector<GeoSharPlusCPP::Vector3d> sampledPoints(outputPoints.size());
+  std::vector<GeoSharPlusCPP::Vector3d> sampledPoints;
   for (const auto& point : outputPoints) {
     sampledPoints.emplace_back(point.x, point.y, point.z);
   }

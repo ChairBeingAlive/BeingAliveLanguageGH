@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
-
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type (Release or Debug)" FORCE)
 endif()
 
 set(PROJECT_NAME GeoSharPlusCPP)
-
+############################################
+# VCPKG 
+############################################
 # Check for VCPKG_ROOT environment variable
 if(DEFINED ENV{VCPKG_ROOT})
     set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
@@ -13,7 +14,6 @@ if(DEFINED ENV{VCPKG_ROOT})
 else()
     message(FATAL_ERROR "VCPKG_ROOT environment variable is not defined. Please set it to your vcpkg installation directory.")
 endif()
-
 
 # Explicitly set vcpkg target triplet if not already set
 if(NOT DEFINED VCPKG_TARGET_TRIPLET)
@@ -27,6 +27,9 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
     message(STATUS "Setting vcpkg triplet to: ${VCPKG_TARGET_TRIPLET}")
 endif()
 
+############################################
+# Compiler options
+############################################
 # Set C++ standard
 project(${PROJECT_NAME} LANGUAGES C CXX)
 
@@ -53,53 +56,57 @@ if(MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP${N}")
     endif()
 endif()
-
-# Enable Unity build for faster compilation (requires CMake 3.16+)
-# This combines source files into fewer translation units
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
-    option(ENABLE_UNITY_BUILD "Enable Unity build for faster compilation" ON)
-    set(CMAKE_UNITY_BUILD ${ENABLE_UNITY_BUILD})
-    set(CMAKE_UNITY_BUILD_BATCH_SIZE 16)
-endif()
-
-# Common compiler flags for all platforms
-set(COMMON_FLAGS
-    $<$<CONFIG:Release>:-O3>     # Aggressive optimization for Release
-    $<$<CONFIG:Debug>:-g3>       # Debug symbols
-)
-
 # Platform-specific compiler flags
 if(MSVC)
-    list(APPEND COMMON_FLAGS
+    # Common MSVC flags
+    add_compile_options(
         /fp:precise     # Match original VS precision
         /Zc:inline      # Remove unused code
         /EHsc           # Exception handling
         /Gy             # Function-level linking
-        /Oi             # Intrinsic functions (from your original flags)
+        /Oi             # Intrinsic functions
         /Gm-            # Minimal rebuild (disable for faster builds)
-        /Zi             # Debug information
     )
     
-    # Release optimization flags
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O3 /Ob2 /Ot /GL")
+    # Debug-specific flags
+    add_compile_options($<$<CONFIG:Debug>:/Zi>)           # Debug information format
+    add_compile_options($<$<CONFIG:Debug>:/Od>)           # Disable optimization
+    add_compile_options($<$<CONFIG:Debug>:/RTC1>)         # Run-time error checks
+    
+    # Release-specific flags
+    add_compile_options($<$<CONFIG:Release>:/O2>)         # Optimize for speed
+    add_compile_options($<$<CONFIG:Release>:/GL>)         # Whole program optimization
+    add_compile_options($<$<CONFIG:Release>:/Ot>)         # Favor speed over size
+    
+    # Debug linker flags
+    set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} /DEBUG:FULL")
+    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /DEBUG:FULL")
+    
+    # Release linker flags
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /LTCG")
     set(CMAKE_MODULE_LINKER_FLAGS_RELEASE "${CMAKE_MODULE_LINKER_FLAGS_RELEASE} /LTCG")
 elseif(APPLE)
-    list(APPEND COMMON_FLAGS
+    # Common Apple flags
+    add_compile_options(
         -fPIC           # Position-independent code
         -ffp-model=precise
         -fstack-protector-strong
         -pthread
-        -O3             # Equivalent to VS /O2 on Mac
-        -flto           # Link-time optimization (LLVM equivalent to LTCG)
     )
+    
+    # Debug-specific flags
+    add_compile_options($<$<CONFIG:Debug>:-g3>)           # Debug symbols
+    add_compile_options($<$<CONFIG:Debug>:-O0>)           # No optimization
+    
+    # Release-specific flags
+    add_compile_options($<$<CONFIG:Release>:-O3>)         # Aggressive optimization
+    add_compile_options($<$<CONFIG:Release>:-flto>)       # Link-time optimization
     
     # Set Mac-specific optimization flags
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto")
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -flto")
 endif()
-
 # Cross-platform runtime configuration
 if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
@@ -107,6 +114,9 @@ elseif(APPLE)
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Target architectures")
 endif()
 
+############################################
+# Libraries and dependencies
+############################################
 # Find dependencies
 find_package(Eigen3 CONFIG REQUIRED)
 message(STATUS "Found Eigen3: ${EIGEN3_INCLUDE_DIR}")
@@ -128,10 +138,6 @@ if(NOT EXISTS "${FLATBUFFERS_FLATC_EXECUTABLE}")
 	endif()
 endif()
 message(STATUS "flatc executable path: ${FLATBUFFERS_FLATC_EXECUTABLE}")
-
-# Print all CMake variables for debugging
-message(STATUS "CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
-message(STATUS "CMAKE_MODULE_PATH: ${CMAKE_MODULE_PATH}")
 
 ###########################################
 # FLATBUFFER GENERATION
@@ -226,7 +232,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # Platform-specific configuration
 if(WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE GEOSHARPLUS_EXPORTS)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /EHsc)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+    
+    # Ensure PDB file is generated and copied for Debug builds
+    set_target_properties(${PROJECT_NAME} PROPERTIES 
+        COMPILE_PDB_NAME "${PROJECT_NAME}" 
+        COMPILE_PDB_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    )
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
 endif()
@@ -246,3 +258,14 @@ add_custom_command(
         "${CMAKE_CURRENT_SOURCE_DIR}/../cppPrebuild/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
     COMMENT "Copying ${PROJECT_NAME} DLL to bin directory"
 )
+
+# For Windows, copy PDB file for debug builds
+if(WIN32)
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<$<CONFIG:Debug>:$<TARGET_PDB_FILE:${PROJECT_NAME}>>
+            $<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../cppPrebuild/>
+        COMMENT "Copying PDB file for debugging"
+    )
+endif()

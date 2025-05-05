@@ -59,7 +59,7 @@ bool serializePointArray(const std::vector<Vector3d>& points,
   std::vector<GSP::FB::Vec3> pointVector;
   pointVector.reserve(points.size());
   for (const auto& p : points) {
-    pointVector.emplace_back(p.x(), p.y(), p.z());
+    pointVector.emplace_back(p[0], p[1], p[2]);
   }
 
   auto vecVector = builder.CreateVectorOfStructs(pointVector);
