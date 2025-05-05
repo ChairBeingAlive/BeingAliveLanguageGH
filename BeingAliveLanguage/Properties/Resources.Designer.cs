@@ -163,16 +163,6 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilDiv_osx {
-            get {
-                object obj = ResourceManager.GetObject("balSoilDiv_osx", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
         internal static byte[] balSoilDiv_rnd {
             get {
                 object obj = ResourceManager.GetObject("balSoilDiv_rnd", resourceCulture);

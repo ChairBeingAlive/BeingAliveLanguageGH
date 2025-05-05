@@ -32,7 +32,7 @@ namespace BeingAliveLanguage
       toWorld = Transform.ChangeBasis(sBase.pln, Plane.WorldXY);
     }
 
-    public void Build(bool macOS = false)
+    public void Build()
     {
 
       var doRndControl = mStage == -1 ? false : true;

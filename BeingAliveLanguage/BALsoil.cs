@@ -172,7 +172,6 @@ namespace BeingAliveLanguage
     {
     }
 
-    // additional constructor for macOS-version component
     public BALsoilDiagramGeneral(string name, string nickname, string description, string category, string subCategory)
       : base(name, nickname, description, category, subCategory)
     {
@@ -201,9 +200,6 @@ namespace BeingAliveLanguage
       pManager.AddCurveParameter("Silt Triangle", "siltT", "Silt triangles.", GH_ParamAccess.list);
       pManager.AddCurveParameter("Clay Triangle", "clayT", "Clay triangles.", GH_ParamAccess.list);
       pManager.AddCurveParameter("All Triangle", "soilT", "Collection of all triangles of the three types.", GH_ParamAccess.list);
-
-      //pManager.AddCurveParameter("debugPts", "dP", "Debugging point list.", GH_ParamAccess.list);
-      //pManager.AddNumberParameter("debug", "debugNum", "debugging", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -232,7 +228,7 @@ namespace BeingAliveLanguage
     }
   }
 
-  public class BALsoilDiagramGeneral_RndControl : BALsoilDiagramGeneral
+  public class BALsoilDiagramGeneral_RndControl : BALsoilDiagramGeneral 
   {
     public BALsoilDiagramGeneral_RndControl()
       : base("General Soil Separates (RndControl)", "balsoilGeneral_rndControl",
@@ -263,12 +259,12 @@ namespace BeingAliveLanguage
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
-      if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The MacOS version component does not allow the adjustment of randomness levels in the soil generation process.");
+      //if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+      //{
+      //  AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The MacOS version component does not allow the adjustment of randomness levels in the soil generation process.");
 
-        return;
-      }
+      //  return;
+      //}
       // get data
       var sBase = new SoilBase();
       var sInfo = new SoilProperty();
@@ -283,12 +279,12 @@ namespace BeingAliveLanguage
       DA.GetData("seed", ref seed);
       DA.GetData("stage", ref stage);
 
-      if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-      {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "This component is only available for the Windows platform.");
+      //if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+      //{
+      //  AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "This component is only available for the Windows platform.");
 
-        return;
-      }
+      //  return;
+      //}
       if (stage < 1 || stage > 8)
       {
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Stage index out of range [1 - 8].");
@@ -296,7 +292,7 @@ namespace BeingAliveLanguage
 
       // call the actural function
       var soil = new SoilGeneral(sBase, sInfo, rock, seed, stage);
-      soil.Build(true);
+      soil.Build();
 
       DA.SetDataList(0, soil.mSandT);
       DA.SetDataList(1, soil.mSiltT);
@@ -1068,7 +1064,7 @@ namespace BeingAliveLanguage
         // the local strength is based on the distance to the compactCrv and the size of the triangle
         var transStrength = 1 - Utils.remap(x.Value.Item1.Length, remapMin, remapMax, 0, 1);
         var adjustedScale = sBase.unitL;
-        
+
         var curCoreT = new Polyline(x.Value.Item3);
         curCoreT.Transform(Transform.Translation(dir * transStrength * globalStrength * adjustedScale));
         coreTriCmpc.Add(curCoreT);
