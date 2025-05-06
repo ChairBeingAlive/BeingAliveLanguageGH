@@ -241,29 +241,4 @@ if(MSVC)
 endif()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE GEOSHARPLUS_EXPORTS)
-############################################
-# Post-build steps
-############################################
-# Create bin directory if it doesn't exist
-# file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bin")
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../cppPrebuild")
 
-# Add post-build command to copy the DLL to the bin directory
-add_custom_command(
-    TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy 
-        $<TARGET_FILE:${PROJECT_NAME}> 
-        "${CMAKE_CURRENT_SOURCE_DIR}/../cppPrebuild/$<TARGET_FILE_NAME:${PROJECT_NAME}>"
-    COMMENT "Copying ${PROJECT_NAME} DLL to bin directory"
-)
-
-# For Windows, copy PDB file for debug builds
-if(WIN32)
-    add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<$<CONFIG:Debug>:$<TARGET_PDB_FILE:${PROJECT_NAME}>>
-            $<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/../cppPrebuild/>
-        COMMENT "Copying PDB file for debugging"
-    )
-endif()

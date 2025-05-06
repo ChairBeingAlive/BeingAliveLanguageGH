@@ -99,7 +99,7 @@ GEOSHARPLUS_API bool GEOSHARPLUS_CALL BALpossionDiskElimSample(
   float d_max =
       2 * wse.GetMaxPoissonDiskRadius(dim, outputPoints.size(), generalArea);
 
-  // 3D points, sampling in 2D plane
+  // 3D points, sampling in 2D plane, so dim=2
   wse.Eliminate(inputPoints.data(), inputPoints.size(), outputPoints.data(),
                 outputPoints.size(), false, d_max, 2);
 
