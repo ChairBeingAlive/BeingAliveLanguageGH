@@ -42,6 +42,11 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Generator: ${CMAKE_GENERATOR}")
 
+
+# Compiling flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wextra -pedantic")
+
+
 # Enable parallel building (equivalent to /MP)
 if(MSVC)
     set(CMAKE_C_MP_FLAG ON)
@@ -56,6 +61,7 @@ if(MSVC)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP${N}")
     endif()
 endif()
+
 # Platform-specific compiler flags
 if(MSVC)
     # Common MSVC flags
