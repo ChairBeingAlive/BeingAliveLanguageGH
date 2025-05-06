@@ -42,28 +42,28 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Generator: ${CMAKE_GENERATOR}")
 
+# Global compiler settings for all platforms
+add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
+add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 
-# Compiling flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wextra -pedantic")
-
-
-# Enable parallel building (equivalent to /MP)
 if(MSVC)
     set(CMAKE_C_MP_FLAG ON)
     set(CMAKE_CXX_MP_FLAG ON)
+
     # Enable faster PDB generation
     add_compile_options("/FS")
-    # Set number of parallel jobs for MS compiler
-    include(ProcessorCount)
-    ProcessorCount(N)
-    if(NOT N EQUAL 0)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP${N}")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP${N}")
-    endif()
-endif()
 
-# Platform-specific compiler flags
-if(MSVC)
+    # Specify debug runtime for debug builds and release runtime for release builds
+    set(CMAKE_MSVC_RUNTIME_LIBRARY_DEBUG "MultiThreadedDebugDLL")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY_RELEASE "MultiThreadedDLL")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "$<IF:$<CONFIG:Debug>,${CMAKE_MSVC_RUNTIME_LIBRARY_DEBUG},${CMAKE_MSVC_RUNTIME_LIBRARY_RELEASE}>")
+
+	# Define preprocessor macros for Windows platform and DLL export
+	add_compile_definitions(
+	 _WINDOWS     # General Windows platform macro
+	 _USRDLL      # Specifies that this is a user-defined DLL
+	)
+
     # Common MSVC flags
     add_compile_options(
         /fp:precise     # Match original VS precision
@@ -72,6 +72,7 @@ if(MSVC)
         /Gy             # Function-level linking
         /Oi             # Intrinsic functions
         /Gm-            # Minimal rebuild (disable for faster builds)
+        /W4
     )
     
     # Debug-specific flags
@@ -82,7 +83,6 @@ if(MSVC)
     # Release-specific flags
     add_compile_options($<$<CONFIG:Release>:/O2>)         # Optimize for speed
     add_compile_options($<$<CONFIG:Release>:/GL>)         # Whole program optimization
-    add_compile_options($<$<CONFIG:Release>:/Ot>)         # Favor speed over size
     
     # Debug linker flags
     set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} /DEBUG:FULL")
@@ -99,6 +99,9 @@ elseif(APPLE)
         -ffp-model=precise
         -fstack-protector-strong
         -pthread
+        -Wall
+        -Wextra
+        -pedantic
     )
     
     # Debug-specific flags
@@ -113,12 +116,7 @@ elseif(APPLE)
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto")
     set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} -flto")
 endif()
-# Cross-platform runtime configuration
-if(MSVC)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
-elseif(APPLE)
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Target architectures")
-endif()
+
 
 ############################################
 # Libraries and dependencies
@@ -233,22 +231,16 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     flatbuffers::flatbuffers
 )
 
-# No need to add dependency since we generate at configure time
-
-# Platform-specific configuration
-if(WIN32)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE GEOSHARPLUS_EXPORTS)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
-    
-    # Ensure PDB file is generated and copied for Debug builds
-    set_target_properties(${PROJECT_NAME} PROPERTIES 
-        COMPILE_PDB_NAME "${PROJECT_NAME}" 
-        COMPILE_PDB_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+# Add debug CRT for Windows
+if(MSVC)
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Debug>:ucrtd>      # Unicode C Runtime Debug
+        $<$<CONFIG:Debug>:vcruntimed> # Visual C++ Runtime Debug
+        $<$<CONFIG:Debug>:msvcrtd>    # Microsoft C Runtime Debug
     )
-else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
 endif()
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE GEOSHARPLUS_EXPORTS)
 ############################################
 # Post-build steps
 ############################################
