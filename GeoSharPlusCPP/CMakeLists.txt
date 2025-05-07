@@ -21,8 +21,6 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
         set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg target triplet")
     elseif(APPLE)
         set(VCPKG_TARGET_TRIPLET "x64-osx" CACHE STRING "vcpkg target triplet")
-    elseif(UNIX)
-        set(VCPKG_TARGET_TRIPLET "x64-linux" CACHE STRING "vcpkg target triplet")
     endif()
     message(STATUS "Setting vcpkg triplet to: ${VCPKG_TARGET_TRIPLET}")
 endif()
@@ -38,6 +36,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Use matching runtime library
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
+
+# 3. Make LTO conditional on Release builds
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION FALSE)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "Generator: ${CMAKE_GENERATOR}")
@@ -49,9 +55,6 @@ add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 if(MSVC)
     set(CMAKE_C_MP_FLAG ON)
     set(CMAKE_CXX_MP_FLAG ON)
-
-    # Enable faster PDB generation
-    add_compile_options("/FS")
 
     # Specify debug runtime for debug builds and release runtime for release builds
     set(CMAKE_MSVC_RUNTIME_LIBRARY_DEBUG "MultiThreadedDebugDLL")
@@ -70,9 +73,12 @@ if(MSVC)
         /Zc:inline      # Remove unused code
         /EHsc           # Exception handling
         /Gy             # Function-level linking
+        /GS 		    # Buffer security check
+        /GT 		    # Enable thread-safe heap allocation
         /Oi             # Intrinsic functions
         /Gm-            # Minimal rebuild (disable for faster builds)
         /W4
+        /arch:AVX2
     )
     
     # Debug-specific flags
@@ -84,14 +90,6 @@ if(MSVC)
     add_compile_options($<$<CONFIG:Release>:/O2>)         # Optimize for speed
     add_compile_options($<$<CONFIG:Release>:/GL>)         # Whole program optimization
     
-    # Debug linker flags
-    set(CMAKE_SHARED_LINKER_FLAGS_DEBUG "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} /DEBUG:FULL")
-    set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /DEBUG:FULL")
-    
-    # Release linker flags
-    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
-    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /LTCG")
-    set(CMAKE_MODULE_LINKER_FLAGS_RELEASE "${CMAKE_MODULE_LINKER_FLAGS_RELEASE} /LTCG")
 elseif(APPLE)
     # Common Apple flags
     add_compile_options(
@@ -231,14 +229,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     flatbuffers::flatbuffers
 )
 
-# Add debug CRT for Windows
-if(MSVC)
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-        $<$<CONFIG:Debug>:ucrtd>      # Unicode C Runtime Debug
-        $<$<CONFIG:Debug>:vcruntimed> # Visual C++ Runtime Debug
-        $<$<CONFIG:Debug>:msvcrtd>    # Microsoft C Runtime Debug
-    )
-endif()
-
+# Modify your target_compile_definitions line with more verbose messaging
 target_compile_definitions(${PROJECT_NAME} PRIVATE GEOSHARPLUS_EXPORTS)
-

@@ -73,17 +73,8 @@ GEOSHARPLUS_API bool GEOSHARPLUS_CALL BALpossionDiskElimSample(
     return false;
   }
 
-  // Serialize the point array into the allocated buffer
-  if (!GS::serializePointArray(points, *outBuffer, *outSize)) {
-    if (*outBuffer) delete[] *outBuffer;  // Cleanup
-    *outBuffer = nullptr;
-    *outSize = 0;
-
-    return false;
-  }
-
   // Convert GeoSharPlusCPP::Vector3d to cy::Vec3d
-  std::vector<cy::Vec3d> inputPoints(points.size());
+  std::vector<cy::Vec3d> inputPoints;
   for (const auto& point : points) {
     inputPoints.emplace_back(point.x(), point.y(), point.z());
   }
