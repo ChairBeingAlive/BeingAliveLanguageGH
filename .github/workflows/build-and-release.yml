@@ -168,10 +168,6 @@ jobs:
         # Copy entire bin directory (includes DLLs from postbuild.ps1)
         Copy-Item -Path "${{ github.workspace }}\bin" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
         
-        # Make sure both platform libraries are included
-        # (in case postbuild.ps1 didn't copy the macOS .dylib files)
-        Copy-Item -Path "${{ env.CPP_PREBUILD_DIR }}/*.*" -Destination "${{ env.ARTIFACTS_DIR }}/bin/Release" -Force
-        
         # Run Yak packaging script
         $yakScriptPath = "${{ github.workspace }}\_release\prepare_yak_pkg.ps1"
         & "$yakScriptPath"

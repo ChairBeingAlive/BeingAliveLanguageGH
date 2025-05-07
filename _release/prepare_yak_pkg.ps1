@@ -38,11 +38,10 @@ if (Test-Path "manifest.yml")
   Remove-Item manifest.yml
 }
 
-# Copy files - use the determined bin folder path
-Copy-Item -Path "${binFolder}\net7.0" -Destination "." -Recurse -ErrorAction SilentlyContinue
-Copy-Item -Path "${binFolder}\net7.0-windows" -Destination "." -Recurse -ErrorAction SilentlyContinue
-
+# Copy files and icon - use the determined bin folder path 
+Copy-Item -Path "${binFolder}\Release\*" -Destination "." -Recurse -ErrorAction SilentlyContinue
 Copy-Item -Path "${currentFolder}\icon_new.png" -Destination "." -Recurse
+
 ./../yak.exe spec; 
 Add-Content manifest.yml "`nicon: icon_new.png"
 Add-Content manifest.yml "`nkeywords: `n - drawing `n - climate `n - soil `n - language"
