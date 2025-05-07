@@ -52,8 +52,6 @@ Write-Host "======================================="
 Get-Content manifest.yml
 
 ./../yak.exe build
-Copy-Item -Path ".\*.yak" -Destination "${currentFolder}" -Recurse
 
 Pop-Location
-
 # then yak push xx.yak in the cmd line
