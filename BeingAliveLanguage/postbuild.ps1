@@ -1,22 +1,27 @@
-param(
-    [string]$TargetDir,
-    [string]$SolutionDir,
-    [string]$Configuration
-)
+param(  
+   [string]$TargetDir,  
+   [string]$SolutionDir,  
+   [string]$Configuration  
+)  
 
-# Clean up directory paths
-Write-Host "++++++++++++++++++++++++++++++: $TargetDir"
-Write-Host "++++++++++++++++++++++++++++++: $SolutionDir"
+# Extract the leaf of the TargetDir  
+$targetDirLeaf = Split-Path -Leaf $TargetDir  
+Write-Host "Leaf of TargetDir++++++++++++++++++++++++++++++: $targetDirLeaf"  
 
-# Set output directory
-$outputDir = Join-Path (Join-Path $SolutionDir "bin") $Configuration
+# Clean up directory paths  
+Write-Host "++++++++++++++++++++++++++++++: $TargetDir"  
+Write-Host "++++++++++++++++++++++++++++++: $SolutionDir"  
 
-# Create output directory
-New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+# Set output directory  
+$outputDir = Join-Path (Join-Path $SolutionDir "bin") $Configuration  
+$outputDir = Join-Path $outputDir $targetDirLeaf  # adding the `net7.0-windows` part 
 
-Write-Host "Copying from++++++++++++++++++++++++++++: $TargetDir"
-Write-Host "Copying to++++++++++++++++++++++++++++++: $outputDir"
+# Create output directory  
+New-Item -ItemType Directory -Path $outputDir -Force | Out-Null  
 
-# Copy build outputs
-Copy-Item -Path (Join-Path $TargetDir "*.dll") -Destination $outputDir -Force
+Write-Host "Copying from++++++++++++++++++++++++++++: $TargetDir"  
+Write-Host "Copying to++++++++++++++++++++++++++++++: $outputDir"  
+
+# Copy build outputs  
+Copy-Item -Path (Join-Path $TargetDir "*.dll") -Destination $outputDir -Force  
 Copy-Item -Path (Join-Path $TargetDir "*.gha") -Destination $outputDir -Force
