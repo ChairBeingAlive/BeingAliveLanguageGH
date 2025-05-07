@@ -5,17 +5,17 @@ using Grasshopper.Kernel;
 
 namespace BeingAliveLanguage
 {
-  public class InforExporter : GH_Component
+  public class BALinfoExporter : GH_Component
   {
-    InforExporter()
-      : base("BAL_Check", "balCheck",
+    public BALinfoExporter() :
+      base("BAL_Check", "balCheck",
           "Check if everything is loaded correctly.",
-          "BAL", "09::utils")
+          "BAL", "00::info")
     { }
 
     public override GH_Exposure Exposure => GH_Exposure.primary;
-    protected override System.Drawing.Bitmap Icon => null;
-    public override Guid ComponentGuid => new Guid("22179f27-ddad-40aa-bd16-f4c4d5d13c15");
+    //protected override System.Drawing.Bitmap Icon => null;
+    public override Guid ComponentGuid => new Guid("dc1c6827-4e84-48f5-be11-a18e9f410291");
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
@@ -41,11 +41,14 @@ namespace BeingAliveLanguage
         }
         else
         {
+          // Create an instance of BeingAliveLanguageInfo to access the non-static property
+          string version = new BeingAliveLanguageInfo().AssemblyVersion;
           string loadedPath = GSP.NativeBridge.LoadedLibraryPath;
           string libName = Path.GetFileName(loadedPath);
+
           string infoText = $"Native library loaded successfully from: {loadedPath}\n" +
                             $"Library name: {libName}\n" +
-                            $"Version: {Assembly.GetExecutingAssembly().GetName().Version}";
+                            $"Version: {version}";
 
           DA.SetData(0, infoText);
         }
@@ -56,7 +59,5 @@ namespace BeingAliveLanguage
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Exception: {ex.Message}");
       }
     }
-
-
   }
 }

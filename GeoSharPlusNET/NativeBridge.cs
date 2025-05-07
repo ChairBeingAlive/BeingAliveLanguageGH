@@ -138,10 +138,45 @@ namespace GSP
           LogError($"Stack trace: {ex.StackTrace}");
         }
       }
-      else
+      else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
       {
-        // For Windows, we don't need special loading as DllImport handles it
-        _isNativeLibraryLoaded = true;
+        try
+        {
+          // Locate the DLL file for Windows
+          string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+          string? assemblyDirectory = Path.GetDirectoryName(assemblyLocation);
+          string dllPath = string.Empty;
+
+          if (assemblyDirectory != null)
+          {
+            dllPath = Path.Combine(assemblyDirectory, WinLibName);
+            if (!File.Exists(dllPath))
+            {
+              // Try parent directory
+              string? parentDir = Path.GetDirectoryName(assemblyDirectory);
+              if (parentDir != null)
+              {
+                dllPath = Path.Combine(parentDir, WinLibName);
+              }
+            }
+          }
+
+          if (File.Exists(dllPath))
+          {
+            _isNativeLibraryLoaded = true;
+            _loadedLibraryPath = dllPath;
+            LogError($"Successfully located native library at: {dllPath}");
+          }
+          else
+          {
+            LogError($"Failed to locate native library {WinLibName} in expected locations.");
+          }
+        }
+        catch (Exception ex)
+        {
+          LogError($"Exception while locating native library path: {ex.Message}");
+          LogError($"Stack trace: {ex.StackTrace}");
+        }
       }
     }
 
