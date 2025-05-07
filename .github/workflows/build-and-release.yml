@@ -36,27 +36,6 @@ jobs:
     
     # Setup vcpkg (required by the C++ project)
     - uses: lukka/get-cmake@latest
-    - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b  # 2025-04-09 version
-        
-    # Install vcpkg dependencies
-    - name: Install vcpkg dependencies (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        cd ${{ github.workspace }}/${{ env.CPP_Project }}
-        Get-ChildItem -Path "." -Force  # Debug: list files to confirm vcpkg.json is present
-        ${{ github.workspace }}\vcpkg\vcpkg install --triplet=${{ matrix.triplet }}
-
-    - name: Install vcpkg dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      shell: bash
-      run: |
-        cd "${{ github.workspace }}/${{ env.CPP_Project }}"
-        ls -la  # Debug: list files to confirm vcpkg.json is present
-        "${{ github.workspace }}/vcpkg/vcpkg" install --triplet=${{ matrix.triplet }}
         
     # Configure and build using CMake with presets
     - name: Configure and Build with CMake
