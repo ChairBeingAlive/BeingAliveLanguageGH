@@ -8,16 +8,6 @@ namespace GSP
     private const string WinLibName = @"GeoSharPlusCPP.dll";
     private const string MacLibName = @"libGeoSharPlusCPP.dylib";
 
-    // Load the library explicitly before it's used
-    static NativeBridge()
-    {
-      if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-      {
-        var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, MacLibName);
-        NativeLibrary.Load(path);
-      }
-    }
-
     // =========
     // For each function, we create 3 functions: Windows, macOS implementations, and the public API
     // =========
