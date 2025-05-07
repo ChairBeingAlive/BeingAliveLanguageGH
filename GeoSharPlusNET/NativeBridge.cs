@@ -3,32 +3,24 @@ using System.Runtime.InteropServices;
 
 namespace GSP
 {
-
   public static class NativeBridge
   {
     private const string WinLibName = @"GeoSharPlusCPP.dll";
     private const string MacLibName = @"libGeoSharPlusCPP.dylib";
 
-    // For macOS
-    [DllImport("libdl.dylib")]
-    private static extern IntPtr dlopen(string path, int mode);
-
+    // Load the library explicitly before it's used
     static NativeBridge()
     {
-      // Pre-load the library on macOS
       if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
       {
-        string libraryPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, MacLibName);
-        IntPtr handle = dlopen(libraryPath, 2); // RTLD_NOW = 2
-
-        if (handle == IntPtr.Zero)
-        {
-          throw new DllNotFoundException($"Failed to load {libraryPath}");
-        }
+        var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, MacLibName);
+        NativeLibrary.Load(path);
       }
     }
 
+    // =========
     // For each function, we create 3 functions: Windows, macOS implementations, and the public API
+    // =========
 
     // Example: Point Round Trip -- Passing a Point3d to C++ and back 
     [DllImport(WinLibName, EntryPoint = "point3d_roundtrip", CallingConvention = CallingConvention.Cdecl)]
