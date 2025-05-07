@@ -44,7 +44,7 @@ namespace GSP
           Console.WriteLine($"Error setting up native library path: {ex.Message}");
         }
       }
-    }}
+    }
 
     // P/Invoke declarations for macOS dynamic library loading
     [DllImport("libdl.dylib")]
