@@ -15,7 +15,7 @@ namespace BeingAliveLanguage
             "BAL", "09::utils")
     { }
 
-    public override GH_Exposure Exposure => GH_Exposure.primary;
+    public override GH_Exposure Exposure => GH_Exposure.primary; 
     protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balSoilInfo);
     public override Guid ComponentGuid => new Guid("af64a14a-6795-469c-b044-7db972d5bd84");
 
