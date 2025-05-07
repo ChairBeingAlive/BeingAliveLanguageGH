@@ -114,7 +114,7 @@
 		<_SafeSolutionDir>$(SolutionDir.TrimEnd('\'))</_SafeSolutionDir>
 	  </PropertyGroup>
 	  
-	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)postbuild.ps1&quot; -TargetDir &quot;$(TargetDir)&quot; -SolutionDir &quot;$(SolutionDir)&quot;" />
+	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(MSBuildThisFileDirectory)postbuild.ps1' -TargetDir '$(TargetDir)' -SolutionDir '$(SolutionDir)' -Configuration '$(Configuration)'&quot;" />
 	</Target>
 
 	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
