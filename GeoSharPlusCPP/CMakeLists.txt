@@ -36,10 +36,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Use matching runtime library
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
-
 # 3. Make LTO conditional on Release builds
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION FALSE)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
@@ -56,6 +52,9 @@ if(MSVC)
     set(CMAKE_C_MP_FLAG ON)
     set(CMAKE_CXX_MP_FLAG ON)
 
+	# Use matching runtime library
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MD")
     # Specify debug runtime for debug builds and release runtime for release builds
     set(CMAKE_MSVC_RUNTIME_LIBRARY_DEBUG "MultiThreadedDebugDLL")
     set(CMAKE_MSVC_RUNTIME_LIBRARY_RELEASE "MultiThreadedDLL")
@@ -85,7 +84,7 @@ if(MSVC)
     add_compile_options($<$<CONFIG:Debug>:/Zi>)           # Debug information format
     add_compile_options($<$<CONFIG:Debug>:/Od>)           # Disable optimization
     add_compile_options($<$<CONFIG:Debug>:/RTC1>)         # Run-time error checks
-    
+
     # Release-specific flags
     add_compile_options($<$<CONFIG:Release>:/O2>)         # Optimize for speed
     add_compile_options($<$<CONFIG:Release>:/GL>)         # Whole program optimization
