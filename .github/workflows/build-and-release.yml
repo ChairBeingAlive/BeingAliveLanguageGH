@@ -87,8 +87,8 @@ jobs:
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
-        if [ -f "${{ matrix.output-path }}" ]; then
-          cp ${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
+        if [ -f "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}" ]; then
+          cp ${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
         else
           echo "ERROR: Built library not found at ${{ matrix.output-path }}"
         fi
