@@ -8,6 +8,51 @@ namespace GSP
     private const string WinLibName = @"GeoSharPlusCPP.dll";
     private const string MacLibName = @"libGeoSharPlusCPP.dylib";
 
+    // Set DllImport search path to include the current assembly directory for macOS
+    static NativeBridge()
+    {
+      if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+      {
+        try
+        {
+          // Load the native library from the plugin directory
+          string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+          string? assemblyDirectory = Path.GetDirectoryName(assemblyLocation);
+          if (assemblyDirectory != null)
+          {
+            string libraryPath = Path.Combine(assemblyDirectory, MacLibName);
+
+            // Try to explicitly load the library from this path
+            if (File.Exists(libraryPath))
+            {
+              // On macOS, we use dlopen to load the library
+              IntPtr handle = dlopen(libraryPath, 2); // RTLD_NOW = 2
+              if (handle == IntPtr.Zero)
+              {
+                string errorMsg = dlerror();
+                Console.WriteLine($"Failed to load library: {errorMsg}");
+              }
+            }
+          }
+          else
+          {
+            Console.WriteLine("Error: Unable to determine the assembly directory.");
+          }
+        }
+        catch (Exception ex)
+        {
+          Console.WriteLine($"Error setting up native library path: {ex.Message}");
+        }
+      }
+    }}
+
+    // P/Invoke declarations for macOS dynamic library loading
+    [DllImport("libdl.dylib")]
+    private static extern IntPtr dlopen(string path, int flags);
+
+    [DllImport("libdl.dylib")]
+    private static extern string dlerror();
+
     // =========
     // For each function, we create 3 functions: Windows, macOS implementations, and the public API
     // =========
