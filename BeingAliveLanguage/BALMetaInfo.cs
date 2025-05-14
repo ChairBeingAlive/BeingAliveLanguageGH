@@ -8,8 +8,8 @@ namespace BeingAliveLanguage
   public class BALinfoExporter : GH_Component
   {
     public BALinfoExporter() :
-      base("BAL_Check", "balCheck",
-          "Check if everything is loaded correctly.",
+      base("BAL_Info", "balInfo",
+          "Check BAL version and whether everything is loaded correctly.",
           "BAL", "00::info")
     { }
 
@@ -23,7 +23,7 @@ namespace BeingAliveLanguage
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
-      pManager.AddTextParameter("Info Text", "info", "Plugin info for loading native lib.", GH_ParamAccess.item);
+      pManager.AddTextParameter("Info", "info", "Plugin info for loading native lib.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
