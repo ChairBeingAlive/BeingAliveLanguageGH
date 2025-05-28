@@ -28,3 +28,4 @@ GeoSharPlusCPP/build
 GeoSharPlusNET/obj
 cppPrebuild
 _release/.DS_Store
+.DS_Store

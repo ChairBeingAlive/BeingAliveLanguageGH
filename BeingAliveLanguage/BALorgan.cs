@@ -117,7 +117,9 @@ namespace BeingAliveLanguage
     public class BALorganTuft : BALorganBase
     {
         public BALorganTuft()
-          : base("Organ_Tuft", "balOrganTuft", "Organ of resistance -- 'tuft'.", "BAL", "04::organ")
+          : base("Organ_Tuft", "balTuft",
+                "Organ of resistance -- 'tuft'.",
+                "BAL", "04::organ")
         {
         }
 
@@ -267,14 +269,15 @@ namespace BeingAliveLanguage
         }
     }
 
+
     /// <summary>
     /// Organ Type: Rhizome
     /// </summary>
     public class BALorganRhizome : BALorganTuft
     {
         public BALorganRhizome()
-          : base("Organ_Rhizome", "balOrganRhizome",
-                "Organ of resistance -- 'rhizome.",
+          : base("Organ_Rhizome", "balRhizome",
+                "Organ of resistance -- 'rhizome'.",
                 "BAL", "04::organ")
         {
         }
@@ -293,20 +296,44 @@ namespace BeingAliveLanguage
 
     }
 
+
+    /// <summary>
+    /// Organ Type: GroundRunner
+    /// </summary>
     public class BALorganGroundRunner : BALorganBase
     {
         public BALorganGroundRunner()
-            : base("Organ_GroundRunner", "balOrganGroundRunner",
+            : base("Organ_GroundRunner", "balGroundRunner",
                  "Organ of resistance -- 'ground runner (below / above).'",
                  "BAL", "04::organ")
         { }
 
+        protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
         public override Guid ComponentGuid => new Guid("23bc24ad-16d0-4812-bfd6-060e6eefc48f");
-
+        public override GH_Exposure Exposure => GH_Exposure.primary;
 
         protected override bool mSym => false;
         protected override double mHorizontalScale => 1.2;
         protected override double mBelowSurfaceRatio => 2; // the ratio to radius
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
+            //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
+            pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
+            pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
+        }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
