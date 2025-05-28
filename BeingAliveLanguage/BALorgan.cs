@@ -1,7 +1,10 @@
-﻿using Grasshopper.Kernel;
-using System;
-using Rhino.Geometry;
+﻿using System;
+using System.Windows.Forms;
 using System.Collections.Generic;
+
+using Grasshopper.Kernel;
+using GH_IO.Serialization;
+using Rhino.Geometry;
 using BeingAliveLanguage.BalCore;
 
 namespace BeingAliveLanguage
@@ -25,14 +28,54 @@ namespace BeingAliveLanguage
         protected int mTotalNum;
         protected int mPhase;
         protected bool mActive;
-        protected Plane mPln;
+        protected double mRadius = 1.0; // default radius for the organ geometry, can be changed in derived classes
+        protected Plane mPln = Plane.WorldXY;
+        protected NurbsCurve mGeo;
+
+        protected bool mSym = false;
         protected double mScale;
         protected double mDistBelowSrf;
+        protected double mHorizontalScale;
+        protected double mBelowSurfaceRatio;
 
-        // property
-        protected virtual bool mSym { get; set; }
-        protected virtual double mHorizontalScale { get; set; }
-        protected virtual double mBelowSurfaceRatio { get; set; } // the ratio to radius
+        protected virtual void GetInputs(IGH_DataAccess DA)
+        {
+            // initialize with different values
+            mNum = 3;
+            mPhase = 1;
+            mScale = 1.0;
+            mPln = new Plane();
+
+            // take Input
+            if (!DA.GetData("Plane", ref mPln))
+            { return; }
+            if (!DA.GetData("Base Number", ref mNum))
+            { return; }
+            if (!DA.GetData("Phase", ref mPhase))
+            { return; }
+            if (!DA.GetData("Scale", ref mScale))
+            { return; }
+        }
+
+        protected virtual void SetOutputs(IGH_DataAccess DA)
+        {
+            // Set output
+            DA.SetData("State", mActive ? "active" : "inactive");
+        }
+
+        protected virtual void prepareGeo()
+        {
+            mGeo = new Circle().ToNurbsCurve();
+        }
+
+        protected virtual void prepareParam()
+        {
+            // compute current states
+            mActive = mPhase % 2 == 0;
+
+            // compute current total number of organs (based on symmetric or not)
+            mTotalNum = mSym == true ? mNum + ((mPhase + 1) / 2 - 1) * 2 : mNum + ((mPhase + 1) / 2 - 1);
+        }
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -55,27 +98,8 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // initialize with different values
-            mNum = 3;
-            mPhase = 1;
-            mScale = 1.0;
-            mPln = new Plane();
-
-            if (!DA.GetData("Plane", ref mPln))
-            { return; }
-            if (!DA.GetData("Base Number", ref mNum))
-            { return; }
-            if (!DA.GetData("Phase", ref mPhase))
-            { return; }
-            if (!DA.GetData("Scale", ref mScale))
-            { return; }
-
-            // compute current states
-            mActive = mPhase % 2 == 0;
-            DA.SetData("State", mActive ? "active" : "inactive");
-
-            // compute current total number of organs (based on symmetric or not)
-            mTotalNum = mSym == true ? mNum + ((mPhase + 1) / 2 - 1) * 2 : mNum + ((mPhase + 1) / 2 - 1);
+            GetInputs(DA);
+            SetOutputs(DA);
         }
 
         /// <summary>
@@ -121,42 +145,49 @@ namespace BeingAliveLanguage
                 "Organ of resistance -- 'tuft'.",
                 "BAL", "04::organ")
         {
+            mSym = true; // Assigning the value in the constructor
+            mHorizontalScale = 0.5;
+            mBelowSurfaceRatio = 1;
         }
 
         public BALorganTuft(string name, string nickname, string description, string category, string subcategory) : base(name, nickname, description, category, subcategory)
         {
+            mSym = true; // Assigning the value in the constructor
         }
 
         protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
         public override Guid ComponentGuid => new Guid("a7fdb09e-39e7-4ceb-a78f-b2b2ab71f572");
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        // Symmetry, scaling properties
-        protected override bool mSym => true;
-        protected override double mHorizontalScale => 0.5;
-        protected override double mBelowSurfaceRatio => 1;
+        protected override void prepareGeo()
+        {
+            var circle = new Circle(mPln, mRadius);
+            mGeo = circle.ToNurbsCurve();
+
+            var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+            mGeo.Domain = new Interval(0, 1);
+
+            mGeo.Transform(xform);
+            mGeo.Translate(-mPln.YAxis * mRadius * mScale * mBelowSurfaceRatio);
+        }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            base.SolveInstance(DA);
+            // get the inputs: plane, num, phase, etc.
+            base.GetInputs(DA);
+
+            // prepare the basic geometry & parameter
+            prepareGeo();
+            prepareParam();
 
             if (mNum < 1)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Base number should be at least 1.");
             }
 
-            double radius = 1;
-            var circle = new Circle(mPln, radius);
             var horizontalSpacing = mHorizontalScale * mScale * 2; // radius = 1, D = 2
 
-            var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
-            var geo = circle.ToNurbsCurve();
-            geo.Domain = new Interval(0, 1);
-
-            geo.Transform(xform);
-            geo.Translate(-mPln.YAxis * radius * mScale * mBelowSurfaceRatio);
-
-            var geoCol = new List<NurbsCurve>() { geo };
+            var geoCol = new List<NurbsCurve>() { mGeo };
             var exiOrganLst = new List<NurbsCurve>();
             var newOrganLst = new List<NurbsCurve>();
             var exiGrassLst = new List<Line>();
@@ -175,7 +206,7 @@ namespace BeingAliveLanguage
                 // Core Organ part
                 for (int i = 0; i < mTotalNum / 2; i++)
                 {
-                    var newGeo = geo.Duplicate() as NurbsCurve;
+                    var newGeo = mGeo.Duplicate() as NurbsCurve;
                     if (newGeo == null)
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Internal NURBS casting error.");
@@ -183,7 +214,7 @@ namespace BeingAliveLanguage
                     newGeo.Translate(horizontalSpacing * (i + 1), 0, 0);
                     geoCol.Add(newGeo);
 
-                    var newGeoMirror = geo.Duplicate() as NurbsCurve;
+                    var newGeoMirror = mGeo.Duplicate() as NurbsCurve;
                     newGeoMirror.Translate(-horizontalSpacing * (i + 1), 0, 0);
                     geoCol.Add(newGeoMirror);
                 }
@@ -203,7 +234,7 @@ namespace BeingAliveLanguage
             {
                 for (int i = 0; i < mTotalNum; i++)
                 {
-                    var newGeo = geo.Duplicate() as NurbsCurve;
+                    var newGeo = mGeo.Duplicate() as NurbsCurve;
                     if (newGeo == null)
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Internal NURBS casting error.");
@@ -231,12 +262,12 @@ namespace BeingAliveLanguage
                 foreach (var crv in exiOrganLst)
                 {
                     var topPt = crv.PointAt(0.25);
-                    var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, radius * 10, 5);
+                    var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 10, 5);
                     exiGrassLst.AddRange(grassL);
 
                     // root part (active): only on existing organs
                     var botPt = crv.PointAt(0.75);
-                    var rootL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, radius * 3);
+                    var rootL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, mRadius * 3);
                     rootLst.AddRange(rootL);
                 }
 
@@ -244,7 +275,7 @@ namespace BeingAliveLanguage
                 foreach (var crv in newOrganLst)
                 {
                     var topPt = crv.PointAt(0.25);
-                    var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, radius * 2, 15);
+                    var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 2, 15);
                     newGrassLst.AddRange(grassL);
                 }
             }
@@ -254,7 +285,7 @@ namespace BeingAliveLanguage
                 foreach (var crv in exiOrganLst)
                 {
                     var botPt = crv.PointAt(0.75);
-                    var grassL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, radius * 3.5);
+                    var grassL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, mRadius * 3.5);
                     newGrassLst.AddRange(grassL);
                 }
 
@@ -265,6 +296,8 @@ namespace BeingAliveLanguage
             DA.SetDataList("ExistingGrassyPart", exiGrassLst);
             DA.SetDataList("NewGrassyPart", newGrassLst);
             DA.SetDataList("RootPart", rootLst);
+
+            base.SetOutputs(DA);
 
         }
     }
@@ -280,20 +313,34 @@ namespace BeingAliveLanguage
                 "Organ of resistance -- 'rhizome'.",
                 "BAL", "04::organ")
         {
+            mHorizontalScale = 1.2;
+            mBelowSurfaceRatio = 2;
         }
 
         protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
         public override Guid ComponentGuid => new Guid("50264c56-b65f-4181-a49e-25ad9815771d");
 
-        protected override bool mSym => false;
-        protected override double mHorizontalScale => 1.2;
-        protected override double mBelowSurfaceRatio => 2; // the ratio to radius
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
+            pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+        }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            base.prepareGeo();
+            base.GetInputs(DA);
+
+            if (!DA.GetData("Symmetric", ref mSym))
+            { return; }
+
+
+            base.prepareParam();
             base.SolveInstance(DA);
         }
-
     }
 
 
@@ -306,15 +353,16 @@ namespace BeingAliveLanguage
             : base("Organ_GroundRunner", "balGroundRunner",
                  "Organ of resistance -- 'ground runner (below / above).'",
                  "BAL", "04::organ")
-        { }
+        {
+            mHorizontalScale = 2;
+            mBelowSurfaceRatio = 2;
+        }
 
         protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
         public override Guid ComponentGuid => new Guid("23bc24ad-16d0-4812-bfd6-060e6eefc48f");
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        protected override bool mSym => false;
-        protected override double mHorizontalScale => 1.2;
-        protected override double mBelowSurfaceRatio => 2; // the ratio to radius
+        private string organLocation = "aboveGround"; // Default to centerLine mode
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -322,7 +370,7 @@ namespace BeingAliveLanguage
             pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
             pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
             pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
-            //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -335,10 +383,65 @@ namespace BeingAliveLanguage
             pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
         }
 
+        public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+        {
+            base.AppendAdditionalMenuItems(menu);
+
+            Menu_AppendSeparator(menu);
+            Menu_AppendItem(menu, "Organ Location:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+            Menu_AppendItem(menu, " Above Ground", (sender, e) => Menu.SelectMode(this, sender, e, ref organLocation, "aboveGround"), true, CheckDrawingMode("centerLine"));
+            Menu_AppendItem(menu, " Below Ground", (sender, e) => Menu.SelectMode(this, sender, e, ref organLocation, "belowGround"), true, CheckDrawingMode("fancyBound"));
+        }
+
+        private bool CheckDrawingMode(string mode) => organLocation == mode;
+
+        public override bool Write(GH_IWriter writer)
+        {
+            writer.SetString("organLocation", organLocation);
+            return base.Write(writer);
+        }
+
+        public override bool Read(GH_IReader reader)
+        {
+            if (reader.ItemExists("organLocation"))
+                organLocation = reader.GetString("organLocation");
+
+            return base.Read(reader);
+        }
+
+
+        protected override void prepareGeo()
+        {
+            if (organLocation == "belowGround")
+            {
+                mGeo = new Line(mPln.Origin, mPln.Origin + mPln.XAxis).ToNurbsCurve();
+                mGeo.Domain = new Interval(0, 1);
+
+                var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+                mGeo.Transform(xform);
+                mGeo.Translate(mPln.YAxis * mRadius * mScale * -1 * mBelowSurfaceRatio);
+            }
+
+            else if (organLocation == "aboveGround")
+            {
+                mGeo = new Line(mPln.Origin, mPln.Origin + mPln.XAxis).ToNurbsCurve();
+                mGeo.Domain = new Interval(0, 1);
+
+                var xform = Transform.Scale(mPln, 2 * mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+                mGeo.Transform(xform);
+                mGeo.Translate(mPln.YAxis * mRadius * mScale * mBelowSurfaceRatio);
+            }
+        }
+
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            base.GetInputs(DA);
+            if (!DA.GetData("Symmetric", ref mSym))
+            { return; }
+
+            prepareGeo();
+            base.prepareParam();
+
         }
     }
-
-
 }
