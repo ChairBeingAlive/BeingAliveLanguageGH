@@ -36,7 +36,7 @@ namespace BeingAliveLanguage
         protected double mScale;
         protected double mDistBelowSrf;
         protected double mHorizontalScale;
-        protected double mBelowSurfaceRatio;
+        protected double mDisSurfaceRatio;
 
         protected virtual void GetInputs(IGH_DataAccess DA)
         {
@@ -147,7 +147,7 @@ namespace BeingAliveLanguage
         {
             mSym = true; // Assigning the value in the constructor
             mHorizontalScale = 0.5;
-            mBelowSurfaceRatio = 1;
+            mDisSurfaceRatio = 1;
         }
 
         public BALorganTuft(string name, string nickname, string description, string category, string subcategory) : base(name, nickname, description, category, subcategory)
@@ -168,7 +168,7 @@ namespace BeingAliveLanguage
             mGeo.Domain = new Interval(0, 1);
 
             mGeo.Transform(xform);
-            mGeo.Translate(-mPln.YAxis * mRadius * mScale * mBelowSurfaceRatio);
+            mGeo.Translate(-mPln.YAxis * mRadius * mScale * mDisSurfaceRatio);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -312,7 +312,7 @@ namespace BeingAliveLanguage
                 "BAL", "04::organ")
         {
             mHorizontalScale = 1.2;
-            mBelowSurfaceRatio = 2;
+            mDisSurfaceRatio = 2;
         }
 
         protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
@@ -353,7 +353,7 @@ namespace BeingAliveLanguage
                  "BAL", "04::organ")
         {
             mHorizontalScale = 2;
-            mBelowSurfaceRatio = 1;
+            mDisSurfaceRatio = 1;
         }
 
         protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
@@ -412,25 +412,34 @@ namespace BeingAliveLanguage
         {
             if (organLocation == "belowGround")
             {
-                mGeo = new Line(mPln.Origin, mPln.Origin + mPln.XAxis).ToNurbsCurve();
+                mDisSurfaceRatio = 0.5;
+
+                var startPt = mPln.Origin;
+                var endPt = mPln.Origin +  2 * mPln.XAxis;
+
+                mGeo = new Line(startPt, endPt).ToNurbsCurve();
                 mGeo.Domain = new Interval(0, 1);
 
-                var xform = Transform.Scale(mPln, 2 * mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+                var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
                 mGeo.Transform(xform);
-                mGeo.Translate(mPln.YAxis * mRadius * mScale * -1 * mBelowSurfaceRatio);
+                mGeo.Translate(mPln.YAxis * mRadius * mScale * -1 * mDisSurfaceRatio);
             }
 
+            // above ground runner use curved Arc for base geometry
             else if (organLocation == "aboveGround")
             {
+                mDisSurfaceRatio = 0;
+                mHorizontalScale = 3;
+
                 var startPt = mPln.Origin;
-                var endPt = mPln.Origin + 2 * mPln.XAxis;
-                var midPt = 0.5 * (mPln.Origin + endPt) + 0.2 * mPln.YAxis;
+                var endPt = mPln.Origin +  2 * mPln.XAxis;
+                var midPt = 0.5 * (mPln.Origin + endPt) + 0.3 * mPln.YAxis;
                 mGeo = new Arc(startPt, midPt, endPt).ToNurbsCurve();
                 mGeo.Domain = new Interval(0, 1);
 
-                var xform = Transform.Scale(mPln, 1 * mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+                var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
                 mGeo.Transform(xform);
-                mGeo.Translate(mPln.YAxis * mRadius * mScale * mBelowSurfaceRatio);
+                mGeo.Translate(mPln.YAxis * mRadius * mScale * mDisSurfaceRatio);
             }
         }
 
