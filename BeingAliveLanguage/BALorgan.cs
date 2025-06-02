@@ -415,7 +415,7 @@ namespace BeingAliveLanguage
                 mDisSurfaceRatio = 0.5;
 
                 var startPt = mPln.Origin;
-                var endPt = mPln.Origin +  2 * mPln.XAxis;
+                var endPt = mPln.Origin + 2 * mPln.XAxis;
 
                 mGeo = new Line(startPt, endPt).ToNurbsCurve();
                 mGeo.Domain = new Interval(0, 1);
@@ -432,7 +432,7 @@ namespace BeingAliveLanguage
                 mHorizontalScale = 3;
 
                 var startPt = mPln.Origin;
-                var endPt = mPln.Origin +  2 * mPln.XAxis;
+                var endPt = mPln.Origin + 2 * mPln.XAxis;
                 var midPt = 0.5 * (mPln.Origin + endPt) + 0.3 * mPln.YAxis;
                 mGeo = new Arc(startPt, midPt, endPt).ToNurbsCurve();
                 mGeo.Domain = new Interval(0, 1);
@@ -441,6 +441,187 @@ namespace BeingAliveLanguage
                 mGeo.Transform(xform);
                 mGeo.Translate(mPln.YAxis * mRadius * mScale * mDisSurfaceRatio);
             }
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            base.GetInputs(DA);
+            if (!DA.GetData("Symmetric", ref mSym))
+            { return; }
+
+            prepareGeo();
+            base.prepareParam();
+
+            var geoCol = new List<NurbsCurve>() { mGeo };
+            var exiOrganLst = new List<NurbsCurve>();
+            var newOrganLst = new List<NurbsCurve>();
+            var exiGrassLst = new List<Line>();
+            var newGrassLst = new List<Line>();
+            var rootLst = new List<Line>();
+
+            var horizontalSpacing = mHorizontalScale * mScale * 2; // radius = 1, D = 2
+
+            if (mSym)
+            {
+                if (mNum % 2 == 0)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "When `sym==TRUE`, even count will be rounded to the nearest odd number.");
+                    return;
+                }
+
+                // Core Organ part
+                for (int i = 0; i < mTotalNum / 2; i++)
+                {
+                    var newGeo = mGeo.Duplicate() as NurbsCurve;
+                    if (newGeo == null)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Internal NURBS casting error.");
+                    }
+                    newGeo.Translate(horizontalSpacing * (i + 1), 0, 0);
+                    geoCol.Add(newGeo);
+
+                    var newGeoMirror = mGeo.Duplicate() as NurbsCurve;
+                    newGeoMirror.Translate(-horizontalSpacing * (i + 1), 0, 0);
+                    geoCol.Add(newGeoMirror);
+                }
+
+                if (mActive)
+                {
+                    exiOrganLst = geoCol.GetRange(0, geoCol.Count - 2);
+                    newOrganLst = geoCol.GetRange(geoCol.Count - 2, 2);
+                }
+                else
+                {
+                    exiOrganLst = geoCol;
+                }
+
+            }
+            else
+            {
+                for (int i = 0; i < mTotalNum; i++)
+                {
+                    var newGeo = mGeo.Duplicate() as NurbsCurve;
+                    if (newGeo == null)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Internal NURBS casting error.");
+                    }
+                    newGeo.Translate(horizontalSpacing * i, 0, 0);
+                    geoCol.Add(newGeo);
+                }
+
+                // no symmetry, only take 1 element as "new"
+                if (mActive)
+                {
+                    exiOrganLst = geoCol.GetRange(0, geoCol.Count - 1);
+                    newOrganLst = geoCol.GetRange(geoCol.Count - 1, 1);
+                }
+                else
+                {
+                    exiOrganLst = geoCol;
+                }
+            }
+
+            // Global root/Grass build based on active state
+            if (mActive)
+            {
+                // Existing organ: long grass, with roots
+                foreach (var crv in exiOrganLst)
+                {
+                    var grass0 = DrawGrassOrRoot(crv.PointAt(0), mPln.YAxis, 2, mScale, mRadius * 10, 5);
+                    exiGrassLst.AddRange(grass0);
+                    var grass1 = DrawGrassOrRoot(crv.PointAt(0.5), mPln.YAxis, 2, mScale, mRadius * 10, 5);
+                    exiGrassLst.AddRange(grass1);
+                    var grass2 = DrawGrassOrRoot(crv.PointAt(1), mPln.YAxis, 2, mScale, mRadius * 10, 5);
+                    exiGrassLst.AddRange(grass2);
+
+                    // root part (active): only on existing organs
+                    var root0 = DrawGrassOrRoot(crv.PointAt(0.0), -mPln.YAxis, 3, mScale, mRadius * 3);
+                    rootLst.AddRange(root0);
+                    var root1 = DrawGrassOrRoot(crv.PointAt(1.0), -mPln.YAxis, 3, mScale, mRadius * 3);
+                    rootLst.AddRange(root1);
+                }
+
+                // New organ: short grass, no roots
+                foreach (var crv in newOrganLst)
+                {
+                    //var grass0 = DrawGrassOrRoot(crv.PointAt(0.0), mPln.YAxis, 2, mScale, mRadius * 2, 15);
+                    //newGrassLst.AddRange(grass0);
+                    var grass1 = DrawGrassOrRoot(crv.PointAt(1.0), mPln.YAxis, 2, mScale, mRadius * 2, 15);
+                    newGrassLst.AddRange(grass1);
+                }
+            }
+            else
+            {
+                // root part (inactive): on all organs
+                foreach (var crv in exiOrganLst)
+                {
+                    var grass0 = DrawGrassOrRoot(crv.PointAt(0.0), -mPln.YAxis, 3, mScale, mRadius * 3.5);
+                    newGrassLst.AddRange(grass0);
+                    var grass1 = DrawGrassOrRoot(crv.PointAt(1.0), -mPln.YAxis, 3, mScale, mRadius * 3.5);
+                    newGrassLst.AddRange(grass1);
+                }
+
+            }
+
+            DA.SetDataList("ExistingOrgan", exiOrganLst);
+            DA.SetDataList("NewOrgan", newOrganLst);
+            DA.SetDataList("ExistingGrassyPart", exiGrassLst);
+            DA.SetDataList("NewGrassyPart", newGrassLst);
+            DA.SetDataList("RootPart", rootLst);
+            base.SetOutputs(DA);
+
+        }
+    }
+
+    /// <summary>
+    /// Organ Type: GroundRunner
+    /// </summary>
+    public class BALorganCreepingShoot : BALorganBase
+    {
+        public BALorganCreepingShoot()
+            : base("Organ_CreepingShoot", "balCreepingShoot",
+                 "Organ of resistance -- 'creeping shoot.'",
+                 "BAL", "04::organ")
+        {
+            mHorizontalScale = 2;
+            mDisSurfaceRatio = 1;
+        }
+
+        protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
+        public override Guid ComponentGuid => new Guid("9017348d-1243-433e-834c-c684ce082c10");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
+            pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
+            pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
+            pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
+        }
+        protected override void prepareGeo()
+        {
+            mDisSurfaceRatio = 0;
+            mHorizontalScale = 2;
+
+            var startPt = mPln.Origin;
+            var endPt = mPln.Origin + mPln.XAxis;
+            mGeo = new Line(startPt, endPt).ToNurbsCurve();
+            mGeo.Domain = new Interval(0, 1);
+
+            var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+            mGeo.Transform(xform);
+            mGeo.Translate(mPln.YAxis * mRadius * mScale * mDisSurfaceRatio);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
