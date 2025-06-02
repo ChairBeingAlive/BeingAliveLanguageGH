@@ -353,7 +353,7 @@ namespace BeingAliveLanguage
                  "BAL", "04::organ")
         {
             mHorizontalScale = 2;
-            mBelowSurfaceRatio = 2;
+            mBelowSurfaceRatio = 1;
         }
 
         protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
@@ -387,8 +387,8 @@ namespace BeingAliveLanguage
 
             Menu_AppendSeparator(menu);
             Menu_AppendItem(menu, "Organ Location:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
-            Menu_AppendItem(menu, " Above Ground", (sender, e) => Menu.SelectMode(this, sender, e, ref organLocation, "aboveGround"), true, CheckDrawingMode("centerLine"));
-            Menu_AppendItem(menu, " Below Ground", (sender, e) => Menu.SelectMode(this, sender, e, ref organLocation, "belowGround"), true, CheckDrawingMode("fancyBound"));
+            Menu_AppendItem(menu, " Above Ground", (sender, e) => Menu.SelectMode(this, sender, e, ref organLocation, "aboveGround"), true, CheckDrawingMode("aboveGround"));
+            Menu_AppendItem(menu, " Below Ground", (sender, e) => Menu.SelectMode(this, sender, e, ref organLocation, "belowGround"), true, CheckDrawingMode("belowGround"));
         }
 
         private bool CheckDrawingMode(string mode) => organLocation == mode;
@@ -415,7 +415,7 @@ namespace BeingAliveLanguage
                 mGeo = new Line(mPln.Origin, mPln.Origin + mPln.XAxis).ToNurbsCurve();
                 mGeo.Domain = new Interval(0, 1);
 
-                var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+                var xform = Transform.Scale(mPln, 2 * mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
                 mGeo.Transform(xform);
                 mGeo.Translate(mPln.YAxis * mRadius * mScale * -1 * mBelowSurfaceRatio);
             }
@@ -538,7 +538,7 @@ namespace BeingAliveLanguage
                 // root part (inactive): on all organs
                 foreach (var crv in exiOrganLst)
                 {
-                    var botPt = crv.PointAt(0.75);
+                    var botPt = crv.PointAt(0.5);
                     var grassL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, mRadius * 3.5);
                     newGrassLst.AddRange(grassL);
                 }
