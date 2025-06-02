@@ -422,10 +422,13 @@ namespace BeingAliveLanguage
 
             else if (organLocation == "aboveGround")
             {
-                mGeo = new Line(mPln.Origin, mPln.Origin + mPln.XAxis).ToNurbsCurve();
+                var startPt = mPln.Origin;
+                var endPt = mPln.Origin + 2 * mPln.XAxis;
+                var midPt = 0.5 * (mPln.Origin + endPt) + 0.2 * mPln.YAxis;
+                mGeo = new Arc(startPt, midPt, endPt).ToNurbsCurve();
                 mGeo.Domain = new Interval(0, 1);
 
-                var xform = Transform.Scale(mPln, 2 * mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+                var xform = Transform.Scale(mPln, 1 * mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
                 mGeo.Transform(xform);
                 mGeo.Translate(mPln.YAxis * mRadius * mScale * mBelowSurfaceRatio);
             }
@@ -515,22 +518,27 @@ namespace BeingAliveLanguage
                 // Existing organ: long grass, with roots
                 foreach (var crv in exiOrganLst)
                 {
-                    var topPt = crv.PointAt(0.5);
-                    var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 10, 5);
-                    exiGrassLst.AddRange(grassL);
+                    var grass0 = DrawGrassOrRoot(crv.PointAt(0), mPln.YAxis, 2, mScale, mRadius * 10, 5);
+                    exiGrassLst.AddRange(grass0);
+                    var grass1 = DrawGrassOrRoot(crv.PointAt(0.5), mPln.YAxis, 2, mScale, mRadius * 10, 5);
+                    exiGrassLst.AddRange(grass1);
+                    var grass2 = DrawGrassOrRoot(crv.PointAt(1), mPln.YAxis, 2, mScale, mRadius * 10, 5);
+                    exiGrassLst.AddRange(grass2);
 
                     // root part (active): only on existing organs
-                    var botPt = crv.PointAt(0.5);
-                    var rootL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, mRadius * 3);
-                    rootLst.AddRange(rootL);
+                    var root0 = DrawGrassOrRoot(crv.PointAt(0.0), -mPln.YAxis, 3, mScale, mRadius * 3);
+                    rootLst.AddRange(root0);
+                    var root1 = DrawGrassOrRoot(crv.PointAt(1.0), -mPln.YAxis, 3, mScale, mRadius * 3);
+                    rootLst.AddRange(root1);
                 }
 
                 // New organ: short grass, no roots
                 foreach (var crv in newOrganLst)
                 {
-                    var topPt = crv.PointAt(0.5);
-                    var grassL = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 2, 15);
-                    newGrassLst.AddRange(grassL);
+                    //var grass0 = DrawGrassOrRoot(crv.PointAt(0.0), mPln.YAxis, 2, mScale, mRadius * 2, 15);
+                    //newGrassLst.AddRange(grass0);
+                    var grass1 = DrawGrassOrRoot(crv.PointAt(1.0), mPln.YAxis, 2, mScale, mRadius * 2, 15);
+                    newGrassLst.AddRange(grass1);
                 }
             }
             else
@@ -538,9 +546,10 @@ namespace BeingAliveLanguage
                 // root part (inactive): on all organs
                 foreach (var crv in exiOrganLst)
                 {
-                    var botPt = crv.PointAt(0.5);
-                    var grassL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, mRadius * 3.5);
-                    newGrassLst.AddRange(grassL);
+                    var grass0 = DrawGrassOrRoot(crv.PointAt(0.0), -mPln.YAxis, 3, mScale, mRadius * 3.5);
+                    newGrassLst.AddRange(grass0);
+                    var grass1 = DrawGrassOrRoot(crv.PointAt(1.0), -mPln.YAxis, 3, mScale, mRadius * 3.5);
+                    newGrassLst.AddRange(grass1);
                 }
 
             }
