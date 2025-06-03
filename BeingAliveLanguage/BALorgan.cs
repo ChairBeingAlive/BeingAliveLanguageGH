@@ -6,6 +6,7 @@ using Grasshopper.Kernel;
 using GH_IO.Serialization;
 using Rhino.Geometry;
 using BeingAliveLanguage.BalCore;
+using Grasshopper.GUI;
 
 namespace BeingAliveLanguage
 {
@@ -415,7 +416,7 @@ namespace BeingAliveLanguage
                 mDisSurfaceRatio = 0.5;
 
                 var startPt = mPln.Origin;
-                var endPt = mPln.Origin + 2 * mPln.XAxis;
+                var endPt = mPln.Origin + mHorizontalScale * mPln.XAxis;
 
                 mGeo = new Line(startPt, endPt).ToNurbsCurve();
                 mGeo.Domain = new Interval(0, 1);
@@ -432,7 +433,7 @@ namespace BeingAliveLanguage
                 mHorizontalScale = 3;
 
                 var startPt = mPln.Origin;
-                var endPt = mPln.Origin + 2 * mPln.XAxis;
+                var endPt = mPln.Origin + mHorizontalScale * mPln.XAxis;
                 var midPt = 0.5 * (mPln.Origin + endPt) + 0.3 * mPln.YAxis;
                 mGeo = new Arc(startPt, midPt, endPt).ToNurbsCurve();
                 mGeo.Domain = new Interval(0, 1);
@@ -611,11 +612,11 @@ namespace BeingAliveLanguage
         }
         protected override void prepareGeo()
         {
-            mDisSurfaceRatio = 0;
+            mDisSurfaceRatio = 0.5;
             mHorizontalScale = 2;
 
             var startPt = mPln.Origin;
-            var endPt = mPln.Origin + mPln.XAxis;
+            var endPt = mPln.Origin + mHorizontalScale * mPln.XAxis;
             mGeo = new Line(startPt, endPt).ToNurbsCurve();
             mGeo.Domain = new Interval(0, 1);
 
@@ -679,7 +680,8 @@ namespace BeingAliveLanguage
             }
             else
             {
-                for (int i = 0; i < mTotalNum; i++)
+                // For n-1 element, use straight line
+                for (int i = 0; i < mTotalNum - 1; i++)
                 {
                     var newGeo = mGeo.Duplicate() as NurbsCurve;
                     if (newGeo == null)
@@ -689,6 +691,13 @@ namespace BeingAliveLanguage
                     newGeo.Translate(horizontalSpacing * i, 0, 0);
                     geoCol.Add(newGeo);
                 }
+
+                // For creeping shoot's last element, use a curve. we use an arc as the end-side new geometry
+                //var pt0 = mGeo.PointAtStart;
+                //var pt1 = mGeo.PointAtEnd;
+                //var pt2 = pt1 + mGeo.GetLength() * 0.5 * mPln.YAxis;
+
+                //var newGeo = new Arc(pt0, pt1 - pt0, pt2).ToNurbsCurve();
 
                 // no symmetry, only take 1 element as "new"
                 if (mActive)
