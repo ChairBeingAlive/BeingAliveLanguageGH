@@ -72,7 +72,7 @@ namespace BeingAliveLanguage
         protected virtual void prepareParam()
         {
             // compute current states
-            mActive = mPhase % 2 == 0;
+            mActive = mPhase % 2 == 1;
 
             // compute current total number of organs (based on symmetric or not)
             mTotalNum = mSym == true ? mNum + ((mPhase + 1) / 2 - 1) * 2 : mNum + ((mPhase + 1) / 2 - 1);
@@ -430,7 +430,7 @@ namespace BeingAliveLanguage
             else if (organLocation == "aboveGround")
             {
                 mDisSurfaceRatio = 0;
-                mHorizontalScale = 3;
+                mHorizontalScale = 2;
 
                 var startPt = mPln.Origin;
                 var endPt = mPln.Origin + mHorizontalScale * mPln.XAxis;
@@ -545,9 +545,9 @@ namespace BeingAliveLanguage
                 // New organ: short grass, no roots
                 foreach (var crv in newOrganLst)
                 {
-                    //var grass0 = DrawGrassOrRoot(crv.PointAt(0.0), mPln.YAxis, 2, mScale, mRadius * 2, 15);
-                    //newGrassLst.AddRange(grass0);
-                    var grass1 = DrawGrassOrRoot(crv.PointAt(1.0), mPln.YAxis, 2, mScale, mRadius * 2, 15);
+
+                    var endPt = crv.PointAtStart.DistanceTo(mPln.Origin) > crv.PointAtEnd.DistanceTo(mPln.Origin) ? crv.PointAtStart : crv.PointAtEnd;
+                    var grass1 = DrawGrassOrRoot(endPt, mPln.YAxis, 2, mScale, mRadius * 2, 15);
                     newGrassLst.AddRange(grass1);
                 }
             }
@@ -584,6 +584,7 @@ namespace BeingAliveLanguage
                  "Organ of resistance -- 'creeping shoot.'",
                  "BAL", "04::organ")
         {
+
             mHorizontalScale = 2;
             mDisSurfaceRatio = 1;
         }
@@ -612,6 +613,7 @@ namespace BeingAliveLanguage
         }
         protected override void prepareGeo()
         {
+
             mDisSurfaceRatio = 0.5;
             mHorizontalScale = 2;
 
@@ -692,12 +694,14 @@ namespace BeingAliveLanguage
                     geoCol.Add(newGeo);
                 }
 
-                // For creeping shoot's last element, use a curve. we use an arc as the end-side new geometry
-                //var pt0 = mGeo.PointAtStart;
-                //var pt1 = mGeo.PointAtEnd;
-                //var pt2 = pt1 + mGeo.GetLength() * 0.5 * mPln.YAxis;
+                // For creeping shoot's last element, use a curve. we use an arc as the end-side new geometry for "newOrganLst"
+                var pt0 = mGeo.PointAtStart;
+                var pt1 = mGeo.PointAtEnd;
+                var pt2 = pt1 + mGeo.GetLength() * 0.5 * mPln.YAxis;
 
-                //var newGeo = new Arc(pt0, pt1 - pt0, pt2).ToNurbsCurve();
+                var newGeoLastSeg = new Arc(pt0, pt1 - pt0, pt2).ToNurbsCurve();
+                newGeoLastSeg.Translate(horizontalSpacing * (mTotalNum - 1), 0, 0);
+                geoCol.Add(newGeoLastSeg);
 
                 // no symmetry, only take 1 element as "new"
                 if (mActive)
@@ -734,9 +738,8 @@ namespace BeingAliveLanguage
                 // New organ: short grass, no roots
                 foreach (var crv in newOrganLst)
                 {
-                    //var grass0 = DrawGrassOrRoot(crv.PointAt(0.0), mPln.YAxis, 2, mScale, mRadius * 2, 15);
-                    //newGrassLst.AddRange(grass0);
-                    var grass1 = DrawGrassOrRoot(crv.PointAt(1.0), mPln.YAxis, 2, mScale, mRadius * 2, 15);
+                    var endPt = crv.PointAtStart.DistanceTo(mPln.Origin) > crv.PointAtEnd.DistanceTo(mPln.Origin) ? crv.PointAtStart : crv.PointAtEnd;
+                    var grass1 = DrawGrassOrRoot(endPt, mPln.YAxis, 2, mScale, mRadius * 2, 15);
                     newGrassLst.AddRange(grass1);
                 }
             }
@@ -745,9 +748,9 @@ namespace BeingAliveLanguage
                 // root part (inactive): on all organs
                 foreach (var crv in exiOrganLst)
                 {
-                    var grass0 = DrawGrassOrRoot(crv.PointAt(0.0), -mPln.YAxis, 3, mScale, mRadius * 3.5);
+                    var grass0 = DrawGrassOrRoot(crv.PointAtStart, -mPln.YAxis, 3, mScale, mRadius * 3.5);
                     newGrassLst.AddRange(grass0);
-                    var grass1 = DrawGrassOrRoot(crv.PointAt(1.0), -mPln.YAxis, 3, mScale, mRadius * 3.5);
+                    var grass1 = DrawGrassOrRoot(crv.PointAtEnd, -mPln.YAxis, 3, mScale, mRadius * 3.5);
                     newGrassLst.AddRange(grass1);
                 }
 
