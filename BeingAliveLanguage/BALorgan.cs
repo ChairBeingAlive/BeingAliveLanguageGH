@@ -7,6 +7,9 @@ using GH_IO.Serialization;
 using Rhino.Geometry;
 using BeingAliveLanguage.BalCore;
 using Grasshopper.GUI;
+using System.Linq;
+using System.Xml.Xsl;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace BeingAliveLanguage
 {
@@ -973,6 +976,9 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("7366c871-8267-4087-a9d4-9bb8edaa40df");
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
+        Polyline inPoly = new Polyline();
+        Polyline outPoly = new Polyline();
+
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
@@ -998,13 +1004,31 @@ namespace BeingAliveLanguage
             mDisSurfaceRatio = 0.5;
             mHorizontalScale = 2;
 
+            // compose inner semi-circle of tapRoot's top
             var semiCircle = new Arc(mPln, 1, Math.PI).ToNurbsCurve();
-            mGeo = semiCircle;
+            semiCircle.Rebuild(6, 1, false).TryGetPolyline(out Polyline polyCrv);
 
-            //mGeo.Domain = new Interval(0, 1);
+            outPoly = polyCrv.Duplicate();
+            var outPolyPts = outPoly.GetRange(1, outPoly.Count - 2);
+            outPolyPts.Reverse();
 
-            //var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
-            //mGeo.Transform(xform);
+            var outPolyPtsTranslated = new List<Point3d>();
+            foreach (var pt in outPolyPts)
+            {
+                var xTrans = Transform.Translation(0.7 * (pt - mPln.Origin));
+                pt.Transform(xTrans);
+                outPolyPtsTranslated.Add(pt);
+            }
+
+            outPoly.AddRange(outPolyPtsTranslated);
+            outPoly.Add(outPoly[0]);
+
+            inPoly = polyCrv.Duplicate();
+            var  downPt = mPln.Origin - 10 * mPln.YAxis;
+            inPoly.Add(downPt);
+            inPoly.Add(inPoly[0]);
+
+            mGeo = new Line(mPln.Origin, downPt).ToNurbsCurve();
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -1021,72 +1045,28 @@ namespace BeingAliveLanguage
             var newGrassLst = new List<Line>();
             var rootLst = new List<Line>();
 
-            var horizontalSpacing = mHorizontalScale * mScale * 2; // radius = 1, D = 2
+            var xScale = Transform.Scale(mPln.Origin, mScale);
+            inPoly.Transform(xScale);
+            outPoly.Transform(xScale);
 
-            // always symetry for cushion
-            if (!mSym)
-            { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Cushion should always be symmetric."); }
-            else
+            for (int i = 0; i < mPhase; i++)
             {
-                geoCol.Clear();
-                if (mNum % 2 == 0)
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "When `sym==TRUE`, even count will be rounded to the nearest odd number.");
-                    return;
-                }
-
-                for (int i = 0; i < mTotalNum / 2; i++)
-                {
-                    // we need to compose the permanent curve using two part: the horizontal line + the curved arc
-                    var baseCrv = new Line(mGeo.PointAtStart, mGeo.PointAtStart + mPln.XAxis * 0.5 * mGeo.GetLength() * (i + 1)).ToNurbsCurve();
-                    var xform = Transform.Scale(mPln.Origin, mScale);
-                    baseCrv.Transform(xform);
-
-                    var ptEnd = baseCrv.PointAtEnd;
-                    var ptHigh = ptEnd + mScale * (0.5 * mPln.XAxis + 0.4 * mPln.YAxis);
-                    var endArc = new Arc(ptEnd, mPln.XAxis, ptHigh).ToNurbsCurve();
-                    //endArc.Translate(horizontalSpacing * i, 0, 0);
-                    var joinCrvRes = Curve.JoinCurves(new NurbsCurve[] { baseCrv, endArc });
-                    if (joinCrvRes.Length > 1)
-                    {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Organ curves cannot be joined.");
-                    }
-                }
-
-                // For active phase, add small extended lines along each arc to represent the active part
-                if (mActive)
-                {
-                    exiOrganLst = geoCol; // All lines and arcs are permanent/existing
-                }
-                else
-                {
-                    exiOrganLst = geoCol; // All geometry is existing when inactive
-                }
+                xScale = Transform.Scale(mPln.Origin, 1.15);
+                inPoly.Transform(xScale);
+                outPoly.Transform(xScale);
             }
-
 
             // Global root/Grass build based on active state
+            exiOrganLst.Add(inPoly.ToPolylineCurve());
             if (mActive)
             {
-                // Existing organ: long grass, with roots
-                foreach (var crv in newOrganLst)
-                {
-                    var grass0 = DrawGrassOrRoot(crv.PointAtEnd, mPln.YAxis, 2, mScale, mRadius * 10, 5);
-                    exiGrassLst.AddRange(grass0);
-                }
-
-                // New organ: short grass, no roots
-                foreach (var crv in newOrganLst)
-                {
-                    var endPt = crv.PointAtStart.DistanceTo(mPln.Origin) > crv.PointAtEnd.DistanceTo(mPln.Origin) ? crv.PointAtStart : crv.PointAtEnd;
-                    var grass1 = DrawGrassOrRoot(endPt, mPln.YAxis, 2, mScale, mRadius * 2, 15);
-                    newGrassLst.AddRange(grass1);
-                }
+                // draw the grass of active state
+                newOrganLst.Add(outPoly.ToPolylineCurve());
             }
 
-            // Root: no matter active/inactive
-            var root0 = DrawGrassOrRoot(exiOrganLst[0].PointAtStart, -mPln.YAxis, 3, mScale, mRadius * 3.5);
-            rootLst.AddRange(root0);
+            // Root on the existing part of tapRoot
+            //var root0 = DrawGrassOrRoot(exiOrganLst[0].PointAtStart, -mPln.YAxis, 3, mScale, mRadius * 3.5);
+            //rootLst.AddRange(root0);
 
 
             DA.SetDataList("ExistingOrgan", exiOrganLst);
