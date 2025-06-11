@@ -31,7 +31,7 @@ namespace BeingAliveLanguage
         protected bool mActive;
         protected double mRadius = 1.0; // default radius for the organ geometry, can be changed in derived classes
         protected Plane mPln = Plane.WorldXY;
-        protected NurbsCurve mGeo;
+        protected Curve mGeo;
 
         protected bool mSym = false;
         protected double mScale;
@@ -188,9 +188,9 @@ namespace BeingAliveLanguage
 
             var horizontalSpacing = mHorizontalScale * mScale * 2; // radius = 1, D = 2
 
-            var geoCol = new List<NurbsCurve>() { mGeo };
-            var exiOrganLst = new List<NurbsCurve>();
-            var newOrganLst = new List<NurbsCurve>();
+            var geoCol = new List<Curve>() { mGeo };
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
             var exiGrassLst = new List<Line>();
             var newGrassLst = new List<Line>();
             var rootLst = new List<Line>();
@@ -453,9 +453,9 @@ namespace BeingAliveLanguage
             prepareGeo();
             base.prepareParam();
 
-            var geoCol = new List<NurbsCurve>() { mGeo };
-            var exiOrganLst = new List<NurbsCurve>();
-            var newOrganLst = new List<NurbsCurve>();
+            var geoCol = new List<Curve>() { mGeo };
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
             var exiGrassLst = new List<Line>();
             var newGrassLst = new List<Line>();
             var rootLst = new List<Line>();
@@ -636,9 +636,9 @@ namespace BeingAliveLanguage
             prepareGeo();
             base.prepareParam();
 
-            var geoCol = new List<NurbsCurve>() { mGeo };
-            var exiOrganLst = new List<NurbsCurve>();
-            var newOrganLst = new List<NurbsCurve>();
+            var geoCol = new List<Curve>() { mGeo };
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
             var exiGrassLst = new List<Line>();
             var newGrassLst = new List<Line>();
             var rootLst = new List<Line>();
@@ -837,7 +837,6 @@ namespace BeingAliveLanguage
             mGeo.Transform(xform);
             mGeo.Translate(mPln.YAxis * mRadius * mScale * mDisSurfaceRatio);
         }
-
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             base.GetInputs(DA);
@@ -956,7 +955,7 @@ namespace BeingAliveLanguage
 
 
     /// <summary>
-    /// Organ Type: Cushion
+    /// Organ Type: TapRoot
     /// </summary>
     public class BALorganTapRoot : BALorganBase
     {
@@ -992,39 +991,102 @@ namespace BeingAliveLanguage
             pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
             pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
         }
+
         protected override void prepareGeo()
         {
 
             mDisSurfaceRatio = 0.5;
             mHorizontalScale = 2;
 
-            var startPt = mPln.Origin;
-            var endPt = mPln.Origin + mHorizontalScale * mPln.XAxis;
-            mGeo = new Line(startPt, endPt).ToNurbsCurve();
-            mGeo.Domain = new Interval(0, 1);
+            var semiCircle = new Arc(mPln, 1, Math.PI).ToNurbsCurve();
+            mGeo = semiCircle;
 
-            var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
-            mGeo.Transform(xform);
-            mGeo.Translate(mPln.YAxis * mRadius * mScale * mDisSurfaceRatio);
+            //mGeo.Domain = new Interval(0, 1);
+
+            //var xform = Transform.Scale(mPln, mHorizontalScale * mScale, 1 * mScale, 1 * mScale);
+            //mGeo.Transform(xform);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             base.GetInputs(DA);
-            if (!DA.GetData("Symmetric", ref mSym))
-            { return; }
 
             prepareGeo();
             base.prepareParam();
 
-            var geoCol = new List<NurbsCurve>() { mGeo };
-            var exiOrganLst = new List<NurbsCurve>();
-            var newOrganLst = new List<NurbsCurve>();
+            var geoCol = new List<Curve>() { mGeo };
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
             var exiGrassLst = new List<Line>();
             var newGrassLst = new List<Line>();
             var rootLst = new List<Line>();
 
             var horizontalSpacing = mHorizontalScale * mScale * 2; // radius = 1, D = 2
+
+            // always symetry for cushion
+            if (!mSym)
+            { AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Cushion should always be symmetric."); }
+            else
+            {
+                geoCol.Clear();
+                if (mNum % 2 == 0)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "When `sym==TRUE`, even count will be rounded to the nearest odd number.");
+                    return;
+                }
+
+                for (int i = 0; i < mTotalNum / 2; i++)
+                {
+                    // we need to compose the permanent curve using two part: the horizontal line + the curved arc
+                    var baseCrv = new Line(mGeo.PointAtStart, mGeo.PointAtStart + mPln.XAxis * 0.5 * mGeo.GetLength() * (i + 1)).ToNurbsCurve();
+                    var xform = Transform.Scale(mPln.Origin, mScale);
+                    baseCrv.Transform(xform);
+
+                    var ptEnd = baseCrv.PointAtEnd;
+                    var ptHigh = ptEnd + mScale * (0.5 * mPln.XAxis + 0.4 * mPln.YAxis);
+                    var endArc = new Arc(ptEnd, mPln.XAxis, ptHigh).ToNurbsCurve();
+                    //endArc.Translate(horizontalSpacing * i, 0, 0);
+                    var joinCrvRes = Curve.JoinCurves(new NurbsCurve[] { baseCrv, endArc });
+                    if (joinCrvRes.Length > 1)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Organ curves cannot be joined.");
+                    }
+                }
+
+                // For active phase, add small extended lines along each arc to represent the active part
+                if (mActive)
+                {
+                    exiOrganLst = geoCol; // All lines and arcs are permanent/existing
+                }
+                else
+                {
+                    exiOrganLst = geoCol; // All geometry is existing when inactive
+                }
+            }
+
+
+            // Global root/Grass build based on active state
+            if (mActive)
+            {
+                // Existing organ: long grass, with roots
+                foreach (var crv in newOrganLst)
+                {
+                    var grass0 = DrawGrassOrRoot(crv.PointAtEnd, mPln.YAxis, 2, mScale, mRadius * 10, 5);
+                    exiGrassLst.AddRange(grass0);
+                }
+
+                // New organ: short grass, no roots
+                foreach (var crv in newOrganLst)
+                {
+                    var endPt = crv.PointAtStart.DistanceTo(mPln.Origin) > crv.PointAtEnd.DistanceTo(mPln.Origin) ? crv.PointAtStart : crv.PointAtEnd;
+                    var grass1 = DrawGrassOrRoot(endPt, mPln.YAxis, 2, mScale, mRadius * 2, 15);
+                    newGrassLst.AddRange(grass1);
+                }
+            }
+
+            // Root: no matter active/inactive
+            var root0 = DrawGrassOrRoot(exiOrganLst[0].PointAtStart, -mPln.YAxis, 3, mScale, mRadius * 3.5);
+            rootLst.AddRange(root0);
 
 
             DA.SetDataList("ExistingOrgan", exiOrganLst);
