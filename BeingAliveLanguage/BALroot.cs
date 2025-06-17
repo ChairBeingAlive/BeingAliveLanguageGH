@@ -474,6 +474,7 @@ namespace BeingAliveLanguage
 
             var allRt = rtRes.Aggregate(new List<Line>(), (x, y) => x.Concat(y).ToList());
 
+
             DA.SetDataList(0, allRt);
             DA.SetDataList(1, rtRes[0]);
             DA.SetDataList(2, rtRes[1]);
@@ -1096,6 +1097,12 @@ namespace BeingAliveLanguage
                 deadRoot.Add(new Line(startPtH3, -hVec * 4).ToNurbsCurve());
             }
 
+
+            // Remove any null items from the result lists
+            mainRoot = mainRoot.Where(r => r != null).ToList();
+            newRoot = newRoot.Where(r => r != null).ToList();
+            deadRoot = deadRoot.Where(r => r != null).ToList();
+
             // If using fancy boundary mode, convert the centerlines to boundary curves
             if (drawingMode == "fancyBound")
             {
@@ -1113,7 +1120,6 @@ namespace BeingAliveLanguage
                 newRoot = fancyNewRoot;
                 deadRoot = fancyDeadRoot;
             }
-
 
             // ! export all 
             DA.SetDataList("RootMain", mainRoot);
