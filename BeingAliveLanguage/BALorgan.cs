@@ -6,10 +6,7 @@ using Grasshopper.Kernel;
 using GH_IO.Serialization;
 using Rhino.Geometry;
 using BeingAliveLanguage.BalCore;
-using Grasshopper.GUI;
-using System.Linq;
-using System.Xml.Xsl;
-using MathNet.Numerics.LinearAlgebra;
+using Grasshopper.Kernel.Geometry;
 
 namespace BeingAliveLanguage
 {
@@ -33,7 +30,7 @@ namespace BeingAliveLanguage
         protected int mPhase;
         protected bool mActive;
         protected double mRadius = 1.0; // default radius for the organ geometry, can be changed in derived classes
-        protected Plane mPln = Plane.WorldXY;
+        protected Rhino.Geometry.Plane mPln = Rhino.Geometry.Plane.WorldXY;
         protected Curve mGeo;
 
         protected bool mSym = false;
@@ -48,7 +45,6 @@ namespace BeingAliveLanguage
             mNum = 3;
             mPhase = 1;
             mScale = 1.0;
-            mPln = new Plane();
 
             // take Input
             if (!DA.GetData("Plane", ref mPln))
@@ -353,7 +349,7 @@ namespace BeingAliveLanguage
     {
         public BALorganGroundRunner()
             : base("Organ_GroundRunner", "balGroundRunner",
-                 "Organ of resistance -- 'ground runner (below / above).'",
+                 "Organ of resistance -- 'ground runner (below / above)'.",
                  "BAL", "04::organ")
         {
             mHorizontalScale = 2;
@@ -976,8 +972,9 @@ namespace BeingAliveLanguage
         public override Guid ComponentGuid => new Guid("7366c871-8267-4087-a9d4-9bb8edaa40df");
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
-        Polyline inPoly = new Polyline();
-        Polyline outPoly = new Polyline();
+        Polyline baseOrgan = new Polyline();
+        Polyline activeOrgan = new Polyline();
+        Curve centerLine = null;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -1000,16 +997,14 @@ namespace BeingAliveLanguage
 
         protected override void prepareGeo()
         {
-
             mDisSurfaceRatio = 0.5;
-            mHorizontalScale = 2;
 
             // compose inner semi-circle of tapRoot's top
-            var semiCircle = new Arc(mPln, 1, Math.PI).ToNurbsCurve();
+            var semiCircle = new Arc(mPln, 0.5, Math.PI).ToNurbsCurve();
             semiCircle.Rebuild(6, 1, false).TryGetPolyline(out Polyline polyCrv);
 
-            outPoly = polyCrv.Duplicate();
-            var outPolyPts = outPoly.GetRange(1, outPoly.Count - 2);
+            activeOrgan = polyCrv.Duplicate();
+            var outPolyPts = activeOrgan.GetRange(1, activeOrgan.Count - 2);
             outPolyPts.Reverse();
 
             var outPolyPtsTranslated = new List<Point3d>();
@@ -1020,15 +1015,13 @@ namespace BeingAliveLanguage
                 outPolyPtsTranslated.Add(pt);
             }
 
-            outPoly.AddRange(outPolyPtsTranslated);
-            outPoly.Add(outPoly[0]);
+            activeOrgan.AddRange(outPolyPtsTranslated);
+            activeOrgan.Add(activeOrgan[0]);
 
-            inPoly = polyCrv.Duplicate();
-            var  downPt = mPln.Origin - 10 * mPln.YAxis;
-            inPoly.Add(downPt);
-            inPoly.Add(inPoly[0]);
-
-            mGeo = new Line(mPln.Origin, downPt).ToNurbsCurve();
+            baseOrgan = polyCrv.Duplicate();
+            var downPt = mPln.Origin - 7 * mPln.YAxis;
+            baseOrgan.Add(downPt);
+            baseOrgan.Add(baseOrgan[0]);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -1045,28 +1038,101 @@ namespace BeingAliveLanguage
             var newGrassLst = new List<Line>();
             var rootLst = new List<Line>();
 
+            // Find the highest Y value in outPoly (relative to mPln)
+            double maxY = double.MinValue;
+            int maxYIndex = -1;
+            for (int i = 0; i < activeOrgan.Count; i++)
+            {
+                // Project point to plane and get Y coordinate
+                var pt = activeOrgan[i];
+                mPln.ClosestParameter(pt, out double u, out double v);
+                var localPt = mPln.PointAt(u, v) - mPln.Origin;
+                double y = localPt * mPln.YAxis;
+                if (y > maxY)
+                {
+                    maxY = y;
+                    maxYIndex = i;
+                }
+            }
+
+            // Calculate translation vector to move highest Y to origin.Y (downwards)
+            if (maxYIndex >= 0)
+            {
+                var highestPt = activeOrgan[maxYIndex];
+                var vecToOrigin = mPln.Origin - highestPt;
+                // Only move in Y direction of the plane
+                var yOffset = (highestPt - mPln.Origin) * mPln.YAxis;
+                var translation = -yOffset * mPln.YAxis;
+                var trans = Transform.Translation(translation);
+                baseOrgan.Transform(trans);
+                activeOrgan.Transform(trans);
+            }
+
+            // Now scale as before
             var xScale = Transform.Scale(mPln.Origin, mScale);
-            inPoly.Transform(xScale);
-            outPoly.Transform(xScale);
+            baseOrgan.Transform(xScale);
+            activeOrgan.Transform(xScale);
 
             for (int i = 0; i < mPhase; i++)
             {
                 xScale = Transform.Scale(mPln.Origin, 1.15);
-                inPoly.Transform(xScale);
-                outPoly.Transform(xScale);
+                baseOrgan.Transform(xScale);
+                activeOrgan.Transform(xScale);
             }
 
             // Global root/Grass build based on active state
-            exiOrganLst.Add(inPoly.ToPolylineCurve());
+            exiOrganLst.Add(baseOrgan.ToPolylineCurve());
             if (mActive)
             {
                 // draw the grass of active state
-                newOrganLst.Add(outPoly.ToPolylineCurve());
+                newOrganLst.Add(activeOrgan.ToPolylineCurve());
             }
 
-            // Root on the existing part of tapRoot
-            //var root0 = DrawGrassOrRoot(exiOrganLst[0].PointAtStart, -mPln.YAxis, 3, mScale, mRadius * 3.5);
-            //rootLst.AddRange(root0);
+            var topPt = activeOrgan.ClosestPoint(mPln.Origin);
+
+            var grass0 = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 2, 20);
+            newGrassLst.AddRange(grass0);
+
+            var grass1 = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 10, 5);
+            exiGrassLst.AddRange(grass1);
+
+
+            // for root generate
+            centerLine = new Line(mPln.Origin, baseOrgan[baseOrgan.Count - 2]).ToNurbsCurve();
+            centerLine.Domain = new Interval(0, 1);
+
+            // !R oot on the existing part of tapRoot
+            var pt0 = centerLine.PointAtNormalizedLength(0.5);
+            var pt1 = centerLine.PointAtNormalizedLength(0.75);
+
+            // For each of pt0 and pt1, draw two straight lines representing roots, pointing downwards (+/- xAxis + yAxis)
+            Vector3d[] rootDirs = {
+                (-mPln.XAxis - 2 * mPln.YAxis),
+                (mPln.XAxis - 2 * mPln.YAxis)
+            };
+            // Normalize rootDirs
+            for (int i = 0; i < rootDirs.Length; i++)
+            {
+                rootDirs[i] = rootDirs[i];
+                rootDirs[i].Unitize();
+            }
+            double rootLen = mRadius * 3.5 * mScale;
+
+            foreach (var pt in new[] { pt0, pt1 })
+            {
+                foreach (var dir in rootDirs)
+                {
+                    var rootLine = new Line(pt, pt + dir * rootLen);
+                    rootLst.Add(rootLine);
+                }
+            }
+
+            if (!mActive)
+            {
+                newOrganLst.Clear();
+                newGrassLst.Clear();
+                exiGrassLst.Clear();
+            }
 
 
             DA.SetDataList("ExistingOrgan", exiOrganLst);
@@ -1075,7 +1141,173 @@ namespace BeingAliveLanguage
             DA.SetDataList("NewGrassyPart", newGrassLst);
             DA.SetDataList("RootPart", rootLst);
             base.SetOutputs(DA);
+        }
+    }
 
+    /// <summary>
+    /// Organ Type: TapRoot
+    /// </summary>
+    public class BALorganMultiRoot : BALorganBase
+    {
+        public BALorganMultiRoot()
+            : base("Organ_MultiRoot", "balMultiRoot",
+                 "Organ of resistance -- 'Multi Root.'",
+                 "BAL", "04::organ")
+        {
+
+            mHorizontalScale = 2;
+            mDisSurfaceRatio = 1;
+        }
+
+        protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
+        public override Guid ComponentGuid => new Guid("9e0f6b8c-3fb4-430e-88c2-063855a179d1");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        List<Curve> baseOrgan = new List<Curve>();
+        List<Curve> activeOrgan = new List<Curve>();
+        Curve centerLine = null;
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
+            //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
+            pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
+            pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
+        }
+
+        protected override void prepareGeo()
+        {
+            mDisSurfaceRatio = 0.5;
+
+            // Parameters for leaf shape
+            int leafCount = 4;
+            double leafLength = 10.0 * mScale;
+            double leafWidth = 1.5 * mScale;
+            double angleStep = Math.PI / (leafCount + 1);
+
+            var origin = mPln.Origin;
+            var yDir = -mPln.YAxis;
+            var xDir = mPln.XAxis;
+
+            List<Curve> leaves = new List<Curve>();
+
+            for (int i = 0; i < leafCount; i++)
+            {
+                double angle = (i + 1) * angleStep;
+
+                // Rotate the center direction for each leaf
+                Vector3d dir = mPln.XAxis;
+                dir.Rotate(-angle, mPln.ZAxis);
+                var perpDir = dir;
+                perpDir.Rotate(Math.PI * 0.5, mPln.ZAxis);
+
+                // Control points for the leaf
+                List<Point3d> pts = new List<Point3d>();
+                pts.Add(origin); // start at origin
+
+                // First control point: a bit outwards, close to origin
+                pts.Add(origin + dir * (leafLength * 0.5) + perpDir * (leafWidth * 0.4));
+
+                // Second control point: farthest point, tip of the leaf
+                double tipLength = leafLength;
+                if (i == 0 || i == leafCount - 1)
+                {
+                    tipLength *= 0.7; // Make first and last leaves shorter
+                }
+                pts.Add(origin + dir * tipLength);
+
+                // Third control point: symmetric to first, but mirrored
+                pts.Add(origin + dir * (leafLength * 0.5) - perpDir * (leafWidth * 0.4));
+
+                // End at origin
+                pts.Add(origin);
+
+                var nurbs = NurbsCurve.Create(false, 3, pts);
+                leaves.Add(nurbs);
+            }
+
+            // Store the leaves as baseOrgan
+            baseOrgan = leaves;
+
+            // Create a small "hat" (arc-like closed polyline) covering the top part of the leaves
+            // The hat will be a small arc below the origin, covering where the leaves converge
+            double hatRadius = leafLength * 0.2;  // Smaller size relative to leaf length
+            double hatDepth = leafWidth * 0.8;    // How far down the hat extends
+            double startAngle = angleStep;
+            double endAngle = Math.PI - angleStep;
+
+            // Generate arc points for the hat (facing downward)
+            int hatPtsCount = 7; // Increased point count for smoother polyline
+            Polyline hatPolyline = new Polyline();
+            
+            // Add origin as first point
+            hatPolyline.Add(origin);
+            
+            // Generate arc points
+            for (int i = 0; i < hatPtsCount; i++)
+            {
+                double t = (double)i / (hatPtsCount - 1);
+                double angle = startAngle + t * (endAngle - startAngle);
+                var pt = origin
+                    + xDir * (Math.Cos(angle) * hatRadius)
+                    - mPln.YAxis * (Math.Sin(angle) * hatRadius * 0.5 + hatDepth);
+                hatPolyline.Add(pt);
+            }
+
+            // Close the polyline by adding origin as the last point
+            hatPolyline.Add(origin);
+
+            // Create the hat as a polyline curve
+            activeOrgan = new List<Curve>()
+            {
+                hatPolyline.ToNurbsCurve()
+            };
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            base.GetInputs(DA);
+
+            prepareGeo();
+            base.prepareParam();
+
+            var geoCol = new List<Curve>() { mGeo };
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
+            var exiGrassLst = new List<Line>();
+            var newGrassLst = new List<Line>();
+            var rootLst = new List<Line>();
+
+
+
+            exiOrganLst = baseOrgan;
+            newOrganLst.AddRange(activeOrgan);
+
+            if (!mActive)
+            {
+                newOrganLst.Clear();
+                newGrassLst.Clear();
+                exiGrassLst.Clear();
+            }
+
+
+            DA.SetDataList("ExistingOrgan", exiOrganLst);
+            DA.SetDataList("NewOrgan", newOrganLst);
+            DA.SetDataList("ExistingGrassyPart", exiGrassLst);
+            DA.SetDataList("NewGrassyPart", newGrassLst);
+            DA.SetDataList("RootPart", rootLst);
+            base.SetOutputs(DA);
         }
     }
 }

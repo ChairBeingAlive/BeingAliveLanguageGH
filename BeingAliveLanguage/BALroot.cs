@@ -1112,13 +1112,13 @@ namespace BeingAliveLanguage
                 allRootLines.AddRange(deadRoot);
 
                 var fancyMainRoot = CreateFancyBound(mainRoot, anchorPt, sMap.unitLen * 0.3, tInfo.phase);
-                var fancyNewRoot = CreateFancyBound(newRoot, anchorPt, sMap.unitLen * 0.2, tInfo.phase);
-                var fancyDeadRoot = CreateFancyBound(deadRoot, anchorPt, sMap.unitLen * 0.15, tInfo.phase);
+                //var fancyNewRoot = CreateFancyBound(newRoot, anchorPt, sMap.unitLen * 0.2, tInfo.phase);
+                //var fancyDeadRoot = CreateFancyBound(deadRoot, anchorPt, sMap.unitLen * 0.15, tInfo.phase);
 
                 // Replace the original lists with the fancy versions
                 mainRoot = fancyMainRoot;
-                newRoot = fancyNewRoot;
-                deadRoot = fancyDeadRoot;
+                //newRoot = fancyNewRoot;
+                //deadRoot = fancyDeadRoot;
             }
 
             // ! export all 
