@@ -8,6 +8,7 @@ using Rhino.Geometry;
 using BeingAliveLanguage.BalCore;
 using Grasshopper.Kernel.Geometry;
 using System.Linq;
+using Grasshopper.GUI;
 
 namespace BeingAliveLanguage
 {
@@ -1146,7 +1147,7 @@ namespace BeingAliveLanguage
     }
 
     /// <summary>
-    /// Organ Type: TapRoot
+    /// Organ Type: MultiRoot
     /// </summary>
     public class BALorganMultiRoot : BALorganBase
     {
@@ -1424,4 +1425,304 @@ namespace BeingAliveLanguage
             base.SetOutputs(DA);
         }
     }
+
+
+    /// <summary>
+    /// Organ Type: Hidden-Reserved-Organ
+    /// </summary>
+    public class BALorganHiddenReserved : BALorganBase
+    {
+        public BALorganHiddenReserved()
+            : base("Organ_HiddenReserved", "balHiddenReserved",
+                 "Organ of resistance -- 'Hidden Reserved Organ.'",
+                 "BAL", "04::organ")
+        {
+
+            mHorizontalScale = 2;
+            mDisSurfaceRatio = 1;
+        }
+
+        protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
+        public override Guid ComponentGuid => new Guid("424C8DD2-8568-4B5A-89E7-3D27659415EC");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        Polyline baseOrgan = new Polyline();
+        Polyline activeOrgan = new Polyline();
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
+            //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
+            pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
+            pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
+        }
+
+        protected override void prepareGeo()
+        {
+            mDisSurfaceRatio = 0.5;
+            mRadius = 0.5;
+
+            // compose inner semi-circle of tapRoot's top
+            var circle = new Circle(mPln, mRadius).ToNurbsCurve();
+            circle.Rebuild(12, 1, false).TryGetPolyline(out Polyline polyCrv);
+
+            var semiCircle = new Arc(mPln, mRadius, Math.PI).ToNurbsCurve();
+            semiCircle.Rebuild(6, 1, false).TryGetPolyline(out activeOrgan);
+
+            var outPolyPts = activeOrgan.GetRange(1, activeOrgan.Count - 2);
+            outPolyPts.Reverse();
+
+            var outPolyPtsTranslated = new List<Point3d>();
+            foreach (var pt in outPolyPts)
+            {
+                var xTrans = Transform.Translation(0.7 * (pt - mPln.Origin));
+                pt.Transform(xTrans);
+                outPolyPtsTranslated.Add(pt);
+            }
+
+            activeOrgan.AddRange(outPolyPtsTranslated);
+            activeOrgan.Add(activeOrgan[0]);
+
+            baseOrgan = polyCrv.Duplicate();
+            mGeo = circle;
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            base.GetInputs(DA);
+
+            prepareGeo();
+            base.prepareParam();
+
+            var geoCol = new List<Curve>() { mGeo };
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
+            var exiGrassLst = new List<Line>();
+            var newGrassLst = new List<Line>();
+            var rootLst = new List<Line>();
+
+            // Find the highest Y value in outPoly (relative to mPln)
+            double maxY = double.MinValue;
+            int maxYIndex = -1;
+            for (int i = 0; i < activeOrgan.Count; i++)
+            {
+                // Project point to plane and get Y coordinate
+                var pt = activeOrgan[i];
+                mPln.ClosestParameter(pt, out double u, out double v);
+                var localPt = mPln.PointAt(u, v) - mPln.Origin;
+                double y = localPt * mPln.YAxis;
+                if (y > maxY)
+                {
+                    maxY = y;
+                    maxYIndex = i;
+                }
+            }
+
+            // Calculate translation vector to move highest Y to origin.Y (downwards)
+            if (maxYIndex >= 0)
+            {
+                var highestPt = activeOrgan[maxYIndex];
+                var vecToOrigin = mPln.Origin - highestPt;
+                // Only move in Y direction of the plane
+                var yOffset = (highestPt - mPln.Origin) * mPln.YAxis;
+                var translation = -yOffset * mPln.YAxis;
+                var trans = Transform.Translation(translation);
+                baseOrgan.Transform(trans);
+                activeOrgan.Transform(trans);
+            }
+
+            // Now scale as before
+            var xScale = Transform.Scale(mPln.Origin, mScale);
+            baseOrgan.Transform(xScale);
+            activeOrgan.Transform(xScale);
+
+            for (int i = 0; i < mPhase; i++)
+            {
+                xScale = Transform.Scale(mPln.Origin, 1.15);
+                baseOrgan.Transform(xScale);
+                activeOrgan.Transform(xScale);
+            }
+
+            // Global root/Grass build based on active state
+            exiOrganLst.Add(baseOrgan.ToPolylineCurve());
+            if (mActive)
+            {
+                // draw the grass of active state
+                newOrganLst.Add(activeOrgan.ToPolylineCurve());
+            }
+
+            var topPt = activeOrgan.ClosestPoint(mPln.Origin);
+
+            var grass0 = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 4, 20);
+            newGrassLst.AddRange(grass0);
+
+            var grass1 = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 20, 5);
+            exiGrassLst.AddRange(grass1);
+
+            // !R oot on the existing part of tapRoot
+            var botPt = baseOrgan.ToNurbsCurve().PointAtNormalizedLength(0.75);
+
+            // For the bottom PT, draw two straight lines representing roots, pointing downwards (+/- xAxis + yAxis)
+            var rootL = DrawGrassOrRoot(botPt, -mPln.YAxis, 3, mScale, mRadius * 6);
+            rootLst.AddRange(rootL);
+
+
+            if (!mActive)
+            {
+                newOrganLst.Clear();
+                newGrassLst.Clear();
+                exiGrassLst.Clear();
+            }
+
+
+            DA.SetDataList("ExistingOrgan", exiOrganLst);
+            DA.SetDataList("NewOrgan", newOrganLst);
+            DA.SetDataList("ExistingGrassyPart", exiGrassLst);
+            DA.SetDataList("NewGrassyPart", newGrassLst);
+            DA.SetDataList("RootPart", rootLst);
+            base.SetOutputs(DA);
+        }
+    }
+
+
+    /// <summary>
+    /// Organ Type: Succulent Plant
+    /// Fleshy basal leaves are a characteristic feature of succulent plants
+    /// </summary>
+    public class BALorganSucculentPlant : BALorganBase
+    {
+        public BALorganSucculentPlant()
+            : base("Organ_SucculentPlant", "balSucculentPlant",
+                 "Organ of resistance -- 'Succulent Plant.'",
+                 "BAL", "04::organ")
+        {
+
+            mHorizontalScale = 2;
+            mDisSurfaceRatio = 1;
+        }
+
+        protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
+        public override Guid ComponentGuid => new Guid("0E82D584-AF74-4795-8EFF-3A4924D7132F");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        List<Curve> baseOrgan = null;
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
+            //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
+            pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
+            pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
+        }
+
+        protected override void prepareGeo()
+        {
+            mDisSurfaceRatio = 0.5;
+
+            // Parameters for leaf shape
+            double leafLength = 5.0 * mScale;
+            double leafWidth = 2 * mScale;
+            double angle = Math.PI * 0.2; // wider angle between leaves
+
+            var origin = mPln.Origin;
+
+            // Build the first leaf (right side)
+            Vector3d dir = mPln.XAxis;
+            dir.Rotate(angle, mPln.ZAxis);
+            Vector3d perpDir = dir;
+            perpDir.Rotate(Math.PI * 0.5, mPln.ZAxis);
+
+            // Control points for a sharper tip
+            List<Point3d> pts = new List<Point3d>();
+            pts.Add(origin); // start at origin
+            pts.Add(origin + dir * (leafLength * 0.25) + perpDir * (leafWidth * 0.5));
+            pts.Add(origin + dir * (leafLength * 1.1)); // sharper, longer tip
+            pts.Add(origin + dir * (leafLength * 0.25) - perpDir * (leafWidth * 0.5));
+            pts.Add(origin);
+
+            mGeo = NurbsCurve.Create(false, 3, pts);
+
+            // Mirror the first leaf to create the second (left side)
+            var mirrorXform = Transform.Mirror(mPln.Origin, mPln.XAxis);
+            var mGeoMirrored = mGeo.DuplicateCurve();
+            mGeoMirrored.Transform(mirrorXform);
+
+            baseOrgan = new List<Curve>() { mGeo, mGeoMirrored };
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            base.GetInputs(DA);
+
+            prepareGeo();
+            base.prepareParam();
+
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
+            var exiGrassLst = new List<Line>();
+            var newGrassLst = new List<Line>();
+            var rootLst = new List<Line>();
+
+            // Now scale as before
+            var xScale = Transform.Scale(mPln.Origin, mScale);
+            foreach (var crv in baseOrgan)
+            {
+                crv.Transform(xScale);
+            }
+
+
+            // Global root/Grass build based on active state
+            exiOrganLst.AddRange(baseOrgan);
+
+            var grass0 = DrawGrassOrRoot(mPln.Origin, mPln.YAxis, 2, mScale, mRadius * 3, 20);
+            newGrassLst.AddRange(grass0);
+
+            var grass1 = DrawGrassOrRoot(mPln.Origin, mPln.YAxis, 2, mScale, mRadius * 10, 5);
+            exiGrassLst.AddRange(grass1);
+
+            // For the bottom PT, draw two straight lines representing roots, pointing downwards (+/- xAxis + yAxis)
+            var rootL = DrawGrassOrRoot(mPln.Origin, -mPln.YAxis, 3, mScale, mRadius * 3, 15);
+            rootLst.AddRange(rootL);
+
+            if (!mActive)
+            {
+                newOrganLst.Clear();
+                newGrassLst.Clear();
+                exiGrassLst.Clear();
+            }
+
+            exiOrganLst = baseOrgan;
+
+            DA.SetDataList("ExistingOrgan", exiOrganLst);
+            DA.SetDataList("NewOrgan", newOrganLst);
+            DA.SetDataList("ExistingGrassyPart", exiGrassLst);
+            DA.SetDataList("NewGrassyPart", newGrassLst);
+            DA.SetDataList("RootPart", rootLst);
+            base.SetOutputs(DA);
+        }
+    }
+
+
 }
