@@ -7,6 +7,7 @@ using GH_IO.Serialization;
 using Rhino.Geometry;
 using BeingAliveLanguage.BalCore;
 using Grasshopper.Kernel.Geometry;
+using System.Linq;
 
 namespace BeingAliveLanguage
 {
@@ -1164,8 +1165,8 @@ namespace BeingAliveLanguage
         public override GH_Exposure Exposure => GH_Exposure.primary;
 
         List<Curve> baseOrgan = new List<Curve>();
-        List<Curve> activeOrgan = new List<Curve>();
-        Curve centerLine = null;
+        List<Curve> centerLine = new List<Curve>();
+        Polyline activeOrgan = null;
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
@@ -1189,6 +1190,7 @@ namespace BeingAliveLanguage
         protected override void prepareGeo()
         {
             mDisSurfaceRatio = 0.5;
+            activeOrgan = null;
 
             // Parameters for leaf shape
             int leafCount = 4;
@@ -1201,6 +1203,7 @@ namespace BeingAliveLanguage
             var xDir = mPln.XAxis;
 
             List<Curve> leaves = new List<Curve>();
+            centerLine.Clear();
 
             for (int i = 0; i < leafCount; i++)
             {
@@ -1235,44 +1238,44 @@ namespace BeingAliveLanguage
 
                 var nurbs = NurbsCurve.Create(false, 3, pts);
                 leaves.Add(nurbs);
+                centerLine.Add(new Line(mPln.Origin, nurbs.PointAtNormalizedLength(0.5)).ToNurbsCurve());
             }
 
             // Store the leaves as baseOrgan
             baseOrgan = leaves;
 
-            // Create a small "hat" (arc-like closed polyline) covering the top part of the leaves
-            // The hat will be a small arc below the origin, covering where the leaves converge
-            double hatRadius = leafLength * 0.2;  // Smaller size relative to leaf length
-            double hatDepth = leafWidth * 0.8;    // How far down the hat extends
-            double startAngle = angleStep;
-            double endAngle = Math.PI - angleStep;
+            // --- "Hat" shape at the top ---
 
-            // Generate arc points for the hat (facing downward)
-            int hatPtsCount = 7; // Increased point count for smoother polyline
-            Polyline hatPolyline = new Polyline();
-            
-            // Add origin as first point
-            hatPolyline.Add(origin);
-            
-            // Generate arc points
-            for (int i = 0; i < hatPtsCount; i++)
+            // Get the centerline of the first and last leaves (the line from origin to tip)
+            // Use 0.3 location along the centerline for both
+            Point3d ptA = origin;
+            Point3d ptB = origin;
+            if (leaves.Count >= 2)
             {
-                double t = (double)i / (hatPtsCount - 1);
-                double angle = startAngle + t * (endAngle - startAngle);
-                var pt = origin
-                    + xDir * (Math.Cos(angle) * hatRadius)
-                    - mPln.YAxis * (Math.Sin(angle) * hatRadius * 0.5 + hatDepth);
-                hatPolyline.Add(pt);
+                // First leaf
+                var firstLeaf = leaves[0];
+                var firstTip = firstLeaf.PointAtNormalizedLength(0.5);
+                ptA = centerLine[0].PointAtNormalizedLength(0.3);
+
+                // Last leaf
+                var lastLeaf = leaves[leaves.Count - 1];
+                var lastTip = lastLeaf.PointAtNormalizedLength(0.5);
+                var lastCenterline = new Line(origin, lastTip).ToNurbsCurve();
+                ptB = centerLine[centerLine.Count - 1].PointAtNormalizedLength(0.3);
             }
 
-            // Close the polyline by adding origin as the last point
-            hatPolyline.Add(origin);
+            var hatArc = new Arc(ptA, mPln.Origin + 0.5 * mPln.YAxis, ptB).ToNurbsCurve();
 
-            // Create the hat as a polyline curve
-            activeOrgan = new List<Curve>()
-            {
-                hatPolyline.ToNurbsCurve()
-            };
+            var hatPoly = hatArc.Rebuild(7, 1, true).TryGetPolyline(out Polyline resPoly);
+            // Build the "hat" as a closed polyline, symmetric on yAxis
+            double hatHeight = leafLength * 0.18;
+            var hatBottom = origin - mPln.YAxis * hatHeight * 0.2;
+
+            resPoly.Add(hatBottom);
+            resPoly.Add(ptA);
+
+            // Add the hat as the first element of baseOrgan
+            activeOrgan = resPoly;
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -1290,9 +1293,120 @@ namespace BeingAliveLanguage
             var rootLst = new List<Line>();
 
 
+            // Find the highest Y value in outPoly (relative to mPln)
+            double maxY = double.MinValue;
+            int maxYIndex = -1;
+            for (int i = 0; i < activeOrgan.Count; i++)
+            {
+                // Project point to plane and get Y coordinate
+                var pt = activeOrgan[i];
+                mPln.ClosestParameter(pt, out double u, out double v);
+                var localPt = mPln.PointAt(u, v) - mPln.Origin;
+                double y = localPt * mPln.YAxis;
+                if (y > maxY)
+                {
+                    maxY = y;
+                    maxYIndex = i;
+                }
+            }
+
+            // Now scale as before
+            var xScale = Transform.Scale(mPln.Origin, mScale);
+            foreach (var crv in baseOrgan)
+            {
+                crv.Transform(xScale);
+            }
+            foreach (var crv in centerLine)
+            {
+                crv.Transform(xScale);
+
+            }
+            activeOrgan.Transform(xScale);
+
+            for (int i = 0; i < mPhase; i++)
+            {
+                xScale = Transform.Scale(mPln.Origin, 1.15);
+                foreach (var crv in baseOrgan)
+                {
+                    crv.Transform(xScale);
+                }
+
+                foreach (var crv in centerLine)
+                {
+                    crv.Transform(xScale);
+                }
+
+                activeOrgan.Transform(xScale);
+            }
+
+
+            // Calculate translation vector to move highest Y to origin.Y (downwards)
+            if (maxYIndex >= 0)
+            {
+                var highestPt = activeOrgan[maxYIndex];
+                var vecToOrigin = mPln.Origin - highestPt;
+                // Only move in Y direction of the plane
+                var yOffset = (highestPt - mPln.Origin) * mPln.YAxis;
+                var translation = -yOffset * mPln.YAxis;
+
+                var trans = Transform.Translation(translation);
+
+                foreach (var crv in centerLine)
+                {
+                    crv.Transform(trans);
+
+                }
+                foreach (var crv in baseOrgan)
+                {
+                    crv.Transform(trans);
+                }
+                activeOrgan.Transform(trans);
+            }
+
+            // Global root/Grass build based on active state
+            exiOrganLst.AddRange(baseOrgan);
+            if (mActive)
+            {
+                // draw the grass of active state
+                newOrganLst.Add(activeOrgan.ToPolylineCurve());
+            }
+
+            var topPt = activeOrgan.ClosestPoint(mPln.Origin);
+
+            var grass0 = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 2, 20);
+            newGrassLst.AddRange(grass0);
+
+            var grass1 = DrawGrassOrRoot(topPt, mPln.YAxis, 2, mScale, mRadius * 10, 5);
+            exiGrassLst.AddRange(grass1);
+
+
+            // for root generate
+            // !R oot on the existing part of tapRoot
+            var pt0 = centerLine[1].ToNurbsCurve().PointAtNormalizedLength(0.6);
+            var pt1 = centerLine[2].ToNurbsCurve().PointAtNormalizedLength(0.6);
+
+            // For each of pt0 and pt1, draw two straight lines representing roots, pointing downwards (+/- xAxis + yAxis)
+            Vector3d[] rootDirs = {
+                (-mPln.XAxis -  mPln.YAxis),
+                (mPln.XAxis -  mPln.YAxis)
+            };
+            // Normalize rootDirs
+            double rootLen = mRadius * 10 * mScale;
+
+            var rootLine0 = new Line(pt0, pt0 + rootDirs[1] * rootLen);
+            var rootLine1 = new Line(pt1, pt1 + rootDirs[0] * rootLen);
+            rootLst.Add(rootLine0);
+            rootLst.Add(rootLine1);
+
+            if (!mActive)
+            {
+                newOrganLst.Clear();
+                newGrassLst.Clear();
+                exiGrassLst.Clear();
+            }
 
             exiOrganLst = baseOrgan;
-            newOrganLst.AddRange(activeOrgan);
+            newOrganLst.Add(activeOrgan.ToNurbsCurve());
 
             if (!mActive)
             {
