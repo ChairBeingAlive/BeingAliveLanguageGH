@@ -9,6 +9,7 @@ using BeingAliveLanguage.BalCore;
 using Grasshopper.Kernel.Geometry;
 using System.Linq;
 using Grasshopper.GUI;
+using Grasshopper.Kernel.Types.Transforms;
 
 namespace BeingAliveLanguage
 {
@@ -41,7 +42,7 @@ namespace BeingAliveLanguage
         protected double mHorizontalScale;
         protected double mDisSurfaceRatio;
 
-        protected virtual void GetInputs(IGH_DataAccess DA)
+        protected virtual void GetInputs(IGH_DataAccess DA, bool withBaseNumber = true)
         {
             // initialize with different values
             mNum = 3;
@@ -51,8 +52,12 @@ namespace BeingAliveLanguage
             // take Input
             if (!DA.GetData("Plane", ref mPln))
             { return; }
-            if (!DA.GetData("Base Number", ref mNum))
-            { return; }
+
+            if (withBaseNumber)
+            {
+                if (!DA.GetData("Base Number", ref mNum))
+                { return; }
+            }
             if (!DA.GetData("Phase", ref mPhase))
             { return; }
             if (!DA.GetData("Scale", ref mScale))
@@ -981,7 +986,7 @@ namespace BeingAliveLanguage
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            //pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
             pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
             pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
             //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
@@ -1028,7 +1033,7 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            base.GetInputs(DA);
+            base.GetInputs(DA, false);
 
             prepareGeo();
             base.prepareParam();
@@ -1172,7 +1177,7 @@ namespace BeingAliveLanguage
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            //pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
             pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
             pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
             //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
@@ -1281,7 +1286,7 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            base.GetInputs(DA);
+            base.GetInputs(DA, false);
 
             prepareGeo();
             base.prepareParam();
@@ -1428,6 +1433,313 @@ namespace BeingAliveLanguage
 
 
     /// <summary>
+    /// Organ Type: Bulb
+    /// </summary>
+    public class BALorganBulb : BALorganBase
+    {
+        public BALorganBulb()
+            : base("Organ_Bulb", "balBulb",
+                 "Organ of resistance -- 'Bulb.'",
+                 "BAL", "04::organ")
+        {
+            mHorizontalScale = 2;
+            mDisSurfaceRatio = 1;
+        }
+
+        protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
+        public override Guid ComponentGuid => new Guid("41A466A0-A800-4DC3-9B2B-D26906D390C2");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        List<Curve> baseOrgan = null;
+        Point3d mAnchorPt = new Point3d();
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
+            //pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
+            //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
+            pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
+            pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
+        }
+
+        protected override void prepareGeo()
+        {
+            mDisSurfaceRatio = 0.5;
+
+            var origin = mPln.Origin;
+            List<Point3d> pts = new List<Point3d>();
+
+            // Create control points for a bulb shape
+            mRadius = 2.0;
+            double tipHeight = 1.2; // Additional height for the tip
+
+            // Create points around an ellipse with a pointed top
+            int numPoints = 8; // More points for a smoother curve
+            for (int i = 0; i <= numPoints; i++)
+            {
+                double angle = 2.0 * Math.PI * i / numPoints;
+
+                // For the top point, create a sharper tip
+                double r = (Math.Abs(angle) % (Math.PI * 2) < 0.1) ? mRadius + tipHeight :
+                           mRadius * Math.Sin(angle) * Math.Sin(angle) + mRadius * Math.Cos(angle) * Math.Cos(angle);
+
+                // Calculate position - make the bulb point upward (along -Y axis)
+                double x = r * Math.Sin(angle);
+                double y = -r * Math.Cos(angle); // Negative to point upward
+
+                pts.Add(new Point3d(origin.X + x, origin.Y + y, origin.Z));
+            }
+
+            mAnchorPt = pts[numPoints / 2];
+
+            mGeo = NurbsCurve.Create(true, 3, pts);
+            var xform = Transform.Rotation(Math.PI, mPln.ZAxis, mPln.Origin);
+            mGeo.Transform(xform);
+            mAnchorPt.Transform(xform);
+
+            // Calculate translation vector to move the top point to the origin
+            Vector3d translation = -(mPln.Origin - pts[0]);
+            mGeo.Translate(translation);
+            mAnchorPt += translation;
+
+            baseOrgan = new List<Curve>() { mGeo };
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            base.GetInputs(DA, false);
+
+            prepareGeo();
+            base.prepareParam();
+
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
+            var exiGrassLst = new List<Line>();
+            var newGrassLst = new List<Line>();
+            var rootLst = new List<Line>();
+
+            // Now scale as before
+            var xScale = Transform.Scale(mPln.Origin, mScale);
+            foreach (var crv in baseOrgan)
+            {
+                crv.Transform(xScale);
+            }
+            mAnchorPt.Transform(xScale);
+
+            // Global root/Grass build based on active state
+            exiOrganLst.AddRange(baseOrgan);
+
+            // new Bulb shape, manually adjusted
+            List<Point3d> dropPts = new List<Point3d>();
+            dropPts.Add(mAnchorPt);
+
+            var midPt = 0.5 * (mAnchorPt + mPln.Origin);
+            dropPts.Add(midPt + mRadius * (1.1 * mPln.XAxis - 0.7 * mPln.YAxis) * mScale);
+
+            dropPts.Add(midPt + mRadius * (mPln.XAxis + 0.1 * mPln.YAxis) * mScale);
+            dropPts.Add(midPt + mRadius * (1.5 * mPln.XAxis + 0.5 * mPln.YAxis) * mScale);// top pt
+            dropPts.Add(midPt + mRadius * (2.0 * mPln.XAxis + 0.1 * mPln.YAxis) * mScale);
+            dropPts.Add(midPt + mRadius * (1.8 * mPln.XAxis - 0.9 * mPln.YAxis) * mScale);
+
+            var dropCurve = NurbsCurve.Create(true, 3, dropPts);
+
+            var mirror = Transform.Mirror(mPln.Origin, mPln.XAxis);
+
+            var mirrorCrv = dropCurve.Duplicate() as NurbsCurve;
+            mirrorCrv.Transform(mirror);
+
+            var grassAnchor = dropPts[3];
+            var grassAnchorMirror = grassAnchor;
+            grassAnchorMirror.Transform(mirror);
+
+            // Only add it to newOrganLst if the organ is active
+            if (mActive)
+            {
+                newOrganLst.Add(dropCurve);
+                if (mPhase >= 3)
+                    newOrganLst.Add(mirrorCrv);
+            }
+
+            // grass part
+            var grassNew = DrawGrassOrRoot(grassAnchor, mPln.YAxis, 2, mScale, mRadius , 20);
+            newGrassLst.AddRange(grassNew);
+            var grassNewMirror = DrawGrassOrRoot(grassAnchorMirror, mPln.YAxis, 2, mScale, mRadius, 20);
+            newGrassLst.AddRange(grassNewMirror);
+
+            var grass1 = DrawGrassOrRoot(mPln.Origin, mPln.YAxis, 2, mScale, mRadius * 10, 5);
+            exiGrassLst.AddRange(grass1);
+
+            // For the bottom PT, draw two straight lines representing roots, pointing downwards (+/- xAxis + yAxis)
+            var rootL = DrawGrassOrRoot(mAnchorPt, -mPln.YAxis, 3, mScale, mRadius * 3, 15);
+            rootLst.AddRange(rootL);
+
+            if (!mActive)
+            {
+                newOrganLst.Clear();
+                newGrassLst.Clear();
+                exiGrassLst.Clear();
+            }
+
+            exiOrganLst = baseOrgan;
+
+            DA.SetDataList("ExistingOrgan", exiOrganLst);
+            DA.SetDataList("NewOrgan", newOrganLst);
+            DA.SetDataList("ExistingGrassyPart", exiGrassLst);
+            DA.SetDataList("NewGrassyPart", newGrassLst);
+            DA.SetDataList("RootPart", rootLst);
+            base.SetOutputs(DA);
+        }
+    }
+
+    /// <summary>
+    /// Organ Type: Stem Tuber
+    /// </summary>
+    public class BALorganStemTuber : BALorganBase
+    {
+        public BALorganStemTuber()
+            : base("Organ_StemTuber", "balStemTuber",
+                 "Organ of resistance -- 'Stem Tuber.'",
+                 "BAL", "04::organ")
+        {
+
+            mHorizontalScale = 2;
+            mDisSurfaceRatio = 1;
+        }
+
+        protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree3D);
+        public override Guid ComponentGuid => new Guid("DC1E7683-80E1-4C62-B03C-F43A1FAF6F0D");
+        public override GH_Exposure Exposure => GH_Exposure.primary;
+
+        List<Curve> baseOrgan = null;
+        Point3d mAnchorPt = new Point3d();
+
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
+        {
+            pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
+            //pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
+            pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
+            //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
+        }
+
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
+        {
+            pManager.AddTextParameter("State", "state", "State of the organ (active or inactive).", GH_ParamAccess.item);
+            pManager.AddCurveParameter("ExistingOrgan", "exiOrg", "Existing organs from current or previous years.", GH_ParamAccess.list);
+            pManager.AddCurveParameter("NewOrgan", "newOrg", "New organs from the current year.", GH_ParamAccess.list);
+            pManager.AddLineParameter("ExistingGrassyPart", "exiGrass", "Existing grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("NewGrassyPart", "newGrass", "Newly grown grassy part of the organ.", GH_ParamAccess.list);
+            pManager.AddLineParameter("RootPart", "Root", "Root of the organ.", GH_ParamAccess.list);
+        }
+
+        protected override void prepareGeo()
+        {
+            mDisSurfaceRatio = 0.5;
+
+            var origin = mPln.Origin;
+            List<Point3d> pts = new List<Point3d>();
+
+            // Create control points for a bulb shape
+            mRadius = 2.0;
+            double tipHeight = 1.2; // Additional height for the tip
+
+            // Create points around an ellipse with a pointed top
+            int numPoints = 8; // More points for a smoother curve
+            for (int i = 0; i <= numPoints; i++)
+            {
+                double angle = 2.0 * Math.PI * i / numPoints;
+
+                // For the top point, create a sharper tip
+                double r = (Math.Abs(angle) % (Math.PI * 2) < 0.1) ? mRadius + tipHeight :
+                           mRadius * Math.Sin(angle) * Math.Sin(angle) + mRadius * Math.Cos(angle) * Math.Cos(angle);
+
+                // Calculate position - make the bulb point upward (along -Y axis)
+                double x = r * Math.Sin(angle);
+                double y = -r * Math.Cos(angle); // Negative to point upward
+
+                pts.Add(new Point3d(origin.X + x, origin.Y + y, origin.Z));
+            }
+
+            mAnchorPt = pts[numPoints / 2];
+
+            mGeo = NurbsCurve.Create(true, 3, pts);
+            var xform = Transform.Rotation(Math.PI, mPln.ZAxis, mPln.Origin);
+            mGeo.Transform(xform);
+            mAnchorPt.Transform(xform);
+
+            // Calculate translation vector to move the top point to the origin
+            Vector3d translation = -(mPln.Origin - pts[0]);
+            mGeo.Translate(translation);
+            mAnchorPt += translation;
+
+            baseOrgan = new List<Curve>() { mGeo };
+        }
+
+        protected override void SolveInstance(IGH_DataAccess DA)
+        {
+            base.GetInputs(DA, false);
+
+            prepareGeo();
+            base.prepareParam();
+
+            var exiOrganLst = new List<Curve>();
+            var newOrganLst = new List<Curve>();
+            var exiGrassLst = new List<Line>();
+            var newGrassLst = new List<Line>();
+            var rootLst = new List<Line>();
+
+            // Now scale as before
+            var xScale = Transform.Scale(mPln.Origin, mScale);
+            foreach (var crv in baseOrgan)
+            {
+                crv.Transform(xScale);
+            }
+
+
+            // Global root/Grass build based on active state
+            exiOrganLst.AddRange(baseOrgan);
+
+            var grass0 = DrawGrassOrRoot(mPln.Origin, mPln.YAxis, 2, mScale, mRadius, 20);
+            newGrassLst.AddRange(grass0);
+
+            var grass1 = DrawGrassOrRoot(mPln.Origin, mPln.YAxis, 2, mScale, mRadius * 10, 5);
+            exiGrassLst.AddRange(grass1);
+
+            // For the bottom PT, draw two straight lines representing roots, pointing downwards (+/- xAxis + yAxis)
+            var rootL = DrawGrassOrRoot(mAnchorPt, -mPln.YAxis, 3, mScale, mRadius * 3, 15);
+            rootLst.AddRange(rootL);
+
+            if (!mActive)
+            {
+                newOrganLst.Clear();
+                newGrassLst.Clear();
+                exiGrassLst.Clear();
+            }
+
+            exiOrganLst = baseOrgan;
+
+            DA.SetDataList("ExistingOrgan", exiOrganLst);
+            DA.SetDataList("NewOrgan", newOrganLst);
+            DA.SetDataList("ExistingGrassyPart", exiGrassLst);
+            DA.SetDataList("NewGrassyPart", newGrassLst);
+            DA.SetDataList("RootPart", rootLst);
+            base.SetOutputs(DA);
+        }
+    }
+
+
+
+    /// <summary>
     /// Organ Type: Hidden-Reserved-Organ
     /// </summary>
     public class BALorganHiddenReserved : BALorganBase
@@ -1437,7 +1749,6 @@ namespace BeingAliveLanguage
                  "Organ of resistance -- 'Hidden Reserved Organ.'",
                  "BAL", "04::organ")
         {
-
             mHorizontalScale = 2;
             mDisSurfaceRatio = 1;
         }
@@ -1452,7 +1763,7 @@ namespace BeingAliveLanguage
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            //pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
             pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
             pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
             //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
@@ -1500,7 +1811,7 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            base.GetInputs(DA);
+            base.GetInputs(DA, false);
 
             prepareGeo();
             base.prepareParam();
@@ -1621,7 +1932,7 @@ namespace BeingAliveLanguage
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddPlaneParameter("Plane", "pln", "Base plane to draw the organ.", GH_ParamAccess.item);
-            pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
+            //pManager.AddIntegerParameter("Base Number", "num", "Number of the organ in the initial phase.", GH_ParamAccess.item, 3);
             pManager.AddIntegerParameter("Phase", "phase", "Phase of the organ.", GH_ParamAccess.item, 1);
             pManager.AddNumberParameter("Scale", "s", "Scale of the organ.", GH_ParamAccess.item, 1.0);
             //pManager.AddBooleanParameter("Symmetric", "sym", "Symmetric or not.", GH_ParamAccess.item, true);
@@ -1674,7 +1985,7 @@ namespace BeingAliveLanguage
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            base.GetInputs(DA);
+            base.GetInputs(DA, false);
 
             prepareGeo();
             base.prepareParam();
