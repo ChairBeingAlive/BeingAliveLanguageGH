@@ -12,8 +12,8 @@ using BeingAliveLanguage.BalCore;
 namespace BeingAliveLanguage {
   public class BALETP : GH_Component {
     public BALETP()
-        : base("Climate_Evapotranspiration", "balClimate_ETP",
-               "Calculate the climate evapotranspiration related data for a given location.", "BAL",
+        : base("Climate_HydraulicBalance", "balClimate_HydraBal",
+               "Calculate the climatical hydralic balance data and relevant information (evapotranspiration, etc.) for a given location.", "BAL",
                "05::climate") {}
     protected override Bitmap Icon =>
         SysUtils.cvtByteBitmap(Properties.Resources.balEvapotranspiration);
