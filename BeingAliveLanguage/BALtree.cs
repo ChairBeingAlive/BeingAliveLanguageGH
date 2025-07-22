@@ -15,15 +15,15 @@ namespace BeingAliveLanguage
   /// <summary>
   /// 2D version of the tree component.
   /// </summary>
-  public class BALtreeRaimbault : GH_Component
+  public class BALtree2d : GH_Component
   {
-    public BALtreeRaimbault()
-    : base("Tree_Raimbault", "balTree_Raimbault",
-          "Generate the BAL tree using Raimbault's architectural model.",
+    public BALtree2d()
+    : base("Tree_Raimbault", "balTree_2D",
+          "Generate the 2D version of BAL tree.",
           "BAL", "03::plant")
     { }
 
-    string modeUnitary = "non-unitary";
+    //string modeUnitary = "non-unitary";
     protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.balTree2D);
     public override Guid ComponentGuid => new Guid("930148B1-014A-43AA-845C-FB0C711D6AA0");
 
@@ -71,7 +71,6 @@ namespace BeingAliveLanguage
 
       //! 1. determine horizontal scaling factor of the trees
       var tscal = new List<Tuple<double, double>>();
-      var distLst = new List<double>();
       var treeCol = new List<Tree>();
 
       if (plnLst.Count == 0)
@@ -83,6 +82,7 @@ namespace BeingAliveLanguage
         else if (hLst.Count != plnLst.Count)
         {
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Height # does not match Plane #, please check.");
+          return;
         }
 
         if (phLst.Count == 1)
@@ -90,32 +90,36 @@ namespace BeingAliveLanguage
         else if (phLst.Count != plnLst.Count)
         {
           AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Phase # does not match Plane #, please check.");
+          return;
         }
 
-        // ! sort root location 
-        plnLst.Sort((pln0, pln1) =>
-        {
-          Vector3d res = pln0.Origin - pln1.Origin;
+        // Create a copy of plane list for sorting (while keeping original order intact)
+        var sortedPlaneIndices = Enumerable.Range(0, plnLst.Count).ToList();
+        sortedPlaneIndices.Sort((i1, i2) => {
+          Vector3d res = plnLst[i1].Origin - plnLst[i2].Origin;
           if (Math.Abs(res[0]) > 1e-5)
-            return pln0.OriginX.CompareTo(pln1.OriginX);
+            return plnLst[i1].OriginX.CompareTo(plnLst[i2].OriginX);
           else if (Math.Abs(res[1]) > 1e-5)
-            return pln0.OriginY.CompareTo(pln1.OriginY);
+            return plnLst[i1].OriginY.CompareTo(plnLst[i2].OriginY);
           else // align on z axis or overlap, use the same criteria
-            return pln0.OriginZ.CompareTo(pln1.OriginZ);
+            return plnLst[i1].OriginZ.CompareTo(plnLst[i2].OriginZ);
         });
 
-        // after list length check:
-        for (int i = 0; i < plnLst.Count - 1; i++)
+        // Calculate distances between sorted planes
+        var distLst = new List<double>();
+        for (int i = 0; i < sortedPlaneIndices.Count - 1; i++)
         {
-          var dis = Math.Abs(plnLst[i].Origin.DistanceTo(plnLst[i + 1].Origin));
+          int currentIdx = sortedPlaneIndices[i];
+          int nextIdx = sortedPlaneIndices[i + 1];
+          var dis = plnLst[currentIdx].Origin.DistanceTo(plnLst[nextIdx].Origin);
           distLst.Add(dis);
         }
 
-        //! 2. draw the trees, collect tree width
+        //! 2. Draw trees in original order, collect tree widths
         var widCol = new List<double>();
-        foreach (var (pln, i) in plnLst.Select((pln, i) => (pln, i)))
+        for (int i = 0; i < plnLst.Count; i++)
         {
-          var t = new Tree(pln, hLst[i], modeUnitary == "unitary");
+          var t = new Tree(plnLst[i], hLst[i], false);
           var res = t.Draw(phLst[i]);
 
           if (!res.Item1)
@@ -128,25 +132,43 @@ namespace BeingAliveLanguage
           widCol.Add(t.CalWidth());
         }
 
-        //! 3. calculate scaling factor between trees
+        //! 3. Calculate scaling factors between sorted trees
         var inbetweenScale = new List<double>();
-        for (int i = 0; i < widCol.Count - 1; i++)
+        for (int i = 0; i < distLst.Count; i++)
         {
-          inbetweenScale.Add(Math.Min(1, distLst[i] / ((widCol[i] + widCol[i + 1]) * 0.5)));
+          int firstIdx = sortedPlaneIndices[i];
+          int secondIdx = sortedPlaneIndices[i + 1];
+          inbetweenScale.Add(Math.Min(1, distLst[i] / ((widCol[firstIdx] + widCol[secondIdx]) * 0.5)));
         }
 
-        //! 4. generate scaling Tuple for each tree
-        tscal.Add(Tuple.Create(1.0, inbetweenScale[0]));
-        for (int i = 0; i < inbetweenScale.Count - 1; i++)
+        //! 4. Map scaling factors back to original order
+        // For each tree, find its position in the sorted list
+        for (int i = 0; i < plnLst.Count; i++)
         {
-          tscal.Add(Tuple.Create(inbetweenScale[i], inbetweenScale[i + 1]));
+          int sortedPosition = sortedPlaneIndices.IndexOf(i);
+          
+          double leftScale = 1.0;
+          double rightScale = 1.0;
+          
+          // If not the leftmost tree, get scale from left
+          if (sortedPosition > 0)
+          {
+            leftScale = inbetweenScale[sortedPosition - 1];
+          }
+          
+          // If not the rightmost tree, get scale from right
+          if (sortedPosition < sortedPlaneIndices.Count - 1)
+          {
+            rightScale = inbetweenScale[sortedPosition];
+          }
+          
+          tscal.Add(Tuple.Create(leftScale, rightScale));
         }
-        tscal.Add(Tuple.Create(inbetweenScale.Last(), 1.0));
       }
       else if (plnLst.Count == 1) // special case: only one tree
       {
         tscal.Add(Tuple.Create(1.0, 1.0));
-        treeCol.Add(new Tree(plnLst[0], hLst[0], modeUnitary == "unitary"));
+        treeCol.Add(new Tree(plnLst[0], hLst[0], false));
         var res = treeCol.Last().Draw(phLst[0]);
 
         if (!res.Item1)
@@ -155,7 +177,6 @@ namespace BeingAliveLanguage
           return;
         }
       }
-
 
       //! 5. scale each tree and output
       foreach (var (t, i) in treeCol.Select((t, i) => (t, i)))
@@ -187,31 +208,31 @@ namespace BeingAliveLanguage
     }
 
 
-    private bool CheckMode(string _modeCheck) => modeUnitary == _modeCheck;
-    public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
-    {
-      base.AppendAdditionalMenuItems(menu);
-      Menu_AppendSeparator(menu);
-      Menu_AppendItem(menu, "Tree Type:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
-      Menu_AppendItem(menu, " Unitary", (sender, e) => Menu.SelectMode(this, sender, e, ref modeUnitary, "unitary"), true, CheckMode("unitary"));
-      Menu_AppendItem(menu, " Non-Unitary", (sender, e) => Menu.SelectMode(this, sender, e, ref modeUnitary, "non-unitary"), true, CheckMode("non-unitary"));
-    }
+    //private bool CheckMode(string _modeCheck) => modeUnitary == _modeCheck;
+    //public override void AppendAdditionalMenuItems(ToolStripDropDown menu)
+    //{
+    //  base.AppendAdditionalMenuItems(menu);
+    //  Menu_AppendSeparator(menu);
+    //  Menu_AppendItem(menu, "Tree Type:", (sender, e) => { }, false).Font = GH_FontServer.StandardItalic;
+    //  Menu_AppendItem(menu, " Unitary", (sender, e) => Menu.SelectMode(this, sender, e, ref modeUnitary, "unitary"), true, CheckMode("unitary"));
+    //  Menu_AppendItem(menu, " Non-Unitary", (sender, e) => Menu.SelectMode(this, sender, e, ref modeUnitary, "non-unitary"), true, CheckMode("non-unitary"));
+    //}
 
-    public override bool Write(GH_IWriter writer)
-    {
-      if (modeUnitary != "")
-        writer.SetString("modeUnitary", modeUnitary);
-      return base.Write(writer);
-    }
-    public override bool Read(GH_IReader reader)
-    {
-      if (reader.ItemExists("modeUnitary"))
-        modeUnitary = reader.GetString("modeUnitary");
+    //public override bool Write(GH_IWriter writer)
+    //{
+    //  if (modeUnitary != "")
+    //    writer.SetString("modeUnitary", modeUnitary);
+    //  return base.Write(writer);
+    //}
+    //public override bool Read(GH_IReader reader)
+    //{
+    //  if (reader.ItemExists("modeUnitary"))
+    //    modeUnitary = reader.GetString("modeUnitary");
 
-      Message = reader.GetString("modeUnitary").ToUpper();
+    //  Message = reader.GetString("modeUnitary").ToUpper();
 
-      return base.Read(reader);
-    }
+    //  return base.Read(reader);
+    //}
   }
 
 
@@ -221,11 +242,11 @@ namespace BeingAliveLanguage
   /// <summary>
   /// The first part of the 3D tree component - generates tree objects.
   /// </summary>
-  public class BALtreeDrenouComposer : GH_Component
+  public class BALtree3dComposer : GH_Component
   {
-    public BALtreeDrenouComposer()
-    : base("Tree_Drenou_Composer", "balTree_DrenouCom",
-          "Compose tree objects using Drenou's architectural model.",
+    public BALtree3dComposer()
+    : base("Tree_3D_Composer", "balTree_3dComposer",
+          "Compose the 3D version of BAL tree.",
           "BAL", "03::plant")
     { }
 
@@ -437,11 +458,11 @@ namespace BeingAliveLanguage
   /// <summary>
   /// The second part of the 3D tree component - renders tree objects.
   /// </summary>
-  public class BALtreeDrenouRenderer : GH_Component
+  public class BALtree3dRenderer : GH_Component
   {
-    public BALtreeDrenouRenderer()
-    : base("Tree_Drenou_Renderer", "balTree_DrenouRender",
-          "Render tree objects generated in Drenou's architectural model.",
+    public BALtree3dRenderer()
+    : base("Tree_3D_Renderer", "balTree_3dRender",
+          "Render the 3D version of BAL tree.",
           "BAL", "03::plant")
     { }
 
