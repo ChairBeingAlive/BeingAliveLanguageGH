@@ -12,9 +12,10 @@ using BeingAliveLanguage.BalCore;
 namespace BeingAliveLanguage {
   public class BALETP : GH_Component {
     public BALETP()
-        : base("Climate_HydraulicBalance", "balClimate_HydraBal",
-               "Calculate the climatical hydralic balance data and relevant information (evapotranspiration, etc.) for a given location.", "BAL",
-               "05::climate") {}
+        : base(
+              "Climate_HydraulicBalance", "balClimate_HydraBal",
+              "Calculate the climatical hydralic balance data and relevant information (evapotranspiration, etc.) for a given location.",
+              "BAL", "05::climate") {}
     protected override Bitmap Icon =>
         SysUtils.cvtByteBitmap(Properties.Resources.balEvapotranspiration);
     public override Guid ComponentGuid => new Guid("F99420CC-DFFB-4538-9207-83F24AA57FF9");
