@@ -6,6 +6,483 @@ using System.Linq;
 using MIConvexHull;
 
 namespace BeingAliveLanguage {
+  //  class Tree2D {
+  //    public Tree2D() {}
+  //    public Tree2D(Plane pln, double height, bool unitary = false) {
+  //      mPln = pln;
+  //      mHeight = height;
+  //      mUnitary = unitary;
+
+  //      maxStdR = height * 0.5;
+  //      minStdR = height * treeSepParam * 0.5;
+  //      stepR = (maxStdR - minStdR) / (numLayer - 1);
+  //    }
+
+  //    // draw the trees
+  //    public (bool, string) Draw(int phase) {
+  //      // record phase
+  //      mCurPhase = phase;
+
+  //      // ! draw tree trunks
+  //      if (mHeight <= 0)
+  //        return (false, "The height of the tree needs to be > 0.");
+  //      if (phase > 12 || phase <= 0)
+  //        return (false, "Phase out of range ([1, 12] for non-unitary tree).");
+
+  //      var treeTrunk = new Line(mPln.Origin, mPln.Origin + mHeight * mPln.YAxis).ToNurbsCurve();
+  //      treeTrunk.Domain = new Interval(0.0, 1.0);
+
+  //      var treeBot = treeTrunk.PointAtStart;
+  //      var treeTop = treeTrunk.PointAtEnd;
+
+  //      var startRatio = 0.1;
+  //      var seq = Utils.Range(startRatio, 1, numLayer - 1).ToList();
+
+  //      List<double> remapT;
+  //      if (mUnitary)
+  //        remapT = seq.Select(x => Math.Sqrt(startRatio) +
+  //                                 x / (1 - startRatio) * (1 - Math.Sqrt(startRatio)))
+  //                     .ToList();
+  //      else
+  //        remapT = seq.Select(x => Math.Sqrt(x)).ToList();
+
+  //      List<Curve> trunkCol =
+  //          remapT
+  //              .Select(x => new Line(treeBot, mPln.Origin + mHeight * x * mPln.YAxis)
+  //                               .ToNurbsCurve() as Curve)
+  //              .ToList();
+
+  //      mDebug = trunkCol;
+
+  //      // ! draw elliptical boundary
+  //      var vecCol = new List<Vector3d>();
+  //      Utils.Range(48, 93, numLayer - 1).ToList().ForEach(x => {
+  //        var vec = mPln.YAxis;
+  //        vec.Rotate(Utils.ToRadian(x), mPln.ZAxis);
+  //        vecCol.Add(vec);
+  //      });
+
+  //      foreach (var (t, i) in trunkCol.Select((t, i) => (t, i))) {
+  //        // arc as half canopy
+  //        var lBnd = new Arc(treeBot, vecCol[i], t.PointAtEnd).ToNurbsCurve();
+
+  //        var tmpV = new Vector3d(-vecCol[i].X, vecCol[i].Y, vecCol[i].Z);
+  //        var rBnd = new Arc(treeBot, tmpV, t.PointAtEnd).ToNurbsCurve();
+
+  //        mCircCol_l.Add(lBnd);
+  //        mCircCol_r.Add(rBnd);
+
+  //        var fullBnd = Curve.JoinCurves(new List<Curve> { lBnd, rBnd }, 0.02)[0];
+  //        mCircCol.Add(fullBnd);
+  //      }
+
+  //      // ! draw collections of branches
+  //      // branchPts
+  //      var branchingPt = new List<Point3d>();
+  //      var tCol = new List<double>();
+
+  //      foreach (var c in mCircCol) {
+  //        var events = Intersection.CurveCurve(treeTrunk.ToNurbsCurve(), c, 0.01, 0.01);
+
+  //        if (events.Count > 1) {
+  //          if (mPln.Origin.DistanceTo(events[1].PointA) > 1e-3) {
+  //            branchingPt.Add(events[1].PointA);
+  //            tCol.Add(events[1].ParameterA);
+  //          } else {
+  //            branchingPt.Add(events[0].PointB);
+  //            tCol.Add(events[0].ParameterB);
+  //          }
+  //        }
+  //      }
+
+  // #region phase < mMatureIdx
+  //       // ! idx determination
+  //       var curIdx = (phase - 1) * 2;
+  //       var trimN = mUnitary ? phase : Math.Min(phase, mMatureIdx - 1);
+  //       var trimIdx = (trimN - 1) * 2;
+
+  //      // ! canopy
+  //      var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
+  //      mCurCanopy = mCircCol[canopyIdx];
+  //      mCurCanopy.Domain = new Interval(0.0, 1.0);
+  //      mCurCanopy = mCurCanopy.Trim(0.1, 0.9);
+
+  //      // ! branches
+  //      var lBranchCol = new List<Curve>();
+  //      var rBranchCol = new List<Curve>();
+  //      var lBranchVec = new Vector3d(mPln.YAxis);
+  //      var rBranchVec = new Vector3d(mPln.YAxis);
+
+  //      lBranchVec.Rotate(Utils.ToRadian(mOpenAngle), mPln.ZAxis);
+  //      rBranchVec.Rotate(Utils.ToRadian(-mOpenAngle), mPln.ZAxis);
+
+  //      if (mUnitary)
+  //        mAngleStep *= 0.35;
+
+  //      foreach (var (p, i) in branchingPt.Select((p, i) => (p, i))) {
+  //        lBranchVec.Rotate(Utils.ToRadian(-mAngleStep * i), mPln.ZAxis);
+  //        rBranchVec.Rotate(Utils.ToRadian(mAngleStep * i), mPln.ZAxis);
+
+  //        lBranchCol.Add(new Line(p, p + 1000 * lBranchVec).ToNurbsCurve());
+  //        rBranchCol.Add(new Line(p, p + 1000 * rBranchVec).ToNurbsCurve());
+  //      }
+
+  //      // phase out of range
+  //      if (trimIdx >= trunkCol.Count)
+  //        return (false, "Phase out of range ([1, 9] for unitary tree).");
+
+  //      // side branches: generate the left and right separately based on scaled canopy
+  //      var subL = lBranchCol.GetRange(0, trimIdx);
+  //      subL.ForEach(x => x.Domain = new Interval(0.0, 1.0));
+  //      subL = subL.Select(x => TrimCrv(x, mCurCanopy)).ToList();
+
+  //      var subR = rBranchCol.GetRange(0, trimIdx);
+  //      subR.ForEach(x => x.Domain = new Interval(0.0, 1.0));
+  //      subR = subR.Select(x => TrimCrv(x, mCurCanopy)).ToList();
+
+  //      mSideBranch_l.AddRange(subL);
+  //      mSideBranch_r.AddRange(subR);
+
+  //      mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
+
+  //      // trunk
+  //      mCurTrunk = trunkCol[trimIdx];
+  //      mCurTrunk.Domain = new Interval(0.0, 1.0);
+
+  //      // trimming mCurCanopy to adapt to the current phase
+  //      mCurCanopy.Domain = new Interval(0.0, 1.0);
+  //      var param = 0.1 + phase * 0.03;
+  //      mCurCanopy = mCurCanopy.Trim(param, 1 - param);
+
+  //      // ! split to left/right part for global scaling
+  //      var canRes = mCurCanopy.Split(0.5);
+  //      mCurCanopy_l = canRes[0];
+  //      mCurCanopy_r = canRes[1];
+
+  // #endregion
+
+  //      // branch removal at bottom part
+  //      // if (phase > 6)
+  //      //    mSideBranch = mSideBranch.GetRange(2);
+
+  // #region phase >= matureIdx && phase < mDyingIdx
+
+  //      // top branches: if unitary, we can stop here.
+  //      if (mUnitary)
+  //        return (true, "");
+
+  //      // - if not unitary tree, then do top branching
+  //      if (phase >= mMatureIdx && phase < mDyingIdx) {
+  //        var cPln = mPln.Clone();
+  //        cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
+  //        mSubBranch_l.Clear();
+  //        mSubBranch_r.Clear();
+  //        mSubBranch.Clear();
+
+  //        var topB = BiBranching(cPln, phase - mMatureIdx + 1);
+
+  //        // do the scale transformation
+  //        // var lSca = Transform.Scale(cPln, mScale.Item1, 1, 1);
+  //        // lB.ForEach(x => x.Item1.Transform(lSca));
+
+  //        // var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
+  //        // rB.ForEach(x => x.Item1.Transform(rSca));
+  //        var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
+  //        var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
+
+  //        mSubBranch_l.AddRange(lB.Select(x => x.Item1));
+  //        mSubBranch_r.AddRange(rB.Select(x => x.Item1));
+
+  //        mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+  //        // mSubBranch.AddRange(lB.Select(x => x.Item1));
+  //        // mSubBranch.AddRange(rB.Select(x => x.Item1));
+  //      }
+  // #endregion
+  // #region phase >= dyIngidx
+  //      else if (phase >= mDyingIdx) {
+  //        mSideBranch.ForEach(x => x.Domain = new Interval(0.0, 1.0));
+  //        var cPln = mPln.Clone();
+
+  //        // ! Top branching, corner case
+  //        if (phase == mDyingIdx) {
+  //          // keep top branching (Dec.2022)
+  //          cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
+  //          mSubBranch.Clear();
+
+  //          var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
+
+  //          var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
+  //          var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
+
+  //          mSubBranch_l.AddRange(lB.Select(x => x.Item1));
+  //          mSubBranch_r.AddRange(rB.Select(x => x.Item1));
+
+  //          mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+  //        } else if (phase == mDyingIdx + 1) {
+  //          // for phase 11, keep only the right side of the top branch
+  //          cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
+  //          mSubBranch.Clear();
+
+  //          var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
+
+  //          var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
+  //          mSubBranch_r.AddRange(rB.Select(x => x.Item1));
+  //          mSubBranch.AddRange(rB.Select(x => x.Item1));
+  //        } else {
+  //          mSubBranch.Clear();
+  //        }
+
+  //        // ! Side new born branch and branched trunk
+  //        if (phase == mDyingIdx) {
+  //          mNewBornBranch = CrvSelection(mSideBranch, 0, 18, 3);
+  //          mNewBornBranch = mNewBornBranch.Select(x => x.Trim(0.0, 0.3)).ToList();
+
+  //          var babyTreeCol = new List<Curve>();
+  //          foreach (var b in mNewBornBranch) {
+  //            b.Domain = new Interval(0, 1);
+  //            List<Point3d> ptMidEnd = new List<Point3d> { b.PointAtEnd };
+  //            // List<Point3d> ptMidEnd = new List<Point3d> { b.PointAtEnd, b.PointAt(0.5) };
+
+  //            foreach (var p in ptMidEnd) {
+  //              cPln = mPln.Clone();
+  //              cPln.Translate(new Vector3d(p - mPln.Origin));
+
+  //              var cTree = new Tree2D(cPln, mHeight / 3.0);
+  //              cTree.Draw(1);
+
+  //              babyTreeCol.Add(cTree.mCurCanopy);
+  //              babyTreeCol.Add(cTree.mCurTrunk);
+  //            }
+  //          }
+  //          mNewBornBranch.AddRange(babyTreeCol);
+  //        } else if (phase > mDyingIdx) {
+  //          // base branch
+  //          mNewBornBranch = CrvSelection(mSideBranch, 0, 16, 5);
+  //          mNewBornBranch = mNewBornBranch.Select(x => x.Trim(0.0, 0.3)).ToList();
+
+  //          // top two branches use polylinecurve
+  //          var top2 = new List<Curve>();
+  //          for (int i = 0; i < 4; i += 2) {
+  //            var c = mNewBornBranch[i];
+  //            c.Trim(0.0, 0.35);
+  //            top2.Add(c);
+  //          }
+
+  //          // bottom two branches use curve
+  //          var bot2 = new List<Curve>();
+  //          for (int i = 1; i < 4; i += 2) {
+  //            var c = mNewBornBranch[i].Trim(0.0, 0.2);
+  //            var pt2 = c.PointAtEnd + mPln.YAxis * c.GetLength() / 2;
+  //            var newC = NurbsCurve.Create(false, 2,
+  //                                         new List<Point3d> { c.PointAtStart, c.PointAtEnd, pt2
+  //                                         });
+  //            bot2.Add(newC);
+  //          }
+
+  //          // collect new born branches, remove canopy and side branches
+  //          mNewBornBranch = top2.Concat(bot2).ToList();
+  //          mCurCanopy_l = null;
+  //          mCurCanopy_r = null;
+  //          mCurCanopy = null;
+
+  //          // create babyTree
+  //          var babyCol = new List<Curve>();
+  //          foreach (var b in mNewBornBranch) {
+  //            cPln = mPln.Clone();
+  //            cPln.Translate(new Vector3d(b.PointAtEnd - mPln.Origin));
+  //            var cTree = new Tree2D(cPln, mHeight / 3.0);
+  //            cTree.Draw(phase - mDyingIdx + 1);
+
+  //            babyCol.Add(cTree.mCurCanopy);
+  //            babyCol.Add(cTree.mCurTrunk);
+  //            babyCol.AddRange(cTree.mSideBranch);
+
+  //            // for debugging
+  //            mDebug.AddRange(cTree.mCircCol);
+  //          }
+
+  //          // attach the babyTree and split the trunk
+  //          mNewBornBranch.AddRange(babyCol);
+
+  //          // process Trunk spliting.
+  //          var leftTrunk = mCurTrunk.Duplicate() as Curve;
+  //          leftTrunk.Translate(-mPln.XAxis * mHeight / 150);
+  //          var rightTrunk = mCurTrunk.Duplicate() as Curve;
+  //          rightTrunk.Translate(mPln.XAxis * mHeight / 150);
+  //          mCurTrunk = new PolylineCurve(
+  //              new List<Point3d> { leftTrunk.PointAtStart, leftTrunk.PointAtEnd,
+  //                                  rightTrunk.PointAtEnd, rightTrunk.PointAtStart });
+  //        }
+
+  //        mCurCanopy_l = null;
+  //        mCurCanopy_r = null;
+  //        mCurCanopy = null;
+  //        mSideBranch_l.Clear();
+  //        mSideBranch_r.Clear();
+  //        mSideBranch.Clear();
+  //      }
+  // #endregion
+
+  //      // mDebug = sideBranch;
+
+  //      return (true, "");
+  //    }
+
+  //    // scale the trees so that they don't overlap
+  //    public double CalWidth() {
+  //      var bbx = mSideBranch.Select(x => x.GetBoundingBox(false)).ToList();
+  //      var finalBbx = mCurTrunk.GetBoundingBox(false);
+  //      bbx.ForEach(x => finalBbx.Union(x));
+
+  //      // using diag to check which plane the trees are
+  //      Vector3d diag = finalBbx.Max - finalBbx.Min;
+  //      double wid = Vector3d.Multiply(diag, mPln.XAxis);
+
+  //      return wid;
+  //    }
+
+  //    public void Scale(in Tuple<double, double> scal) {
+  //      var lScal = Transform.Scale(mPln, scal.Item1, 1, 1);
+  //      var rScal = Transform.Scale(mPln, scal.Item2, 1, 1);
+
+  //      // circumBound
+  //      mCircCol.Clear();
+  //      for (int i = 0; i < mCircCol_l.Count; i++) {
+  //        mCircCol_l[i].Transform(lScal);
+  //        mCircCol_r[i].Transform(rScal);
+  //        var fullBnd = Curve.JoinCurves(new List<Curve> { mCircCol_l[i], mCircCol_r[i] },
+  //        0.01)[0]; mCircCol.Add(fullBnd);
+  //      }
+
+  //      // side branches
+  //      for (int i = 0; i < mSideBranch_l.Count; i++) {
+  //        mSideBranch_l[i].Transform(lScal);
+  //        mSideBranch_r[i].Transform(rScal);
+  //      }
+  //      mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
+
+  //      // subbranches
+  //      for (int i = 0; i < mSubBranch_l.Count; i++) {
+  //        mSubBranch_l[i].Transform(lScal);
+  //        mSubBranch_r[i].Transform(rScal);
+  //      }
+  //      mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+
+  //      if (mCurCanopy != null) {
+  //        mCurCanopy_l.Transform(lScal);
+  //        mCurCanopy_r.Transform(rScal);
+  //        mCurCanopy = Curve.JoinCurves(new List<Curve> { mCurCanopy_l, mCurCanopy_r }, 0.02)[0];
+  //      }
+  //    }
+
+  //    private List<Curve> CrvSelection(in List<Curve> lst, int startId, int endId, int step) {
+  //      List<Curve> res = new List<Curve>();
+  //      for (int i = startId; i < endId; i += step) {
+  //        res.Add(lst[i]);
+  //        // res[res.Count - 1].Domain = new Interval(0, 1);
+  //      }
+
+  //      return res;
+  //    }
+
+  //    private Curve TrimCrv(in Curve C0, in Curve C1) {
+  //      var events = Intersection.CurveCurve(C0, C1, 0.01, 0.01);
+  //      if (events.Count != 0)
+  //        return C0.Trim(0.0, events[0].ParameterA);
+  //      else
+  //        return C0;
+  //    }
+
+  //    private List<Tuple<Curve, string>> BiBranching(in Plane pln, int step) {
+  //      // use a string "i-j-l/r" to record the position of the branch -- end pt represent the
+  //      branch var subPt = new List<Tuple<Point3d, string>> { Tuple.Create(pln.Origin, "n") }; var
+  //      subLn = new List<Tuple<Curve, string>> { Tuple.Create(
+  //          new Line(pln.Origin, pln.Origin + pln.YAxis).ToNurbsCurve() as Curve, "") };
+  //      var resCol = new List<Tuple<Curve, string>>();
+
+  //      for (int i = 0; i < step; i++) {
+  //        var ptCol = new List<Tuple<Point3d, string>>();
+  //        var lnCol = new List<Tuple<Curve, string>>();
+
+  //        var scalingParam = Math.Pow(0.85, (mMatureIdx - mMatureIdx + 1));
+  //        var vecLen = mCurTrunk.GetLength() * 0.1 * scalingParam;
+  //        var angleX = (mOpenAngle - (mMatureIdx + step) * mAngleStep * 3) * scalingParam;
+
+  //        // for each phase, do bi-branching: 1 node -> 2 branches
+  //        foreach (var (pt, j) in subPt.Select((pt, j) => (pt, j))) {
+  //          var curVec = new Vector3d(subLn[j].Item1.PointAtEnd - subLn[j].Item1.PointAtStart);
+  //          curVec.Unitize();
+
+  //          var vecA = new Vector3d(curVec);
+  //          var vecB = new Vector3d(curVec);
+  //          vecA.Rotate(Utils.ToRadian(angleX), mPln.ZAxis);
+  //          vecB.Rotate(-Utils.ToRadian(angleX), mPln.ZAxis);
+
+  //          var endA = subPt[j].Item1 + vecA * vecLen;
+  //          var endB = subPt[j].Item1 + vecB * vecLen;
+
+  //          // trace string: trace of the trace_prevPt + trace_curPt
+  //          ptCol.Add(Tuple.Create(endA, subPt[j].Item2 + "l"));
+  //          ptCol.Add(Tuple.Create(endB, subPt[j].Item2 + "r"));
+
+  //          lnCol.Add(Tuple.Create(new Line(pt.Item1, endA).ToNurbsCurve() as Curve, pt.Item2 +
+  //          "l")); lnCol.Add(Tuple.Create(new Line(pt.Item1, endB).ToNurbsCurve() as Curve,
+  //          pt.Item2 + "r"));
+  //        }
+
+  //        subPt = ptCol;
+  //        subLn = lnCol;
+
+  //        resCol.AddRange(subLn);
+  //      }
+
+  //      return resCol;
+  //    }
+
+  //    // tree core param
+  //    public Plane mPln;
+  //    public double mHeight;
+  //    // placeholder, not used for 2D cases
+  //    public double mRadius = 1;
+  //    public int mCurPhase;
+  //    bool mUnitary = false;
+
+  //    double mAngleStep = 1.2;
+  //    readonly int numLayer = 18;
+  //    readonly double mOpenAngle = 57;
+
+  //    // mature and dying range idx
+  //    readonly int mMatureIdx = 6;
+  //    readonly int mDyingIdx = 10;
+
+  //    // other parameter
+  //    double treeSepParam = 0.2;
+  //    readonly double maxStdR, minStdR, stepR;
+
+  //    // curve collection
+  //    public Curve mCurCanopy_l;
+  //    public Curve mCurCanopy_r;
+  //    public Curve mCurCanopy;
+
+  //    public Curve mCurTrunk;
+
+  //    public List<Curve> mCircCol_l = new List<Curve>();
+  //    public List<Curve> mCircCol_r = new List<Curve>();
+  //    public List<Curve> mCircCol = new List<Curve>();
+
+  //    public List<Curve> mSideBranch_l = new List<Curve>();
+  //    public List<Curve> mSideBranch_r = new List<Curve>();
+  //    public List<Curve> mSideBranch = new List<Curve>();
+
+  //    public List<Curve> mSubBranch_l = new List<Curve>();
+  //    public List<Curve> mSubBranch_r = new List<Curve>();
+  //    public List<Curve> mSubBranch = new List<Curve>();
+
+  //    public List<Curve> mNewBornBranch = new List<Curve>();
+
+  //    public List<Curve> mDebug = new List<Curve>();
+  //  }
+
   class Tree2D {
     public Tree2D() {}
     public Tree2D(Plane pln, double height, bool unitary = false) {
@@ -13,471 +490,694 @@ namespace BeingAliveLanguage {
       mHeight = height;
       mUnitary = unitary;
 
-      maxStdR = height * 0.5;
-      minStdR = height * treeSepParam * 0.5;
-      stepR = (maxStdR - minStdR) / (numLayer - 1);
+      // Configure growth parameters
+      mTrunkSegLen = height / mStage1;
+      mMaxBranchLen = height * 0.5;
+      mMinBranchLen = height * 0.25;
     }
 
-    // draw the trees
+    // Draw the tree based on its phase
     public (bool, string) Draw(int phase) {
-      // record phase
+      // Record current phase
       mCurPhase = phase;
 
-      // ! draw tree trunks
+      // Validate input parameters
       if (mHeight <= 0)
         return (false, "The height of the tree needs to be > 0.");
-      if (phase > 12 || phase <= 0)
-        return (false, "Phase out of range ([1, 12] for non-unitary tree).");
+      if (phase > mStage4 || phase <= 0)
+        return (false, "Phase out of range ([1, 13] for tree).");
 
-      var treeTrunk = new Line(mPln.Origin, mPln.Origin + mHeight * mPln.YAxis).ToNurbsCurve();
-      treeTrunk.Domain = new Interval(0.0, 1.0);
+      // Clear previous data
+      ClearTreeData();
 
-      var treeBot = treeTrunk.PointAtStart;
-      var treeTop = treeTrunk.PointAtEnd;
-
-      var startRatio = 0.1;
-      var seq = Utils.Range(startRatio, 1, numLayer - 1).ToList();
-
-      List<double> remapT;
-      if (mUnitary)
-        remapT = seq.Select(x => Math.Sqrt(startRatio) +
-                                 x / (1 - startRatio) * (1 - Math.Sqrt(startRatio)))
-                     .ToList();
-      else
-        remapT = seq.Select(x => Math.Sqrt(x)).ToList();
-
-      List<Curve> trunkCol =
-          remapT
-              .Select(x => new Line(treeBot, mPln.Origin + mHeight * x * mPln.YAxis)
-                               .ToNurbsCurve() as Curve)
-              .ToList();
-
-      mDebug = trunkCol;
-
-      // ! draw elliptical boundary
-      var vecCol = new List<Vector3d>();
-      Utils.Range(48, 93, numLayer - 1).ToList().ForEach(x => {
-        var vec = mPln.YAxis;
-        vec.Rotate(Utils.ToRadian(x), mPln.ZAxis);
-        vecCol.Add(vec);
-      });
-
-      foreach (var (t, i) in trunkCol.Select((t, i) => (t, i))) {
-        // arc as half canopy
-        var lBnd = new Arc(treeBot, vecCol[i], t.PointAtEnd).ToNurbsCurve();
-
-        var tmpV = new Vector3d(-vecCol[i].X, vecCol[i].Y, vecCol[i].Z);
-        var rBnd = new Arc(treeBot, tmpV, t.PointAtEnd).ToNurbsCurve();
-
-        mCircCol_l.Add(lBnd);
-        mCircCol_r.Add(rBnd);
-
-        var fullBnd = Curve.JoinCurves(new List<Curve> { lBnd, rBnd }, 0.02)[0];
-        mCircCol.Add(fullBnd);
+      // Generate tree components according to its growth stage
+      if (phase < mStage1) {
+        // Phases 1-3: Just young tree,
+        GrowStage1();
+      } else if (phase <= mStage2) {
+        // Phase 4: with a bit of special treatment
+        // Phases 5-8: Mature tree with continued branching
+        GrowStage1();
+        GrowStage2();
+      } else if (phase <= mStage3) {
+        // Phases 9-10: Aging tree, no new branches
+        GrowStage1();
+        GrowStage2();
+        GrowStage3();
+      } else {
+        // Phases 11+: Dying tree
+        GrowStage1();
+        GrowStage2();
+        GrowStage3();
+        GrowStage4();
       }
-
-      // ! draw collections of branches
-      // branchPts
-      var branchingPt = new List<Point3d>();
-      var tCol = new List<double>();
-
-      foreach (var c in mCircCol) {
-        var events = Intersection.CurveCurve(treeTrunk.ToNurbsCurve(), c, 0.01, 0.01);
-
-        if (events.Count > 1) {
-          if (mPln.Origin.DistanceTo(events[1].PointA) > 1e-3) {
-            branchingPt.Add(events[1].PointA);
-            tCol.Add(events[1].ParameterA);
-          } else {
-            branchingPt.Add(events[0].PointB);
-            tCol.Add(events[0].ParameterB);
-          }
-        }
-      }
-
-#region phase < mMatureIdx
-      // ! idx determination
-      var curIdx = (phase - 1) * 2;
-      var trimN = mUnitary ? phase : Math.Min(phase, mMatureIdx - 1);
-      var trimIdx = (trimN - 1) * 2;
-
-      // ! canopy
-      var canopyIdx = phase < mDyingIdx ? curIdx : (mDyingIdx - 2) * 2;
-      mCurCanopy = mCircCol[canopyIdx];
-      mCurCanopy.Domain = new Interval(0.0, 1.0);
-      mCurCanopy = mCurCanopy.Trim(0.1, 0.9);
-
-      // ! branches
-      var lBranchCol = new List<Curve>();
-      var rBranchCol = new List<Curve>();
-      var lBranchVec = new Vector3d(mPln.YAxis);
-      var rBranchVec = new Vector3d(mPln.YAxis);
-
-      lBranchVec.Rotate(Utils.ToRadian(mOpenAngle), mPln.ZAxis);
-      rBranchVec.Rotate(Utils.ToRadian(-mOpenAngle), mPln.ZAxis);
-
-      if (mUnitary)
-        mAngleStep *= 0.35;
-
-      foreach (var (p, i) in branchingPt.Select((p, i) => (p, i))) {
-        lBranchVec.Rotate(Utils.ToRadian(-mAngleStep * i), mPln.ZAxis);
-        rBranchVec.Rotate(Utils.ToRadian(mAngleStep * i), mPln.ZAxis);
-
-        lBranchCol.Add(new Line(p, p + 1000 * lBranchVec).ToNurbsCurve());
-        rBranchCol.Add(new Line(p, p + 1000 * rBranchVec).ToNurbsCurve());
-      }
-
-      // phase out of range
-      if (trimIdx >= trunkCol.Count)
-        return (false, "Phase out of range ([1, 9] for unitary tree).");
-
-      // side branches: generate the left and right separately based on scaled canopy
-      var subL = lBranchCol.GetRange(0, trimIdx);
-      subL.ForEach(x => x.Domain = new Interval(0.0, 1.0));
-      subL = subL.Select(x => TrimCrv(x, mCurCanopy)).ToList();
-
-      var subR = rBranchCol.GetRange(0, trimIdx);
-      subR.ForEach(x => x.Domain = new Interval(0.0, 1.0));
-      subR = subR.Select(x => TrimCrv(x, mCurCanopy)).ToList();
-
-      mSideBranch_l.AddRange(subL);
-      mSideBranch_r.AddRange(subR);
-
-      mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
-
-      // trunk
-      mCurTrunk = trunkCol[trimIdx];
-      mCurTrunk.Domain = new Interval(0.0, 1.0);
-
-      // trimming mCurCanopy to adapt to the current phase
-      mCurCanopy.Domain = new Interval(0.0, 1.0);
-      var param = 0.1 + phase * 0.03;
-      mCurCanopy = mCurCanopy.Trim(param, 1 - param);
-
-      // ! split to left/right part for global scaling
-      var canRes = mCurCanopy.Split(0.5);
-      mCurCanopy_l = canRes[0];
-      mCurCanopy_r = canRes[1];
-
-#endregion
-
-      // branch removal at bottom part
-      // if (phase > 6)
-      //    mSideBranch = mSideBranch.GetRange(2);
-
-#region phase >= matureIdx && phase < mDyingIdx
-
-      // top branches: if unitary, we can stop here.
-      if (mUnitary)
-        return (true, "");
-
-      // - if not unitary tree, then do top branching
-      if (phase >= mMatureIdx && phase < mDyingIdx) {
-        var cPln = mPln.Clone();
-        cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
-        mSubBranch_l.Clear();
-        mSubBranch_r.Clear();
-        mSubBranch.Clear();
-
-        var topB = BiBranching(cPln, phase - mMatureIdx + 1);
-
-        // do the scale transformation
-        // var lSca = Transform.Scale(cPln, mScale.Item1, 1, 1);
-        // lB.ForEach(x => x.Item1.Transform(lSca));
-
-        // var rSca = Transform.Scale(cPln, mScale.Item2, 1, 1);
-        // rB.ForEach(x => x.Item1.Transform(rSca));
-        var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
-        var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
-
-        mSubBranch_l.AddRange(lB.Select(x => x.Item1));
-        mSubBranch_r.AddRange(rB.Select(x => x.Item1));
-
-        mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
-        // mSubBranch.AddRange(lB.Select(x => x.Item1));
-        // mSubBranch.AddRange(rB.Select(x => x.Item1));
-      }
-#endregion
-#region phase >= dyIngidx
-      else if (phase >= mDyingIdx) {
-        mSideBranch.ForEach(x => x.Domain = new Interval(0.0, 1.0));
-        var cPln = mPln.Clone();
-
-        // ! Top branching, corner case
-        if (phase == mDyingIdx) {
-          // keep top branching (Dec.2022)
-          cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
-          mSubBranch.Clear();
-
-          var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
-
-          var lB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'l').ToList();
-          var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
-
-          mSubBranch_l.AddRange(lB.Select(x => x.Item1));
-          mSubBranch_r.AddRange(rB.Select(x => x.Item1));
-
-          mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
-        } else if (phase == mDyingIdx + 1) {
-          // for phase 11, keep only the right side of the top branch
-          cPln.Translate(new Vector3d(mCurTrunk.PointAtEnd - mPln.Origin));
-          mSubBranch.Clear();
-
-          var topB = BiBranching(cPln, mDyingIdx - mMatureIdx);
-
-          var rB = topB.Where(x => x.Item2 != null && x.Item2.ElementAt(1) == 'r').ToList();
-          mSubBranch_r.AddRange(rB.Select(x => x.Item1));
-          mSubBranch.AddRange(rB.Select(x => x.Item1));
-        } else {
-          mSubBranch.Clear();
-        }
-
-        // ! Side new born branch and branched trunk
-        if (phase == mDyingIdx) {
-          mNewBornBranch = CrvSelection(mSideBranch, 0, 18, 3);
-          mNewBornBranch = mNewBornBranch.Select(x => x.Trim(0.0, 0.3)).ToList();
-
-          var babyTreeCol = new List<Curve>();
-          foreach (var b in mNewBornBranch) {
-            b.Domain = new Interval(0, 1);
-            List<Point3d> ptMidEnd = new List<Point3d> { b.PointAtEnd };
-            // List<Point3d> ptMidEnd = new List<Point3d> { b.PointAtEnd, b.PointAt(0.5) };
-
-            foreach (var p in ptMidEnd) {
-              cPln = mPln.Clone();
-              cPln.Translate(new Vector3d(p - mPln.Origin));
-
-              var cTree = new Tree2D(cPln, mHeight / 3.0);
-              cTree.Draw(1);
-
-              babyTreeCol.Add(cTree.mCurCanopy);
-              babyTreeCol.Add(cTree.mCurTrunk);
-            }
-          }
-          mNewBornBranch.AddRange(babyTreeCol);
-        } else if (phase > mDyingIdx) {
-          // base branch
-          mNewBornBranch = CrvSelection(mSideBranch, 0, 16, 5);
-          mNewBornBranch = mNewBornBranch.Select(x => x.Trim(0.0, 0.3)).ToList();
-
-          // top two branches use polylinecurve
-          var top2 = new List<Curve>();
-          for (int i = 0; i < 4; i += 2) {
-            var c = mNewBornBranch[i];
-            c.Trim(0.0, 0.35);
-            top2.Add(c);
-          }
-
-          // bottom two branches use curve
-          var bot2 = new List<Curve>();
-          for (int i = 1; i < 4; i += 2) {
-            var c = mNewBornBranch[i].Trim(0.0, 0.2);
-            var pt2 = c.PointAtEnd + mPln.YAxis * c.GetLength() / 2;
-            var newC = NurbsCurve.Create(false, 2,
-                                         new List<Point3d> { c.PointAtStart, c.PointAtEnd, pt2 });
-            bot2.Add(newC);
-          }
-
-          // collect new born branches, remove canopy and side branches
-          mNewBornBranch = top2.Concat(bot2).ToList();
-          mCurCanopy_l = null;
-          mCurCanopy_r = null;
-          mCurCanopy = null;
-
-          // create babyTree
-          var babyCol = new List<Curve>();
-          foreach (var b in mNewBornBranch) {
-            cPln = mPln.Clone();
-            cPln.Translate(new Vector3d(b.PointAtEnd - mPln.Origin));
-            var cTree = new Tree2D(cPln, mHeight / 3.0);
-            cTree.Draw(phase - mDyingIdx + 1);
-
-            babyCol.Add(cTree.mCurCanopy);
-            babyCol.Add(cTree.mCurTrunk);
-            babyCol.AddRange(cTree.mSideBranch);
-
-            // for debugging
-            mDebug.AddRange(cTree.mCircCol);
-          }
-
-          // attach the babyTree and split the trunk
-          mNewBornBranch.AddRange(babyCol);
-
-          // process Trunk spliting.
-          var leftTrunk = mCurTrunk.Duplicate() as Curve;
-          leftTrunk.Translate(-mPln.XAxis * mHeight / 150);
-          var rightTrunk = mCurTrunk.Duplicate() as Curve;
-          rightTrunk.Translate(mPln.XAxis * mHeight / 150);
-          mCurTrunk = new PolylineCurve(
-              new List<Point3d> { leftTrunk.PointAtStart, leftTrunk.PointAtEnd,
-                                  rightTrunk.PointAtEnd, rightTrunk.PointAtStart });
-        }
-
-        mCurCanopy_l = null;
-        mCurCanopy_r = null;
-        mCurCanopy = null;
-        mSideBranch_l.Clear();
-        mSideBranch_r.Clear();
-        mSideBranch.Clear();
-      }
-#endregion
-
-      // mDebug = sideBranch;
 
       return (true, "");
     }
 
-    // scale the trees so that they don't overlap
+    // Calculate the width of the tree for scaling purposes
     public double CalWidth() {
-      var bbx = mSideBranch.Select(x => x.GetBoundingBox(false)).ToList();
-      var finalBbx = mCurTrunk.GetBoundingBox(false);
-      bbx.ForEach(x => finalBbx.Union(x));
+      var allBranches = new List<Curve>();
+      allBranches.Add(mCurTrunk);
+      allBranches.AddRange(mSideBranch);
+      allBranches.AddRange(mSubBranch);
 
-      // using diag to check which plane the trees are
+      if (allBranches.Count == 0)
+        return 0;
+
+      var finalBbx = allBranches[0].GetBoundingBox(false);
+      for (int i = 1; i < allBranches.Count; i++) {
+        finalBbx.Union(allBranches[i].GetBoundingBox(false));
+      }
+
+      // Get the width along the X-axis
       Vector3d diag = finalBbx.Max - finalBbx.Min;
-      double wid = Vector3d.Multiply(diag, mPln.XAxis);
+      double width = Vector3d.Multiply(diag, mPln.XAxis);
 
-      return wid;
+      return width;
     }
 
+    // Scale the tree to prevent overlapping
     public void Scale(in Tuple<double, double> scal) {
+      // Create transforms for left and right sides
       var lScal = Transform.Scale(mPln, scal.Item1, 1, 1);
       var rScal = Transform.Scale(mPln, scal.Item2, 1, 1);
 
-      // circumBound
-      mCircCol.Clear();
-      for (int i = 0; i < mCircCol_l.Count; i++) {
-        mCircCol_l[i].Transform(lScal);
-        mCircCol_r[i].Transform(rScal);
-        var fullBnd = Curve.JoinCurves(new List<Curve> { mCircCol_l[i], mCircCol_r[i] }, 0.01)[0];
-        mCircCol.Add(fullBnd);
-      }
-
-      // side branches
+      // Scale side branches
       for (int i = 0; i < mSideBranch_l.Count; i++) {
         mSideBranch_l[i].Transform(lScal);
+      }
+      for (int i = 0; i < mSideBranch_r.Count; i++) {
         mSideBranch_r[i].Transform(rScal);
       }
       mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
 
-      // subbranches
+      // Scale top branches
       for (int i = 0; i < mSubBranch_l.Count; i++) {
         mSubBranch_l[i].Transform(lScal);
+      }
+      for (int i = 0; i < mSubBranch_r.Count; i++) {
         mSubBranch_r[i].Transform(rScal);
       }
       mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
 
+      // Scale canopy if it exists
       if (mCurCanopy != null) {
-        mCurCanopy_l.Transform(lScal);
-        mCurCanopy_r.Transform(rScal);
-        mCurCanopy = Curve.JoinCurves(new List<Curve> { mCurCanopy_l, mCurCanopy_r }, 0.02)[0];
+        mCurCanopy_l?.Transform(lScal);
+        mCurCanopy_r?.Transform(rScal);
+
+        if (mCurCanopy_l != null && mCurCanopy_r != null) {
+          var joined = Curve.JoinCurves(new List<Curve> { mCurCanopy_l, mCurCanopy_r }, 0.02);
+          if (joined.Length > 0) {
+            mCurCanopy = joined[0];
+          }
+        }
+      }
+
+      // Generate an outline curve that represents the tree boundary
+      // GenerateOutlineCurve();
+    }
+
+    // Stage 1: Young tree growth (phases 1-4)
+    private void GrowStage1() {
+      // Calculate how much of stage 1 to grow based on phase
+      int growthPhase = Math.Min(mCurPhase, mStage1);
+
+      // Create the trunk
+      double trunkHeight = mTrunkSegLen * growthPhase;
+      Point3d trunkStart = mPln.Origin;
+      Point3d trunkEnd = mPln.Origin + mPln.YAxis * trunkHeight;
+      mCurTrunk = new Line(trunkStart, trunkEnd).ToNurbsCurve();
+      mCurTrunk.Domain = new Interval(0.0, 1.0);
+
+      // Always generate side branches, even at phase 1
+      GenerateSideBranches(growthPhase);
+    }
+
+    // Stage 2: Mature tree growth (phases 5-8)
+    private void GrowStage2() {
+      // If a phase override is provided, use it instead of calculating from current phase
+      int stage2Phase = mCurPhase - mStage1 + 1;
+
+      // Don't add more branches after stage 2 is complete
+      if (mCurPhase > mStage2) {
+        stage2Phase = mStage2 - mStage1;
+      }
+
+      // Create top branches using bi-branching
+      Point3d topPoint = mCurTrunk.PointAtEnd;
+      Plane topPlane = mPln.Clone();
+      topPlane.Origin = topPoint;
+
+      var topBranches = BiBranching(topPlane, stage2Phase);
+
+      // Separate left and right branches
+      foreach (var branch in topBranches) {
+        if (branch.Item2 != null && branch.Item2.EndsWith("l")) {
+          mSubBranch_l.Add(branch.Item1);
+        } else if (branch.Item2 != null && branch.Item2.EndsWith("r")) {
+          mSubBranch_r.Add(branch.Item1);
+        }
+      }
+
+      mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+    }
+
+    // Stage 3: Aging tree (phases 9-10)
+    private void GrowStage3() {
+      int stage3Phase = mCurPhase - mStage2;
+
+      // Create a collection of all branches (both side and top)
+      var allBranches = new List<Tuple<Curve, bool, List<int>>>();  // Curve, isLeft, childIndices
+
+      // Track branches by their spatial position to ensure deterministic removal across phases
+      var branchPositionMap = new Dictionary<Point3d, int>();
+
+      // Add side branches with metadata
+      for (int i = 0; i < mSideBranch_l.Count; i++) {
+        var curve = mSideBranch_l[i];
+        allBranches.Add(Tuple.Create(curve, true, new List<int>()));
+        branchPositionMap[curve.PointAtStart] = allBranches.Count - 1;
+      }
+
+      for (int i = 0; i < mSideBranch_r.Count; i++) {
+        var curve = mSideBranch_r[i];
+        allBranches.Add(Tuple.Create(curve, false, new List<int>()));
+        branchPositionMap[curve.PointAtStart] = allBranches.Count - 1;
+      }
+
+      // Add top branches with metadata
+      int sideBranchCount = allBranches.Count;
+      for (int i = 0; i < mSubBranch_l.Count; i++) {
+        var curve = mSubBranch_l[i];
+        allBranches.Add(Tuple.Create(curve, true, new List<int>()));
+        branchPositionMap[curve.PointAtStart] = allBranches.Count - 1;
+      }
+
+      for (int i = 0; i < mSubBranch_r.Count; i++) {
+        var curve = mSubBranch_r[i];
+        allBranches.Add(Tuple.Create(curve, false, new List<int>()));
+        branchPositionMap[curve.PointAtStart] = allBranches.Count - 1;
+      }
+
+      // Identify parent-child relationships based on proximity
+      for (int i = 0; i < allBranches.Count; i++) {
+        for (int j = 0; j < allBranches.Count; j++) {
+          if (i == j)
+            continue;
+
+          if (allBranches[j].Item1.PointAtStart.DistanceTo(allBranches[i].Item1.PointAtEnd) < 0.1) {
+            allBranches[i].Item3.Add(j);
+          }
+        }
+      }
+
+      // Use a fixed seed to ensure consistency across phases
+      // Random rnd = new Random(1234);
+      var rnd = Utils.balRnd.Next();
+
+      // Generate a priority list for removal - this is deterministic and stable across phases
+      var removalPriority =
+          Enumerable.Range(0, allBranches.Count)
+              .OrderBy(i => {
+                // Hash the branch position for deterministic ordering
+                var pt = allBranches[i].Item1.PointAtStart;
+                return pt.X * 7919 + pt.Y * 6113 + pt.Z * 3967;  // Use prime multipliers
+              })
+              .ToList();
+
+      // Calculate target percentage for current phase (10% per phase)
+      double removalPercentage = 0.3 * stage3Phase;
+      int targetRemovalCount = (int)(allBranches.Count * removalPercentage);
+
+      // Create a record of which branches to remove
+      HashSet<int> branchesToRemove = new HashSet<int>();
+
+      // Track the total number of branches that will be removed (including children)
+      int totalBranchesToRemove = 0;
+
+      // Function to count a branch and all its descendants
+      int CountBranchAndChildren(int branchIndex) {
+        if (branchesToRemove.Contains(branchIndex))
+          return 0;
+
+        int count = 1;  // Count this branch
+
+        // Count all child branches
+        foreach (int childIndex in allBranches[branchIndex].Item3) {
+          count += CountBranchAndChildren(childIndex);
+        }
+
+        return count;
+      }
+
+      // Function to recursively mark branches for removal
+      void MarkBranchAndChildren(int branchIndex) {
+        if (branchesToRemove.Contains(branchIndex))
+          return;
+
+        branchesToRemove.Add(branchIndex);
+
+        // Recursively mark child branches
+        foreach (int childIndex in allBranches[branchIndex].Item3) {
+          MarkBranchAndChildren(childIndex);
+        }
+      }
+
+      // Prefer removing top branches first (like Tree3D prefers mNodePhase >= 7)
+      var topBranchIndices = Enumerable.Range(sideBranchCount, allBranches.Count - sideBranchCount);
+
+      // Gather branches in priority order until we reach our target
+      foreach (int i in removalPriority) {
+        // Check if we've already marked enough branches
+        if (totalBranchesToRemove >= targetRemovalCount)
+          break;
+
+        // Prioritize top branches before side branches
+        if (i < sideBranchCount && totalBranchesToRemove < targetRemovalCount * 0.5) {
+          // Only remove side branches after we've removed a certain number of top branches
+          continue;
+        }
+
+        // Skip already marked branches
+        if (branchesToRemove.Contains(i))
+          continue;
+
+        // Calculate how many branches would be removed if we mark this one
+        int branchesAffected = CountBranchAndChildren(i);
+
+        // Only add if it doesn't exceed our target by too much
+        if (totalBranchesToRemove + branchesAffected <= targetRemovalCount * 1.2) {
+          MarkBranchAndChildren(i);
+          totalBranchesToRemove += branchesAffected;
+        }
+      }
+
+      // If we still need more branches, consider remaining ones
+      if (totalBranchesToRemove < targetRemovalCount) {
+        foreach (int i in removalPriority) {
+          if (totalBranchesToRemove >= targetRemovalCount)
+            break;
+          if (branchesToRemove.Contains(i))
+            continue;
+
+          int branchesAffected = CountBranchAndChildren(i);
+          if (totalBranchesToRemove + branchesAffected <= targetRemovalCount * 1.2) {
+            MarkBranchAndChildren(i);
+            totalBranchesToRemove += branchesAffected;
+          }
+        }
+      }
+
+      // Now actually remove the branches
+      var newSideBranchL = new List<Curve>();
+      var newSideBranchR = new List<Curve>();
+      var newSubBranchL = new List<Curve>();
+      var newSubBranchR = new List<Curve>();
+
+      // Keep branches that weren't marked for removal
+      for (int i = 0; i < allBranches.Count; i++) {
+        if (branchesToRemove.Contains(i))
+          continue;
+
+        var branch = allBranches[i];
+        bool isLeft = branch.Item2;
+
+        if (i < sideBranchCount) {
+          // Side branch
+          if (isLeft) {
+            newSideBranchL.Add(branch.Item1);
+          } else {
+            newSideBranchR.Add(branch.Item1);
+          }
+        } else {
+          // Top branch
+          if (isLeft) {
+            newSubBranchL.Add(branch.Item1);
+          } else {
+            newSubBranchR.Add(branch.Item1);
+          }
+        }
+      }
+
+      // Update branch collections
+      mSideBranch_l = newSideBranchL;
+      mSideBranch_r = newSideBranchR;
+      mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
+
+      mSubBranch_l = newSubBranchL;
+      mSubBranch_r = newSubBranchR;
+      mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+    }
+
+    // Stage 4: Dying tree (phases 11+)
+    private void GrowStage4() {
+      int stage4Phase = mCurPhase - mStage3;
+      Random rnd = new Random(mCurPhase + 42);  // Different seed than Stage 3
+
+      // For dying phase, add new growth from the base (saplings)
+      if (stage4Phase == 1) {
+        // Select a few side branches to be the base for new growth
+        var selectedBranches = SelectBaseForNewGrowth();
+
+        // Create small trees at the ends of selected branches
+        foreach (var branch in selectedBranches) {
+          Plane branchPlane = mPln.Clone();
+          branchPlane.Origin = branch.PointAtEnd;
+
+          // Create a smaller tree (1/3 of original height)
+          var sapling = new Tree2D(branchPlane, mHeight / 3.0);
+          sapling.Draw(1);  // Start with phase 1
+
+          // Add the sapling's components to our newborn branch collection
+          mNewBornBranch.Add(sapling.mCurTrunk);
+          mNewBornBranch.AddRange(sapling.mSideBranch);
+          if (sapling.mCurCanopy != null) {
+            mNewBornBranch.Add(sapling.mCurCanopy);
+          }
+        }
+      } else if (stage4Phase >= 2) {
+        // For later phases, grow the saplings
+        var selectedBranches = SelectBaseForNewGrowth();
+
+        foreach (var branch in selectedBranches) {
+          Plane branchPlane = mPln.Clone();
+          branchPlane.Origin = branch.PointAtEnd;
+
+          var sapling = new Tree2D(branchPlane, mHeight / 3.0);
+          sapling.Draw(stage4Phase);  // Grow saplings according to stage4Phase
+
+          mNewBornBranch.Add(sapling.mCurTrunk);
+          mNewBornBranch.AddRange(sapling.mSideBranch);
+          mNewBornBranch.AddRange(sapling.mSubBranch);
+        }
+
+        // In the final phases, the main tree structure degrades significantly
+        if (stage4Phase >= 3) {
+          // Clear most side branches and all top branches
+          if (mSideBranch_l.Count > 2)
+            mSideBranch_l = mSideBranch_l.Take(2).ToList();
+          if (mSideBranch_r.Count > 2)
+            mSideBranch_r = mSideBranch_r.Take(2).ToList();
+          mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
+
+          // Clear all top branches
+          mSubBranch_l.Clear();
+          mSubBranch_r.Clear();
+          mSubBranch.Clear();
+
+          // Clear canopy
+          mCurCanopy = null;
+          mCurCanopy_l = null;
+          mCurCanopy_r = null;
+
+          // Split the trunk to show deterioration (like in the original Tree2D)
+          var leftTrunk = mCurTrunk.Duplicate() as Curve;
+          leftTrunk.Translate(-mPln.XAxis * mHeight / 150);
+          var rightTrunk = mCurTrunk.Duplicate() as Curve;
+          rightTrunk.Translate(mPln.XAxis * mHeight / 150);
+
+          mCurTrunk = new PolylineCurve(
+              new List<Point3d> { leftTrunk.PointAtStart, leftTrunk.PointAtEnd,
+                                  rightTrunk.PointAtEnd, rightTrunk.PointAtStart });
+        }
       }
     }
 
-    private List<Curve> CrvSelection(in List<Curve> lst, int startId, int endId, int step) {
-      List<Curve> res = new List<Curve>();
-      for (int i = startId; i < endId; i += step) {
-        res.Add(lst[i]);
-        // res[res.Count - 1].Domain = new Interval(0, 1);
+    // Generate side branches based on the current phase
+    private void GenerateSideBranches(int phase) {
+      mSideBranch_l.Clear();
+      mSideBranch_r.Clear();
+
+      // Always generate at least one branch per side, more in later phases
+      int numBranchesPerSide = Math.Max(1, phase * 2 - 1);
+      double trunkHeight = mCurTrunk.GetLength();
+
+      // Calculate branch parameters
+      double branchLengthBase = Utils.remap(phase, 1, mStage1, mMinBranchLen, mMaxBranchLen);
+      double baseAngle = mBaseAngle * (1 - 0.05 * (phase - 1));
+
+      for (int i = 0; i < numBranchesPerSide; i++) {
+        // Position along trunk (distribute evenly, avoiding very bottom)
+        double posRatio = 0.3 + 0.6 * i / Math.Max(1, numBranchesPerSide - 1);
+        Point3d branchPoint = mCurTrunk.PointAt(posRatio);
+
+        // Calculate branch length (shorter at top and bottom, longer in middle)
+        double lengthFactor = 4 * posRatio * (1 - posRatio);  // Parabolic distribution
+        double branchLength = branchLengthBase * lengthFactor;
+
+        // Calculate angle (steeper at top)
+        double angle = baseAngle * (1 - 0.3 * posRatio);
+
+        // Left branch
+        Vector3d leftDir = new Vector3d(mPln.YAxis);
+        leftDir.Rotate(Utils.ToRadian(angle), mPln.ZAxis);
+        Curve leftBranch =
+            new Line(branchPoint, branchPoint + leftDir * branchLength).ToNurbsCurve();
+        mSideBranch_l.Add(leftBranch);
+
+        // Right branch
+        Vector3d rightDir = new Vector3d(mPln.YAxis);
+        rightDir.Rotate(Utils.ToRadian(-angle), mPln.ZAxis);
+        Curve rightBranch =
+            new Line(branchPoint, branchPoint + rightDir * branchLength).ToNurbsCurve();
+        mSideBranch_r.Add(rightBranch);
       }
 
-      return res;
+      // Combine left and right branches
+      mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
     }
 
-    private Curve TrimCrv(in Curve C0, in Curve C1) {
-      var events = Intersection.CurveCurve(C0, C1, 0.01, 0.01);
-      if (events.Count != 0)
-        return C0.Trim(0.0, events[0].ParameterA);
-      else
-        return C0;
+    // Generate an outline curve to represent the tree boundary
+    private void GenerateOutlineCurve() {
+      if (mCurPhase < mStage3) {  // Only generate canopy for non-dying trees
+                                  // Create a list of all branch endpoints
+        var points = new List<Point3d>();
+
+        // Add trunk top
+        points.Add(mCurTrunk.PointAtEnd);
+
+        // Add side branch endpoints
+        foreach (var branch in mSideBranch) {
+          points.Add(branch.PointAtEnd);
+        }
+
+        // Add top branch endpoints
+        foreach (var branch in mSubBranch) {
+          points.Add(branch.PointAtEnd);
+        }
+
+        // Add trunk base
+        points.Add(mCurTrunk.PointAtStart);
+
+        if (points.Count < 3) {
+          // Not enough points for a proper canopy
+          return;
+        }
+
+        // Sort points by polar angle around trunk base
+        Point3d center = mCurTrunk.PointAtStart;
+        var sortedPoints = points
+                               .OrderBy(p => {
+                                 Vector3d v = p - center;
+                                 return Math.Atan2(v.Y, v.X);
+                               })
+                               .ToList();
+
+        // Create left and right canopy sections
+        var leftPoints = new List<Point3d>();
+        var rightPoints = new List<Point3d>();
+
+        // Find the split point (trunk top)
+        int splitIndex = sortedPoints.FindIndex(p => p.DistanceTo(mCurTrunk.PointAtEnd) < 1e-6);
+
+        if (splitIndex >= 0) {
+          // Add points to left and right sections
+          for (int i = 0; i <= splitIndex; i++) {
+            leftPoints.Add(sortedPoints[i]);
+          }
+
+          for (int i = splitIndex; i < sortedPoints.Count; i++) {
+            rightPoints.Add(sortedPoints[i]);
+          }
+
+          // Add trunk base to close the curves
+          leftPoints.Add(center);
+          rightPoints.Add(center);
+
+          // Create canopy curves
+          if (leftPoints.Count >= 3) {
+            mCurCanopy_l = new PolylineCurve(leftPoints);
+          }
+
+          if (rightPoints.Count >= 3) {
+            mCurCanopy_r = new PolylineCurve(rightPoints);
+          }
+
+          // Join left and right to form complete canopy
+          if (mCurCanopy_l != null && mCurCanopy_r != null) {
+            var joined = Curve.JoinCurves(new List<Curve> { mCurCanopy_l, mCurCanopy_r }, 0.02);
+            if (joined.Length > 0) {
+              mCurCanopy = joined[0];
+            }
+          }
+        }
+      }
     }
 
+    // Select branches to use as base for new growth in dying phase
+    private List<Curve> SelectBaseForNewGrowth() {
+      List<Curve> selectedBranches = new List<Curve>();
+      Random rnd = new Random(mCurPhase);  // Use phase as seed
+
+      // Select a few lower branches from each side
+      int branchesPerSide = 2;
+
+      // Helper function to select branches
+      List<Curve> SelectFromSide(List<Curve> side) {
+        if (side.Count == 0)
+          return new List<Curve>();
+
+        // Sort branches by height (Y coordinate)
+        var sortedBranches = side.OrderBy(b => b.PointAtStart.Y).ToList();
+
+        // Select from lower half
+        int lowerHalfCount = Math.Max(1, sortedBranches.Count / 2);
+        var lowerBranches = sortedBranches.Take(lowerHalfCount).ToList();
+
+        // Randomly select specified number
+        var selected = new List<Curve>();
+        for (int i = 0; i < branchesPerSide && lowerBranches.Count > 0; i++) {
+          int idx = rnd.Next(lowerBranches.Count);
+          selected.Add(lowerBranches[idx]);
+          lowerBranches.RemoveAt(idx);
+        }
+
+        return selected;
+      }
+
+      // Select branches from both sides
+      selectedBranches.AddRange(SelectFromSide(mSideBranch_l));
+      selectedBranches.AddRange(SelectFromSide(mSideBranch_r));
+
+      // Trim selected branches to make them shorter
+      for (int i = 0; i < selectedBranches.Count; i++) {
+        var branch = selectedBranches[i];
+        branch.Domain = new Interval(0.0, 1.0);
+        selectedBranches[i] = branch.Trim(0.0, 0.3);  // Use only 30% of the branch
+      }
+
+      return selectedBranches;
+    }
+
+    // Recursive bifurcation for top branches
     private List<Tuple<Curve, string>> BiBranching(in Plane pln, int step) {
-      // use a string "i-j-l/r" to record the position of the branch -- end pt represent the branch
+      // Starting point
       var subPt = new List<Tuple<Point3d, string>> { Tuple.Create(pln.Origin, "n") };
+
+      // Starting branch (vertical trunk extension)
       var subLn = new List<Tuple<Curve, string>> { Tuple.Create(
           new Line(pln.Origin, pln.Origin + pln.YAxis).ToNurbsCurve() as Curve, "") };
+
       var resCol = new List<Tuple<Curve, string>>();
+
+      // Branch scaling factor for each generation
+      double scaleFactor = 0.85;
 
       for (int i = 0; i < step; i++) {
         var ptCol = new List<Tuple<Point3d, string>>();
         var lnCol = new List<Tuple<Curve, string>>();
 
-        var scalingParam = Math.Pow(0.85, (mMatureIdx - mMatureIdx + 1));
-        var vecLen = mCurTrunk.GetLength() * 0.1 * scalingParam;
-        var angleX = (mOpenAngle - (mMatureIdx + step) * mAngleStep * 3) * scalingParam;
+        // Calculate branch parameters for this generation
+        double scalingParam = Math.Pow(scaleFactor, i);
+        double vecLen = mHeight * 0.1 * scalingParam;
+        double branchAngle = mTopBranchAngle * scalingParam;
 
-        // for each phase, do bi-branching: 1 node -> 2 branches
+        // For each endpoint from previous generation, create two new branches
         foreach (var (pt, j) in subPt.Select((pt, j) => (pt, j))) {
+          // Get direction of parent branch
           var curVec = new Vector3d(subLn[j].Item1.PointAtEnd - subLn[j].Item1.PointAtStart);
           curVec.Unitize();
 
+          // Create two branch directions by rotating parent direction
           var vecA = new Vector3d(curVec);
           var vecB = new Vector3d(curVec);
-          vecA.Rotate(Utils.ToRadian(angleX), mPln.ZAxis);
-          vecB.Rotate(-Utils.ToRadian(angleX), mPln.ZAxis);
+          vecA.Rotate(Utils.ToRadian(branchAngle), mPln.ZAxis);
+          vecB.Rotate(-Utils.ToRadian(branchAngle), mPln.ZAxis);
 
+          // Calculate endpoints
           var endA = subPt[j].Item1 + vecA * vecLen;
           var endB = subPt[j].Item1 + vecB * vecLen;
 
-          // trace string: trace of the trace_prevPt + trace_curPt
+          // Add points with path strings
           ptCol.Add(Tuple.Create(endA, subPt[j].Item2 + "l"));
           ptCol.Add(Tuple.Create(endB, subPt[j].Item2 + "r"));
 
+          // Add branches with path strings
           lnCol.Add(Tuple.Create(new Line(pt.Item1, endA).ToNurbsCurve() as Curve, pt.Item2 + "l"));
           lnCol.Add(Tuple.Create(new Line(pt.Item1, endB).ToNurbsCurve() as Curve, pt.Item2 + "r"));
         }
 
+        // Update for next iteration
         subPt = ptCol;
         subLn = lnCol;
 
+        // Add current generation branches to result
         resCol.AddRange(subLn);
       }
 
       return resCol;
     }
 
-    // tree core param
+    // Clear all tree data structures
+    private void ClearTreeData() {
+      mCurTrunk = null;
+      mCurCanopy = null;
+      mCurCanopy_l = null;
+      mCurCanopy_r = null;
+      mCircCol.Clear();
+      mSideBranch_l.Clear();
+      mSideBranch_r.Clear();
+      mSideBranch.Clear();
+      mSubBranch_l.Clear();
+      mSubBranch_r.Clear();
+      mSubBranch.Clear();
+      mNewBornBranch.Clear();
+      mDebug.Clear();
+    }
+
+    // Tree core parameters
     public Plane mPln;
     public double mHeight;
-    // placeholder, not used for 2D cases
     public double mRadius = 1;
     public int mCurPhase;
     bool mUnitary = false;
 
-    double mAngleStep = 1.2;
-    readonly int numLayer = 18;
-    readonly double mOpenAngle = 57;
+    // Growth parameters
+    private readonly int mStage1 = 4;   // Young tree phase
+    private readonly int mStage2 = 8;   // Mature tree phase
+    private readonly int mStage3 = 10;  // Aging phase
+    private readonly int mStage4 = 13;  // Dying phase
 
-    // mature and dying range idx
-    readonly int mMatureIdx = 6;
-    readonly int mDyingIdx = 10;
+    private double mTrunkSegLen;                   // Length of trunk segment per phase
+    private double mMaxBranchLen;                  // Maximum branch length
+    private double mMinBranchLen;                  // Minimum branch length
+    private readonly double mBaseAngle = 60;       // Base angle for side branches
+    private readonly double mTopBranchAngle = 35;  // Angle for top branches
 
-    // other parameter
-    double treeSepParam = 0.2;
-    readonly double maxStdR, minStdR, stepR;
-
-    // curve collection
+    // Curve collections
     public Curve mCurCanopy_l;
     public Curve mCurCanopy_r;
     public Curve mCurCanopy;
-
     public Curve mCurTrunk;
-
-    public List<Curve> mCircCol_l = new List<Curve>();
-    public List<Curve> mCircCol_r = new List<Curve>();
     public List<Curve> mCircCol = new List<Curve>();
-
     public List<Curve> mSideBranch_l = new List<Curve>();
     public List<Curve> mSideBranch_r = new List<Curve>();
     public List<Curve> mSideBranch = new List<Curve>();
-
     public List<Curve> mSubBranch_l = new List<Curve>();
     public List<Curve> mSubBranch_r = new List<Curve>();
     public List<Curve> mSubBranch = new List<Curve>();
-
     public List<Curve> mNewBornBranch = new List<Curve>();
-
     public List<Curve> mDebug = new List<Curve>();
   }
 
@@ -1210,5 +1910,4 @@ namespace BeingAliveLanguage {
     public List<Line> mTrunkSegments { get; private set; } = new List<Line>();
     public List<string> mMmsg { get; set; } = new List<string>();
   }
-
 }
