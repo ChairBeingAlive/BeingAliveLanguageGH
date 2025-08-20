@@ -455,15 +455,14 @@ namespace BeingAliveLanguage {
             (int)(targetRemovalCount * ((double)sideBranches.Count / totalAvailableForRemoval));
         int topBranchesToRemove = targetRemovalCount - sideBranchesToRemove;
 
-        // Remove SIDE branches (simple, no children)
-        var shuffledSideBranches = sideBranches
-                                       .OrderBy(
-                                           _ => rnd.NextDouble())
-                                       .ToList();
-        foreach (var branch in shuffledSideBranches.Take(sideBranchesToRemove)) {
+        // Remove SIDE branches (every other one)
+        int removedCount = 0;
+        for (int i = 0; i < sideBranches.Count && removedCount < sideBranchesToRemove; i += 4) {
+          var branch = sideBranches[i];
           string branchId = getBranchId(branch.Item1);
           branchesToRemove.Add(branchId);
           BranchRemovalTracker.RecordRemovedBranch(mTreeId, branchId);
+          removedCount++;
         }
 
         // Remove TOP branches (with recursive children removal)
@@ -523,15 +522,13 @@ namespace BeingAliveLanguage {
           }
 
           // Randomly select additional branches to remove
-          var allAvailableForRemoval =
-              availableSideBranches.Concat(availableTopForRemoval).ToList();
-          var shuffledAvailable = allAvailableForRemoval
-                                      .OrderBy(
-                                          _ => rnd.NextDouble())
-                                      .ToList();
+          var shuffledTopAvailable = availableTopForRemoval
+                                         .OrderBy(
+                                             _ => rnd.NextDouble())
+                                         .ToList();
 
           int additionalMarked = 0;
-          foreach (var branch in shuffledAvailable) {
+          foreach (var branch in shuffledTopAvailable) {
             if (additionalMarked >= additionalNeeded)
               break;
 
@@ -552,6 +549,16 @@ namespace BeingAliveLanguage {
                   }
                 }
               }
+            }
+          }
+
+          // Side branch additional removal, remove every other ones from the available
+          for (int i = 0; i < availableSideBranches.Count; i += 2) {
+            var branch = availableSideBranches[i];
+            string branchId = getBranchId(branch.Item1);
+            if (!branchesToRemove.Contains(branchId)) {
+              branchesToRemove.Add(branchId);
+              BranchRemovalTracker.RecordRemovedBranch(mTreeId, branchId);
             }
           }
         }
