@@ -616,13 +616,8 @@ namespace BeingAliveLanguage {
 
     // Stage 2: Mature tree growth (phases 5-8)
     private void GrowStage2() {
-      // If a phase override is provided, use it instead of calculating from current phase
-      int stage2Phase = mCurPhase - mStage1 + 1;
-
-      // Don't add more branches after stage 2 is complete
-      if (mCurPhase > mStage2) {
-        stage2Phase = mStage2 - mStage1;
-      }
+      // Calculate how far into stage 2 we are, capped at the maximum stage 2 length
+      int stage2Phase = Math.Min(mCurPhase - mStage1 + 1, mStage2 - mStage1 + 1);
 
       // Create top branches using bi-branching
       Point3d topPoint = mCurTrunk.PointAtEnd;
@@ -692,10 +687,6 @@ namespace BeingAliveLanguage {
         }
       }
 
-      // Use a fixed seed to ensure consistency across phases
-      // Random rnd = new Random(1234);
-      var rnd = Utils.balRnd.Next();
-
       // Generate a priority list for removal - this is deterministic and stable across phases
       var removalPriority =
           Enumerable.Range(0, allBranches.Count)
@@ -707,7 +698,7 @@ namespace BeingAliveLanguage {
               .ToList();
 
       // Calculate target percentage for current phase (10% per phase)
-      double removalPercentage = 0.3 * stage3Phase;
+      double removalPercentage = 0.1 * stage3Phase;
       int targetRemovalCount = (int)(allBranches.Count * removalPercentage);
 
       // Create a record of which branches to remove
@@ -833,7 +824,6 @@ namespace BeingAliveLanguage {
     // Stage 4: Dying tree (phases 11+)
     private void GrowStage4() {
       int stage4Phase = mCurPhase - mStage3;
-      Random rnd = new Random(mCurPhase + 42);  // Different seed than Stage 3
 
       // For dying phase, add new growth from the base (saplings)
       if (stage4Phase == 1) {
@@ -1028,7 +1018,6 @@ namespace BeingAliveLanguage {
     // Select branches to use as base for new growth in dying phase
     private List<Curve> SelectBaseForNewGrowth() {
       List<Curve> selectedBranches = new List<Curve>();
-      Random rnd = new Random(mCurPhase);  // Use phase as seed
 
       // Select a few lower branches from each side
       int branchesPerSide = 2;
@@ -1048,7 +1037,7 @@ namespace BeingAliveLanguage {
         // Randomly select specified number
         var selected = new List<Curve>();
         for (int i = 0; i < branchesPerSide && lowerBranches.Count > 0; i++) {
-          int idx = rnd.Next(lowerBranches.Count);
+          int idx = Utils.balRnd.Next(lowerBranches.Count);
           selected.Add(lowerBranches[idx]);
           lowerBranches.RemoveAt(idx);
         }
