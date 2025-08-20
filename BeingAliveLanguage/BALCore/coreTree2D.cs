@@ -176,7 +176,7 @@ namespace BeingAliveLanguage {
       GenerateSideBranches(growthPhase);
     }
 
-    // Stage 2: Mature tree growth (phases 5-8) - ENHANCED with progressive side branch growth
+    // Stage 2: Mature tree growth - WITH GEOMETRIC BRANCH ASSIGNMENT
     private void GrowStage2() {
       // Calculate how far into stage 2 we are
       int stage2Phase = Math.Min(mCurPhase - mStage1, mStage2 - mStage1);
@@ -184,8 +184,6 @@ namespace BeingAliveLanguage {
       // PROGRESSIVE GROWTH: Grow side branches from 60% to 100% of their max length during Stage 2
       if (mCurPhase > mStage1) {  // Starting from phase 5
         // Calculate target progression factor for current phase
-        // At phase 5 (start of stage 2): 60%
-        // At phase 8 (end of stage 2): 100%
         double targetProgressionFactor = Utils.remap(mCurPhase, mStage1 + 1, mStage2, 0.6, 1.0);
 
         // Extend existing side branches to reach their target length
@@ -197,7 +195,7 @@ namespace BeingAliveLanguage {
           // Calculate this branch's height-based maximum length
           double branchHeight = branch.PointAtStart.Y;
           double normalizedHeight = branchHeight / mHeight;
-          double heightFactor = 1.0 - normalizedHeight;  // 1.0 at bottom, 0.0 at top
+          double heightFactor = 1.0 - normalizedHeight;
           double maxLengthForThisHeight =
               mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
 
@@ -231,18 +229,18 @@ namespace BeingAliveLanguage {
         mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
       }
 
-      // Create top branches using bi-branching (UNCHANGED)
+      // Create top branches using bi-branching
       Point3d topPoint = mCurTrunk.PointAtEnd;
       Plane topPlane = mPln.Clone();
       topPlane.Origin = topPoint;
 
       var topBranches = BiBranching(topPlane, stage2Phase);
 
-      // Separate left and right branches
+      // FIXED: Separate left and right branches based on GEOMETRY, not strings
       foreach (var branch in topBranches) {
-        if (branch.Item2 != null && branch.Item2.EndsWith("l")) {
+        if (IsBranchOnLeftSide(branch.Item1)) {
           mSubBranch_l.Add(branch.Item1);
-        } else if (branch.Item2 != null && branch.Item2.EndsWith("r")) {
+        } else {
           mSubBranch_r.Add(branch.Item1);
         }
       }
@@ -250,21 +248,20 @@ namespace BeingAliveLanguage {
       mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
     }
 
-    // NEW Stage 3: Additional top-only bi-branching (phases 9-10)
+    // Stage 3: Additional top-only bi-branching - WITH GEOMETRIC BRANCH ASSIGNMENT
     private void GrowStage3() {
       int stage3Phase = Math.Min(mCurPhase - mStage2, mStage3 - mStage2);
 
       // Find all the tip branches from Stage 2 (branches that don't have children)
-      var tipBranches = new List<Tuple<Curve, string>>();
+      var tipBranches = new List<Curve>();
 
-      // Get all existing top branches with their identifiers
-      for (int i = 0; i < mSubBranch_l.Count; i++) {
+      // Get all existing top branches
+      var allTopBranches = mSubBranch_l.Concat(mSubBranch_r).ToList();
+
+      foreach (var branch in allTopBranches) {
         // Check if this branch is a tip (no other branch starts from its end)
-        var branch = mSubBranch_l[i];
         bool isTip = true;
-
-        // Check against all other branches to see if any start from this branch's end
-        foreach (var otherBranch in mSubBranch) {
+        foreach (var otherBranch in allTopBranches) {
           if (branch != otherBranch &&
               otherBranch.PointAtStart.DistanceTo(branch.PointAtEnd) < 0.1) {
             isTip = false;
@@ -273,46 +270,24 @@ namespace BeingAliveLanguage {
         }
 
         if (isTip) {
-          tipBranches.Add(Tuple.Create(branch, "l"));  // Mark as left branch
-        }
-      }
-
-      for (int i = 0; i < mSubBranch_r.Count; i++) {
-        // Check if this branch is a tip (no other branch starts from its end)
-        var branch = mSubBranch_r[i];
-        bool isTip = true;
-
-        // Check against all other branches to see if any start from this branch's end
-        foreach (var otherBranch in mSubBranch) {
-          if (branch != otherBranch &&
-              otherBranch.PointAtStart.DistanceTo(branch.PointAtEnd) < 0.1) {
-            isTip = false;
-            break;
-          }
-        }
-
-        if (isTip) {
-          tipBranches.Add(Tuple.Create(branch, "r"));  // Mark as right branch
+          tipBranches.Add(branch);
         }
       }
 
       // Continue branching from each tip branch
       for (int phaseStep = 1; phaseStep <= stage3Phase; phaseStep++) {
-        var newBranches = new List<Tuple<Curve, string>>();
+        var newBranches = new List<Curve>();
 
-        foreach (var tipBranch in tipBranches) {
-          var branch = tipBranch.Item1;
-          var sideMarker = tipBranch.Item2;
-
+        foreach (var branch in tipBranches) {
           // Create a plane at the tip of this branch
           Point3d branchEnd = branch.PointAtEnd;
           Vector3d branchDirection = branch.PointAtEnd - branch.PointAtStart;
           branchDirection.Unitize();
 
           // Calculate branch parameters for Stage 3 (smaller than Stage 2)
-          double scalingParam = Math.Pow(0.7, phaseStep - 1);         // Smaller scaling factor
-          double vecLen = mHeight * 0.06 * scalingParam;              // Smaller than Stage 2 (0.1)
-          double branchAngle = mTopBranchAngle * 0.7 * scalingParam;  // Smaller angle
+          double scalingParam = Math.Pow(0.7, phaseStep - 1);
+          double vecLen = mHeight * 0.06 * scalingParam;
+          double branchAngle = mTopBranchAngle * 0.7 * scalingParam;
 
           // Create two new branches from this tip
           Vector3d vecA = new Vector3d(branchDirection);
@@ -330,18 +305,22 @@ namespace BeingAliveLanguage {
           Curve newBranchA = new Line(branchEnd, endA).ToNurbsCurve();
           Curve newBranchB = new Line(branchEnd, endB).ToNurbsCurve();
 
-          // Add to appropriate collections and track as new tips
-          if (sideMarker == "l") {
+          // FIXED: Add to appropriate collections based on GEOMETRY, not strings
+          if (IsBranchOnLeftSide(newBranchA)) {
             mSubBranch_l.Add(newBranchA);
-            mSubBranch_l.Add(newBranchB);
-            newBranches.Add(Tuple.Create(newBranchA, "l"));
-            newBranches.Add(Tuple.Create(newBranchB, "l"));
           } else {
             mSubBranch_r.Add(newBranchA);
-            mSubBranch_r.Add(newBranchB);
-            newBranches.Add(Tuple.Create(newBranchA, "r"));
-            newBranches.Add(Tuple.Create(newBranchB, "r"));
           }
+
+          if (IsBranchOnLeftSide(newBranchB)) {
+            mSubBranch_l.Add(newBranchB);
+          } else {
+            mSubBranch_r.Add(newBranchB);
+          }
+
+          // Track as new tips for next iteration
+          newBranches.Add(newBranchA);
+          newBranches.Add(newBranchB);
         }
 
         // Update tip branches for next iteration
@@ -352,38 +331,40 @@ namespace BeingAliveLanguage {
       mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
     }
 
-    // NEW Stage 4: Branch removal (phases 11-12) - FINAL CORRECTED VERSION
+    // Stage 4: Branch removal - WITH GEOMETRIC BRANCH ASSIGNMENT
     private void GrowStage4() {
       int stage4Phase = Math.Min(mCurPhase - mStage3, mStage4 - mStage3);
 
       // Create a collection of all branches with hierarchy information
-      var allBranches =
-          new List<Tuple<Curve, bool, bool, int>>();  // Curve, isLeft, isTopBranch, level
+      var allBranches = new List<Tuple<Curve, bool, bool, int>>();
 
-      // Add side branches with metadata (all side branches are level 1)
+      // Add side branches with metadata - FIXED: Use geometric position check
       for (int i = 0; i < mSideBranch_l.Count; i++) {
         var curve = mSideBranch_l[i];
-        allBranches.Add(Tuple.Create(curve, true, false, 1));  // Side branches are always level 1
+        bool geometricLeft = IsBranchOnLeftSide(curve);
+        allBranches.Add(Tuple.Create(curve, geometricLeft, false, 1));
       }
 
       for (int i = 0; i < mSideBranch_r.Count; i++) {
         var curve = mSideBranch_r[i];
-        allBranches.Add(Tuple.Create(curve, false, false, 1));  // Side branches are always level 1
+        bool geometricLeft = IsBranchOnLeftSide(curve);
+        allBranches.Add(Tuple.Create(curve, geometricLeft, false, 1));
       }
 
-      // Add top branches with calculated levels
+      // Add top branches with metadata - FIXED: Use geometric position check
       for (int i = 0; i < mSubBranch_l.Count; i++) {
         var curve = mSubBranch_l[i];
+        bool geometricLeft = IsBranchOnLeftSide(curve);
         int level = CalculateBranchLevel(curve);
-        allBranches.Add(Tuple.Create(curve, true, true, level));
+        allBranches.Add(Tuple.Create(curve, geometricLeft, true, level));
       }
 
       for (int i = 0; i < mSubBranch_r.Count; i++) {
         var curve = mSubBranch_r[i];
+        bool geometricLeft = IsBranchOnLeftSide(curve);
         int level = CalculateBranchLevel(curve);
-        allBranches.Add(Tuple.Create(curve, false, true, level));
+        allBranches.Add(Tuple.Create(curve, geometricLeft, true, level));
       }
-
       // Function to generate a unique ID for a branch based on its geometry
       Func<Curve, string> getBranchId = (curve) => {
         var start = curve.PointAtStart;
@@ -564,30 +545,31 @@ namespace BeingAliveLanguage {
         }
       }
 
-      // Now actually remove the branches
+      // At the end, when reconstructing the collections:
       var newSideBranchL = new List<Curve>();
       var newSideBranchR = new List<Curve>();
       var newSubBranchL = new List<Curve>();
       var newSubBranchR = new List<Curve>();
 
-      // Keep branches that weren't marked for removal
+      // Keep branches that weren't marked for removal - FIXED: Use geometric position
       foreach (var branch in allBranches) {
         string branchId = getBranchId(branch.Item1);
         if (branchesToRemove.Contains(branchId))
           continue;
 
-        bool isLeft = branch.Item2;
+        // Use the geometric position check instead of the potentially wrong flag
+        bool isGeometricallyLeft = IsBranchOnLeftSide(branch.Item1);
         bool isTopBranch = branch.Item3;
 
         if (!isTopBranch) {
           // Side branch
-          if (isLeft)
+          if (isGeometricallyLeft)
             newSideBranchL.Add(branch.Item1);
           else
             newSideBranchR.Add(branch.Item1);
         } else {
           // Top branch
-          if (isLeft)
+          if (isGeometricallyLeft)
             newSubBranchL.Add(branch.Item1);
           else
             newSubBranchR.Add(branch.Item1);
@@ -602,6 +584,24 @@ namespace BeingAliveLanguage {
       mSubBranch_l = newSubBranchL;
       mSubBranch_r = newSubBranchR;
       mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+    }
+
+    // Helper method to determine if a branch is on the left side of the plane
+    private bool IsBranchOnLeftSide(Curve branch) {
+      // Get the branch's endpoint (or midpoint for better accuracy)
+      Point3d branchEnd = branch.PointAtEnd;
+
+      // Project the branch endpoint onto the plane
+      Point3d projectedPoint = mPln.ClosestPoint(branchEnd);
+
+      // Calculate the vector from plane origin to projected point
+      Vector3d vectorFromOrigin = projectedPoint - mPln.Origin;
+
+      // Check the dot product with the plane's X-axis
+      // Negative dot product = left side (-X), Positive = right side (+X)
+      double dotProduct = Vector3d.Multiply(vectorFromOrigin, mPln.XAxis);
+
+      return dotProduct < 0;  // Left side if negative
     }
 
     // Helper method to calculate branch level based on hierarchy
