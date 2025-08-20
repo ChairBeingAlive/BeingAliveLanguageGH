@@ -157,7 +157,7 @@ namespace BeingAliveLanguage {
       }
 
       // Generate an outline curve that represents the tree boundary
-      // GenerateOutlineCurve();
+      GenerateOutlineCurve();
     }
 
     // Stage 1: Young tree growth (phases 1-4)

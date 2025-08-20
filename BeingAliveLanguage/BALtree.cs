@@ -171,7 +171,7 @@ namespace BeingAliveLanguage {
 
       //! 5. scale each tree and output
       foreach (var (t, i) in treeCol.Select((t, i) => (t, i))) {
-        // t.Scale(tscal[i]);
+        t.Scale(tscal[i]);
 
         // output the curves
         trunk.Add(t.mCurTrunk);
