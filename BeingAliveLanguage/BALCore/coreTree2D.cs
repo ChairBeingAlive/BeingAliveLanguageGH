@@ -53,8 +53,8 @@ namespace BeingAliveLanguage {
 
       // Configure growth parameters
       mTrunkSegLen = height / mStage1;
-      mMaxBranchLen = height * 0.4;
-      mMinBranchLen = height * 0.25;
+      mMaxBranchLen = height * 0.5;
+      mMinBranchLen = height * 0.35;
 
       // Generate a unique identifier for this tree instance based on position and properties
       mTreeId = GenerateTreeId();
@@ -706,8 +706,8 @@ namespace BeingAliveLanguage {
       // Always generate at least one branch per side, more in later phases
       int numBranchesPerSide = Math.Max(1, phase * 2 - 1);
 
-      // WIDER ANGLES: Increase base angle from 60 to 75 degrees for more open appearance
-      double baseAngle = 75 * (1 - 0.03 * (phase - 1));  // Reduced angle decrease per phase
+      // WIDER ANGLES: Increase base angle from 60 to 85 degrees for more open appearance
+      double baseAngle = mBaseAngle * (1 - 0.02 * (phase - 1));  // Reduced angle decrease per phase
 
       for (int i = 0; i < numBranchesPerSide; i++) {
         // Position along trunk (distribute evenly, avoiding very bottom)
@@ -731,8 +731,18 @@ namespace BeingAliveLanguage {
 
         double branchLength = maxLengthForThisHeight * progressionFactor;
 
-        // Calculate angle (steeper at top for natural tree shape)
-        double angle = baseAngle * (1 - 0.2 * posRatio);
+        // IMPROVED ANGLE CALCULATION: Much more variation based on height
+        // Lower branches: more horizontal (closer to 90°)
+        // Upper branches: more vertical (closer to 45°)
+        double heightBasedAngleFactor = 0.5 + 0.5 * heightFactor;  // 0.5 at top, 1.0 at bottom
+        double angle = baseAngle * heightBasedAngleFactor;
+
+        // Add some random variation for more natural look (±5°)
+        double randomVariation = (Utils.balRnd.NextDouble() - 0.5) * 10.0;  // -5° to +5°
+        angle += randomVariation;
+
+        // Clamp angle to reasonable bounds
+        angle = Math.Max(30, Math.Min(90, angle));
 
         // Left branch
         Vector3d leftDir = new Vector3d(mPln.YAxis);
@@ -741,7 +751,7 @@ namespace BeingAliveLanguage {
             new Line(branchPoint, branchPoint + leftDir * branchLength).ToNurbsCurve();
         mSideBranch_l.Add(leftBranch);
 
-        // Right branch
+        // Right branch (use same angle for symmetry)
         Vector3d rightDir = new Vector3d(mPln.YAxis);
         rightDir.Rotate(Utils.ToRadian(-angle), mPln.ZAxis);
         Curve rightBranch =
@@ -752,8 +762,8 @@ namespace BeingAliveLanguage {
       // Combine left and right branches
       mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
     }
-    // Generate an improved outline curve for smoother canopy
 
+    // Generate an improved outline curve for smoother canopy
     private void GenerateOutlineCurve() {
       if (mCurPhase < mStage3) {  // Only generate canopy for non-dying trees
         // Create a list of all branch endpoints with additional smoothing points
@@ -982,7 +992,7 @@ namespace BeingAliveLanguage {
     private double mTrunkSegLen;                   // Length of trunk segment per phase
     private double mMaxBranchLen;                  // Maximum branch length
     private double mMinBranchLen;                  // Minimum branch length
-    private readonly double mBaseAngle = 75;       // Base angle for side branches
+    private readonly double mBaseAngle = 95;       // Base angle for side branches
     private readonly double mTopBranchAngle = 35;  // Angle for top branches
 
     // curve collection
