@@ -79,25 +79,18 @@ namespace BeingAliveLanguage {
       // clear previous data
       ClearTreeData();
 
+      // Phases 1-4: Just young tree
+      GrowStage1();
       // generate tree components according to its growth stage
-      if (phase < mStage1) {
-        // Phases 1-3: Just young tree,
-        GrowStage1();
-      } else if (phase <= mStage2) {
-        // Phase 4: with a bit of special treatment
-        // Phases 5-8: Mature tree with continued branching
-        GrowStage1();
+      if (phase >= mStage1) {
         GrowStage2();
-      } else if (phase <= mStage3) {
-        // Phases 9-10: Aging tree, no new branches
-        GrowStage1();
-        GrowStage2();
+      }
+      if (phase >= mStage2) {
+        // Phases 5-8: Mature tree with enhanced side branch growth + top branching
         GrowStage3();
-      } else {
-        // Phases 11+: Dying tree
-        GrowStage1();
-        GrowStage2();
-        GrowStage3();
+      }
+      if (phase >= mStage3) {
+        // Phases 9-10: Additional top-only bi-branching
         GrowStage4();
       }
 
@@ -183,12 +176,43 @@ namespace BeingAliveLanguage {
       GenerateSideBranches(growthPhase);
     }
 
-    // Stage 2: Mature tree growth (phases 5-8)
+    // Stage 2: Mature tree growth (phases 5-8) - ENHANCED with side branch growth
     private void GrowStage2() {
-      // Calculate how far into stage 2 we are, capped at the maximum stage 2 length
-      int stage2Phase = Math.Min(mCurPhase - mStage1 + 1, mStage2 - mStage1 + 1);
+      // Calculate how far into stage 2 we are
+      int stage2Phase = Math.Min(mCurPhase - mStage1, mStage2 - mStage1);
 
-      // Create top branches using bi-branching
+      // ENHANCED: Allow side branches to grow longer in later phases of stage 2
+      if (mCurPhase > mStage1 + 1) {                         // Starting from phase 6
+        double growthFactor = (mCurPhase - mStage1) * 0.15;  // 15% growth per phase
+
+        // Extend existing side branches
+        for (int i = 0; i < mSideBranch_l.Count; i++) {
+          var branch = mSideBranch_l[i];
+          var dir = branch.PointAtEnd - branch.PointAtStart;
+          dir.Unitize();
+          var newLength = branch.GetLength() * (1 + growthFactor);
+          newLength = Math.Min(newLength, mMaxBranchLen);  // Cap at max length
+
+          mSideBranch_l[i] =
+              new Line(branch.PointAtStart, branch.PointAtStart + dir * newLength).ToNurbsCurve();
+        }
+
+        for (int i = 0; i < mSideBranch_r.Count; i++) {
+          var branch = mSideBranch_r[i];
+          var dir = branch.PointAtEnd - branch.PointAtStart;
+          dir.Unitize();
+          var newLength = branch.GetLength() * (1 + growthFactor);
+          newLength = Math.Min(newLength, mMaxBranchLen);  // Cap at max length
+
+          mSideBranch_r[i] =
+              new Line(branch.PointAtStart, branch.PointAtStart + dir * newLength).ToNurbsCurve();
+        }
+
+        // Update combined list
+        mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
+      }
+
+      // Create top branches using bi-branching (UNCHANGED)
       Point3d topPoint = mCurTrunk.PointAtEnd;
       Plane topPlane = mPln.Clone();
       topPlane.Origin = topPoint;
@@ -207,48 +231,139 @@ namespace BeingAliveLanguage {
       mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
     }
 
-    // Stage 3: Aging tree (phases 9-10)
+    // NEW Stage 3: Additional top-only bi-branching (phases 9-10)
+    // This continues bi-branching from existing tip branches created in Stage 2
     private void GrowStage3() {
-      int stage3Phase = mCurPhase - mStage2;
+      int stage3Phase = Math.Min(mCurPhase - mStage2, mStage3 - mStage2);
 
-      // Create a collection of all branches (both side and top)
+      // Find all the tip branches from Stage 2 (branches that don't have children)
+      var tipBranches = new List<Tuple<Curve, string>>();
+
+      // Get all existing top branches with their identifiers
+      for (int i = 0; i < mSubBranch_l.Count; i++) {
+        // Check if this branch is a tip (no other branch starts from its end)
+        var branch = mSubBranch_l[i];
+        bool isTip = true;
+
+        // Check against all other branches to see if any start from this branch's end
+        foreach (var otherBranch in mSubBranch) {
+          if (branch != otherBranch &&
+              otherBranch.PointAtStart.DistanceTo(branch.PointAtEnd) < 0.1) {
+            isTip = false;
+            break;
+          }
+        }
+
+        if (isTip) {
+          tipBranches.Add(Tuple.Create(branch, "l"));  // Mark as left branch
+        }
+      }
+
+      for (int i = 0; i < mSubBranch_r.Count; i++) {
+        // Check if this branch is a tip (no other branch starts from its end)
+        var branch = mSubBranch_r[i];
+        bool isTip = true;
+
+        // Check against all other branches to see if any start from this branch's end
+        foreach (var otherBranch in mSubBranch) {
+          if (branch != otherBranch &&
+              otherBranch.PointAtStart.DistanceTo(branch.PointAtEnd) < 0.1) {
+            isTip = false;
+            break;
+          }
+        }
+
+        if (isTip) {
+          tipBranches.Add(Tuple.Create(branch, "r"));  // Mark as right branch
+        }
+      }
+
+      // Continue branching from each tip branch
+      for (int phaseStep = 1; phaseStep <= stage3Phase; phaseStep++) {
+        var newBranches = new List<Tuple<Curve, string>>();
+
+        foreach (var tipBranch in tipBranches) {
+          var branch = tipBranch.Item1;
+          var sideMarker = tipBranch.Item2;
+
+          // Create a plane at the tip of this branch
+          Point3d branchEnd = branch.PointAtEnd;
+          Vector3d branchDirection = branch.PointAtEnd - branch.PointAtStart;
+          branchDirection.Unitize();
+
+          // Calculate branch parameters for Stage 3 (smaller than Stage 2)
+          double scalingParam = Math.Pow(0.7, phaseStep - 1);         // Smaller scaling factor
+          double vecLen = mHeight * 0.06 * scalingParam;              // Smaller than Stage 2 (0.1)
+          double branchAngle = mTopBranchAngle * 0.7 * scalingParam;  // Smaller angle
+
+          // Create two new branches from this tip
+          Vector3d vecA = new Vector3d(branchDirection);
+          Vector3d vecB = new Vector3d(branchDirection);
+
+          // Rotate the branches
+          vecA.Rotate(Utils.ToRadian(branchAngle), mPln.ZAxis);
+          vecB.Rotate(-Utils.ToRadian(branchAngle), mPln.ZAxis);
+
+          // Calculate endpoints
+          Point3d endA = branchEnd + vecA * vecLen;
+          Point3d endB = branchEnd + vecB * vecLen;
+
+          // Create the new branch curves
+          Curve newBranchA = new Line(branchEnd, endA).ToNurbsCurve();
+          Curve newBranchB = new Line(branchEnd, endB).ToNurbsCurve();
+
+          // Add to appropriate collections and track as new tips
+          if (sideMarker == "l") {
+            mSubBranch_l.Add(newBranchA);
+            mSubBranch_l.Add(newBranchB);
+            newBranches.Add(Tuple.Create(newBranchA, "l"));
+            newBranches.Add(Tuple.Create(newBranchB, "l"));
+          } else {
+            mSubBranch_r.Add(newBranchA);
+            mSubBranch_r.Add(newBranchB);
+            newBranches.Add(Tuple.Create(newBranchA, "r"));
+            newBranches.Add(Tuple.Create(newBranchB, "r"));
+          }
+        }
+
+        // Update tip branches for next iteration
+        tipBranches = newBranches;
+      }
+
+      // Update the combined collection
+      mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
+    }
+
+    // NEW Stage 4: Branch removal (phases 11-12) - FINAL CORRECTED VERSION
+    private void GrowStage4() {
+      int stage4Phase = Math.Min(mCurPhase - mStage3, mStage4 - mStage3);
+
+      // Create a collection of all branches with hierarchy information
       var allBranches =
-          new List<Tuple<Curve, bool, List<int>, bool>>();  // Curve, isLeft, childIndices,
-                                                            // isTopBranch
+          new List<Tuple<Curve, bool, bool, int>>();  // Curve, isLeft, isTopBranch, level
 
-      // Add side branches with metadata
+      // Add side branches with metadata (all side branches are level 1)
       for (int i = 0; i < mSideBranch_l.Count; i++) {
         var curve = mSideBranch_l[i];
-        allBranches.Add(Tuple.Create(curve, true, new List<int>(), false));
+        allBranches.Add(Tuple.Create(curve, true, false, 1));  // Side branches are always level 1
       }
 
       for (int i = 0; i < mSideBranch_r.Count; i++) {
         var curve = mSideBranch_r[i];
-        allBranches.Add(Tuple.Create(curve, false, new List<int>(), false));
+        allBranches.Add(Tuple.Create(curve, false, false, 1));  // Side branches are always level 1
       }
 
-      // Add top branches with metadata
-      int sideBranchCount = allBranches.Count;
+      // Add top branches with calculated levels
       for (int i = 0; i < mSubBranch_l.Count; i++) {
         var curve = mSubBranch_l[i];
-        allBranches.Add(Tuple.Create(curve, true, new List<int>(), true));
+        int level = CalculateBranchLevel(curve);
+        allBranches.Add(Tuple.Create(curve, true, true, level));
       }
 
       for (int i = 0; i < mSubBranch_r.Count; i++) {
         var curve = mSubBranch_r[i];
-        allBranches.Add(Tuple.Create(curve, false, new List<int>(), true));
-      }
-
-      // Identify parent-child relationships based on proximity
-      for (int i = 0; i < allBranches.Count; i++) {
-        for (int j = 0; j < allBranches.Count; j++) {
-          if (i == j)
-            continue;
-
-          if (allBranches[j].Item1.PointAtStart.DistanceTo(allBranches[i].Item1.PointAtEnd) < 0.1) {
-            allBranches[i].Item3.Add(j);
-          }
-        }
+        int level = CalculateBranchLevel(curve);
+        allBranches.Add(Tuple.Create(curve, false, true, level));
       }
 
       // Function to generate a unique ID for a branch based on its geometry
@@ -258,177 +373,169 @@ namespace BeingAliveLanguage {
         return $"{start.X:F3},{start.Y:F3},{start.Z:F3}-{end.X:F3},{end.Y:F3},{end.Z:F3}";
       };
 
+      // Function to find all children of a branch recursively
+      Func<Curve, List<Curve>> getChildrenRecursively = null;
+      getChildrenRecursively = (parentBranch) => {
+        var children = new List<Curve>();
+        foreach (var branch in allBranches) {
+          if (branch.Item1 != parentBranch &&
+              branch.Item1.PointAtStart.DistanceTo(parentBranch.PointAtEnd) < 0.1) {
+            children.Add(branch.Item1);
+            // Recursively get children of this child
+            children.AddRange(getChildrenRecursively(branch.Item1));
+          }
+        }
+        return children;
+      };
+
       // Use random seed for true randomness
       Random rnd = Utils.balRnd;
 
-      // Separate branches by type and side
-      var leftTopBranches = new List<int>();
-      var rightTopBranches = new List<int>();
-      var leftSideBranches = new List<int>();
-      var rightSideBranches = new List<int>();
-
-      for (int i = 0; i < allBranches.Count; i++) {
-        bool isLeft = allBranches[i].Item2;
-        bool isTopBranch = allBranches[i].Item4;
-
-        if (isTopBranch) {
-          if (isLeft)
-            leftTopBranches.Add(i);
-          else
-            rightTopBranches.Add(i);
-        } else {
-          if (isLeft)
-            leftSideBranches.Add(i);
-          else
-            rightSideBranches.Add(i);
-        }
-      }
-
-      // Calculate target percentage for current phase (10% per phase - cumulative)
-      double removalPercentage = 0.1 * stage3Phase;
+      // Calculate target percentage for current phase (30% for phase 11, 60% for phase 12)
+      double removalPercentage = 0.3 * stage4Phase;
       int targetRemovalCount = (int)(allBranches.Count * removalPercentage);
 
-      // Create a record of which branches to remove
-      HashSet<int> branchesToRemove = new HashSet<int>();
+      // Create a record of which branches to remove (use branch IDs for persistence)
+      HashSet<string> branchesToRemove = new HashSet<string>();
 
-      // Function to recursively mark branches for removal
-      void MarkBranchAndChildren(int branchIndex) {
-        if (branchesToRemove.Contains(branchIndex))
-          return;
-
-        branchesToRemove.Add(branchIndex);
-        string branchId = getBranchId(allBranches[branchIndex].Item1);
-        BranchRemovalTracker.RecordRemovedBranch(mTreeId, branchId);  // Track globally
-
-        // Recursively mark child branches
-        foreach (int childIndex in allBranches[branchIndex].Item3) {
-          MarkBranchAndChildren(childIndex);
+      // For phase 12: First restore all branches removed in phase 11
+      if (stage4Phase == 2) {
+        var phase11Removals = BranchRemovalTracker.GetRemovedBranches(mTreeId);
+        foreach (string branchId in phase11Removals) {
+          branchesToRemove.Add(branchId);
         }
       }
 
-      // Check if we're in phase 10 and have previously removed branches
-      bool hasPhase9Removals = false;
-      if (stage3Phase == 2) {
-        // Check if we have any branches removed in phase 9
-        for (int i = 0; i < allBranches.Count; i++) {
-          string branchId = getBranchId(allBranches[i].Item1);
-          if (BranchRemovalTracker.IsBranchRemoved(mTreeId, branchId)) {
-            branchesToRemove.Add(i);
-            hasPhase9Removals = true;
-          }
-        }
-      }
-
-      // For phase 9: Always do random selection (fresh start)
-      if (stage3Phase == 1) {
+      // For phase 11: Fresh random selection
+      if (stage4Phase == 1) {
         // Clear any previous tracking for this tree to ensure fresh randomness
         BranchRemovalTracker.ClearTree(mTreeId);
 
-        // Shuffle each branch group randomly
-        Func<List<int>, List<int>> shuffleList = (list) => list.OrderBy(
-                                                                   _ => rnd.NextDouble())
-                                                               .ToList();
+        // Separate branches into categories for removal
+        var sideBranches =
+            allBranches.Where(b => !b.Item3).ToList();               // Not top branch = side branch
+        var topBranches = allBranches.Where(b => b.Item3).ToList();  // Top branches
 
-        var shuffledLeftTop = shuffleList(leftTopBranches);
-        var shuffledRightTop = shuffleList(rightTopBranches);
-        var shuffledLeftSide = shuffleList(leftSideBranches);
-        var shuffledRightSide = shuffleList(rightSideBranches);
+        // For TOP branches: Focus on top 2-3 levels (highest levels, NOT root level)
+        var topBranchesByLevel = topBranches.GroupBy(b => b.Item4)
+                                     .OrderByDescending(g => g.Key)  // Highest levels first
+                                     .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Balance removal across all four categories for 10% total
-        int leftTopToRemove = Math.Min(shuffledLeftTop.Count / 2, targetRemovalCount / 4);
-        int rightTopToRemove = Math.Min(shuffledRightTop.Count / 2, targetRemovalCount / 4);
-        int leftSideToRemove = Math.Min(shuffledLeftSide.Count / 2,
-                                        targetRemovalCount - leftTopToRemove - rightTopToRemove);
-        int rightSideToRemove =
-            targetRemovalCount - leftTopToRemove - rightTopToRemove - leftSideToRemove;
+        // Target top 2-3 levels for TOP branch removal
+        var topTargetLevels = topBranchesByLevel.Keys.Take(3).ToList();
+        var topBranchesForRemoval = new List<Tuple<Curve, bool, bool, int>>();
 
-        // Helper to mark branches while respecting total count
-        void MarkBranchesUpToCount(List<int> branches, int count) {
-          int marked = 0;
-          foreach (int idx in branches) {
-            if (marked >= count)
-              break;
-            if (!branchesToRemove.Contains(idx)) {
-              int countBefore = branchesToRemove.Count;
-              MarkBranchAndChildren(idx);
-              marked += (branchesToRemove.Count - countBefore);
-            }
-          }
+        foreach (int level in topTargetLevels) {
+          topBranchesForRemoval.AddRange(topBranchesByLevel[level]);
         }
 
-        // Mark branches from each category
-        MarkBranchesUpToCount(shuffledLeftTop, leftTopToRemove);
-        MarkBranchesUpToCount(shuffledRightTop, rightTopToRemove);
-        MarkBranchesUpToCount(shuffledLeftSide, leftSideToRemove);
-        MarkBranchesUpToCount(shuffledRightSide, rightSideToRemove);
-      }
-      // For phase 10: Add more branches on top of phase 9 removals
-      else if (stage3Phase == 2) {
-        if (!hasPhase9Removals) {
-          // This shouldn't happen, but if phase 9 was never run, treat it as phase 9
-          BranchRemovalTracker.ClearTree(mTreeId);
-          stage3Phase = 1;  // Fallback to phase 9 logic
+        // Calculate how many branches to remove from each category
+        int totalAvailableForRemoval = sideBranches.Count + topBranchesForRemoval.Count;
 
-          // Repeat phase 9 logic
-          Func<List<int>, List<int>> shuffleList = (list) => list.OrderBy(
-                                                                     _ => rnd.NextDouble())
-                                                                 .ToList();
-          var shuffledLeftTop = shuffleList(leftTopBranches);
-          var shuffledRightTop = shuffleList(rightTopBranches);
-          var shuffledLeftSide = shuffleList(leftSideBranches);
-          var shuffledRightSide = shuffleList(rightSideBranches);
+        // Allocate removal proportionally between side and top branches
+        int sideBranchesToRemove =
+            (int)(targetRemovalCount * ((double)sideBranches.Count / totalAvailableForRemoval));
+        int topBranchesToRemove = targetRemovalCount - sideBranchesToRemove;
 
-          int phase9Target = (int)(allBranches.Count * 0.1);
-          int leftTopToRemove = Math.Min(shuffledLeftTop.Count / 2, phase9Target / 4);
-          int rightTopToRemove = Math.Min(shuffledRightTop.Count / 2, phase9Target / 4);
-          int leftSideToRemove = Math.Min(shuffledLeftSide.Count / 2,
-                                          phase9Target - leftTopToRemove - rightTopToRemove);
-          int rightSideToRemove =
-              phase9Target - leftTopToRemove - rightTopToRemove - leftSideToRemove;
+        // Remove SIDE branches (simple, no children)
+        var shuffledSideBranches = sideBranches
+                                       .OrderBy(
+                                           _ => rnd.NextDouble())
+                                       .ToList();
+        foreach (var branch in shuffledSideBranches.Take(sideBranchesToRemove)) {
+          string branchId = getBranchId(branch.Item1);
+          branchesToRemove.Add(branchId);
+          BranchRemovalTracker.RecordRemovedBranch(mTreeId, branchId);
+        }
 
-          void MarkBranchesUpToCount(List<int> branches, int count) {
-            int marked = 0;
-            foreach (int idx in branches) {
-              if (marked >= count)
-                break;
-              if (!branchesToRemove.Contains(idx)) {
-                int countBefore = branchesToRemove.Count;
-                MarkBranchAndChildren(idx);
-                marked += (branchesToRemove.Count - countBefore);
+        // Remove TOP branches (with recursive children removal)
+        var shuffledTopBranches = topBranchesForRemoval
+                                      .OrderBy(
+                                          _ => rnd.NextDouble())
+                                      .ToList();
+        int topBranchesMarked = 0;
+
+        foreach (var branch in shuffledTopBranches) {
+          if (topBranchesMarked >= topBranchesToRemove)
+            break;
+
+          string branchId = getBranchId(branch.Item1);
+          if (!branchesToRemove.Contains(branchId)) {
+            // Mark the parent branch for removal
+            branchesToRemove.Add(branchId);
+            BranchRemovalTracker.RecordRemovedBranch(mTreeId, branchId);
+            topBranchesMarked++;
+
+            // Recursively mark all children for removal
+            var children = getChildrenRecursively(branch.Item1);
+            foreach (var child in children) {
+              string childId = getBranchId(child);
+              if (!branchesToRemove.Contains(childId)) {
+                branchesToRemove.Add(childId);
+                BranchRemovalTracker.RecordRemovedBranch(mTreeId, childId);
               }
             }
           }
-
-          MarkBranchesUpToCount(shuffledLeftTop, leftTopToRemove);
-          MarkBranchesUpToCount(shuffledRightTop, rightTopToRemove);
-          MarkBranchesUpToCount(shuffledLeftSide, leftSideToRemove);
-          MarkBranchesUpToCount(shuffledRightSide, rightSideToRemove);
         }
+      }
+      // For phase 12: Add more branches to reach 60% total
+      else if (stage4Phase == 2) {
+        // Find branches that are NOT already marked for removal
+        var availableBranches =
+            allBranches.Where(b => !branchesToRemove.Contains(getBranchId(b.Item1))).ToList();
 
-        // Now add additional removals for phase 10 (to reach 20% total)
-        var availableBranches = new List<int>();
-        for (int i = 0; i < allBranches.Count; i++) {
-          if (!branchesToRemove.Contains(i)) {
-            availableBranches.Add(i);
-          }
-        }
-
-        // Randomly shuffle available branches
-        availableBranches = availableBranches
-                                .OrderBy(
-                                    _ => rnd.NextDouble())
-                                .ToList();
-
-        // Mark additional branches to reach our 20% target
+        // Calculate additional branches needed
         int additionalNeeded = targetRemovalCount - branchesToRemove.Count;
-        int marked = 0;
-        foreach (int idx in availableBranches) {
-          if (marked >= additionalNeeded)
-            break;
 
-          int countBefore = branchesToRemove.Count;
-          MarkBranchAndChildren(idx);
-          marked += (branchesToRemove.Count - countBefore);
+        if (additionalNeeded > 0) {
+          // Separate available branches
+          var availableSideBranches = availableBranches.Where(b => !b.Item3).ToList();
+          var availableTopBranches = availableBranches.Where(b => b.Item3).ToList();
+
+          // For available top branches, prioritize higher levels
+          var availableTopByLevel = availableTopBranches.GroupBy(b => b.Item4)
+                                        .OrderByDescending(g => g.Key)
+                                        .ToDictionary(g => g.Key, g => g.ToList());
+
+          var topTargetLevels = availableTopByLevel.Keys.Take(3).ToList();
+          var availableTopForRemoval = new List<Tuple<Curve, bool, bool, int>>();
+
+          foreach (int level in topTargetLevels) {
+            availableTopForRemoval.AddRange(availableTopByLevel[level]);
+          }
+
+          // Randomly select additional branches to remove
+          var allAvailableForRemoval =
+              availableSideBranches.Concat(availableTopForRemoval).ToList();
+          var shuffledAvailable = allAvailableForRemoval
+                                      .OrderBy(
+                                          _ => rnd.NextDouble())
+                                      .ToList();
+
+          int additionalMarked = 0;
+          foreach (var branch in shuffledAvailable) {
+            if (additionalMarked >= additionalNeeded)
+              break;
+
+            string branchId = getBranchId(branch.Item1);
+            if (!branchesToRemove.Contains(branchId)) {
+              branchesToRemove.Add(branchId);
+              BranchRemovalTracker.RecordRemovedBranch(mTreeId, branchId);
+              additionalMarked++;
+
+              // If it's a top branch, also remove its children
+              if (branch.Item3) {
+                var children = getChildrenRecursively(branch.Item1);
+                foreach (var child in children) {
+                  string childId = getBranchId(child);
+                  if (!branchesToRemove.Contains(childId)) {
+                    branchesToRemove.Add(childId);
+                    BranchRemovalTracker.RecordRemovedBranch(mTreeId, childId);
+                  }
+                }
+              }
+            }
+          }
         }
       }
 
@@ -439,13 +546,13 @@ namespace BeingAliveLanguage {
       var newSubBranchR = new List<Curve>();
 
       // Keep branches that weren't marked for removal
-      for (int i = 0; i < allBranches.Count; i++) {
-        if (branchesToRemove.Contains(i))
+      foreach (var branch in allBranches) {
+        string branchId = getBranchId(branch.Item1);
+        if (branchesToRemove.Contains(branchId))
           continue;
 
-        var branch = allBranches[i];
         bool isLeft = branch.Item2;
-        bool isTopBranch = branch.Item4;
+        bool isTopBranch = branch.Item3;
 
         if (!isTopBranch) {
           // Side branch
@@ -472,12 +579,28 @@ namespace BeingAliveLanguage {
       mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
     }
 
-    // Stage 4: Dying tree (phases 11+)
-    private void GrowStage4() {
-      int stage4Phase = mCurPhase - mStage3;
+    // Helper method to calculate branch level based on hierarchy
+    private int CalculateBranchLevel(Curve curve) {
+      // For top branches, calculate level based on connection hierarchy
+      int level = 2;  // Start at level 2 for first top branches (level 1 is trunk connection)
+
+      // Check if this branch is connected to another top branch (making it a child)
+      foreach (var otherBranch in mSubBranch) {
+        if (otherBranch != curve && curve.PointAtStart.DistanceTo(otherBranch.PointAtEnd) < 0.1) {
+          level = Math.Max(level, CalculateBranchLevel(otherBranch) + 1);
+          break;
+        }
+      }
+
+      return level;
+    }
+
+    // RENAMED: Old GrowStage4 becomes GrowStageOnHold (phase 13+)
+    private void GrowStageOnHold() {
+      int stageOnHoldPhase = mCurPhase - mStage4;
 
       // For dying phase, add new growth from the base (saplings)
-      if (stage4Phase == 1) {
+      if (stageOnHoldPhase == 1) {
         // Select a few side branches to be the base for new growth
         var selectedBranches = SelectBaseForNewGrowth();
 
@@ -497,7 +620,7 @@ namespace BeingAliveLanguage {
             mNewBornBranch.Add(sapling.mCurCanopy);
           }
         }
-      } else if (stage4Phase >= 2) {
+      } else if (stageOnHoldPhase >= 2) {
         // For later phases, grow the saplings
         var selectedBranches = SelectBaseForNewGrowth();
 
@@ -506,7 +629,7 @@ namespace BeingAliveLanguage {
           branchPlane.Origin = branch.PointAtEnd;
 
           var sapling = new Tree2D(branchPlane, mHeight / 3.0);
-          sapling.Draw(stage4Phase);  // Grow saplings according to stage4Phase
+          sapling.Draw(stageOnHoldPhase);  // Grow saplings according to stageOnHoldPhase
 
           mNewBornBranch.Add(sapling.mCurTrunk);
           mNewBornBranch.AddRange(sapling.mSideBranch);
@@ -514,7 +637,7 @@ namespace BeingAliveLanguage {
         }
 
         // In the final phases, the main tree structure degrades significantly
-        if (stage4Phase >= 3) {
+        if (stageOnHoldPhase >= 3) {
           // Clear most side branches and all top branches
           if (mSideBranch_l.Count > 2)
             mSideBranch_l = mSideBranch_l.Take(2).ToList();
@@ -532,7 +655,7 @@ namespace BeingAliveLanguage {
           mCurCanopy_l = null;
           mCurCanopy_r = null;
 
-          // Split the trunk to show deterioration (like in the original Tree2D)
+          // Split the trunk to show deterioration
           var leftTrunk = mCurTrunk.Duplicate() as Curve;
           leftTrunk.Translate(-mPln.XAxis * mHeight / 150);
           var rightTrunk = mCurTrunk.Duplicate() as Curve;
@@ -800,9 +923,10 @@ namespace BeingAliveLanguage {
 
     // Growth parameters
     private readonly int mStage1 = 4;   // Young tree phase
-    private readonly int mStage2 = 8;   // Mature tree phase
-    private readonly int mStage3 = 10;  // Aging phase
-    private readonly int mStage4 = 13;  // Dying phase
+    private readonly int mStage2 = 8;   // Enhanced mature tree phase (5-8)
+    private readonly int mStage3 = 10;  // Additional top bi-branching (9-10)
+    private readonly int mStage4 = 12;  // Branch removal phase (11-12)
+                                        // Stage OnHold: Phase 13+ (available for future features)
 
     private double mTrunkSegLen;                   // Length of trunk segment per phase
     private double mMaxBranchLen;                  // Maximum branch length
