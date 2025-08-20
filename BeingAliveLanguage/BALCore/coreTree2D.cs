@@ -53,7 +53,7 @@ namespace BeingAliveLanguage {
 
       // Configure growth parameters
       mTrunkSegLen = height / mStage1;
-      mMaxBranchLen = height * 0.5;
+      mMaxBranchLen = height * 0.4;
       mMinBranchLen = height * 0.25;
 
       // Generate a unique identifier for this tree instance based on position and properties
@@ -176,36 +176,55 @@ namespace BeingAliveLanguage {
       GenerateSideBranches(growthPhase);
     }
 
-    // Stage 2: Mature tree growth (phases 5-8) - ENHANCED with side branch growth
+    // Stage 2: Mature tree growth (phases 5-8) - ENHANCED with progressive side branch growth
     private void GrowStage2() {
       // Calculate how far into stage 2 we are
       int stage2Phase = Math.Min(mCurPhase - mStage1, mStage2 - mStage1);
 
-      // ENHANCED: Allow side branches to grow longer in later phases of stage 2
-      if (mCurPhase > mStage1 + 1) {                         // Starting from phase 6
-        double growthFactor = (mCurPhase - mStage1) * 0.15;  // 15% growth per phase
+      // PROGRESSIVE GROWTH: Grow side branches from 60% to 100% of their max length during Stage 2
+      if (mCurPhase > mStage1) {  // Starting from phase 5
+        // Calculate target progression factor for current phase
+        // At phase 5 (start of stage 2): 60%
+        // At phase 8 (end of stage 2): 100%
+        double targetProgressionFactor = Utils.remap(mCurPhase, mStage1 + 1, mStage2, 0.6, 1.0);
 
-        // Extend existing side branches
+        // Extend existing side branches to reach their target length
         for (int i = 0; i < mSideBranch_l.Count; i++) {
           var branch = mSideBranch_l[i];
           var dir = branch.PointAtEnd - branch.PointAtStart;
           dir.Unitize();
-          var newLength = branch.GetLength() * (1 + growthFactor);
-          newLength = Math.Min(newLength, mMaxBranchLen);  // Cap at max length
 
-          mSideBranch_l[i] =
-              new Line(branch.PointAtStart, branch.PointAtStart + dir * newLength).ToNurbsCurve();
+          // Calculate this branch's height-based maximum length
+          double branchHeight = branch.PointAtStart.Y;
+          double normalizedHeight = branchHeight / mHeight;
+          double heightFactor = 1.0 - normalizedHeight;  // 1.0 at bottom, 0.0 at top
+          double maxLengthForThisHeight =
+              mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
+
+          // Calculate target length for this phase
+          double targetLength = maxLengthForThisHeight * targetProgressionFactor;
+
+          mSideBranch_l[i] = new Line(branch.PointAtStart, branch.PointAtStart + dir * targetLength)
+                                 .ToNurbsCurve();
         }
 
         for (int i = 0; i < mSideBranch_r.Count; i++) {
           var branch = mSideBranch_r[i];
           var dir = branch.PointAtEnd - branch.PointAtStart;
           dir.Unitize();
-          var newLength = branch.GetLength() * (1 + growthFactor);
-          newLength = Math.Min(newLength, mMaxBranchLen);  // Cap at max length
 
-          mSideBranch_r[i] =
-              new Line(branch.PointAtStart, branch.PointAtStart + dir * newLength).ToNurbsCurve();
+          // Calculate this branch's height-based maximum length
+          double branchHeight = branch.PointAtStart.Y;
+          double normalizedHeight = branchHeight / mHeight;
+          double heightFactor = 1.0 - normalizedHeight;
+          double maxLengthForThisHeight =
+              mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
+
+          // Calculate target length for this phase
+          double targetLength = maxLengthForThisHeight * targetProgressionFactor;
+
+          mSideBranch_r[i] = new Line(branch.PointAtStart, branch.PointAtStart + dir * targetLength)
+                                 .ToNurbsCurve();
         }
 
         // Update combined list
@@ -232,7 +251,6 @@ namespace BeingAliveLanguage {
     }
 
     // NEW Stage 3: Additional top-only bi-branching (phases 9-10)
-    // This continues bi-branching from existing tip branches created in Stage 2
     private void GrowStage3() {
       int stage3Phase = Math.Min(mCurPhase - mStage2, mStage3 - mStage2);
 
@@ -680,23 +698,34 @@ namespace BeingAliveLanguage {
 
       // Always generate at least one branch per side, more in later phases
       int numBranchesPerSide = Math.Max(1, phase * 2 - 1);
-      double trunkHeight = mCurTrunk.GetLength();
 
-      // Calculate branch parameters
-      double branchLengthBase = Utils.remap(phase, 1, mStage1, mMinBranchLen, mMaxBranchLen);
-      double baseAngle = mBaseAngle * (1 - 0.05 * (phase - 1));
+      // WIDER ANGLES: Increase base angle from 60 to 75 degrees for more open appearance
+      double baseAngle = 75 * (1 - 0.03 * (phase - 1));  // Reduced angle decrease per phase
 
       for (int i = 0; i < numBranchesPerSide; i++) {
         // Position along trunk (distribute evenly, avoiding very bottom)
         double posRatio = 0.3 + 0.6 * i / Math.Max(1, numBranchesPerSide - 1);
         Point3d branchPoint = mCurTrunk.PointAt(posRatio);
 
-        // Calculate branch length (shorter at top and bottom, longer in middle)
-        double lengthFactor = 4 * posRatio * (1 - posRatio);  // Parabolic distribution
-        double branchLength = branchLengthBase * lengthFactor;
+        // HEIGHT-BASED MAX LENGTH: Longer branches near ground, shorter higher up
+        double heightFactor = 1.0 - posRatio;  // 1.0 at bottom, 0.0 at top
+        double maxLengthForThisHeight =
+            mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
 
-        // Calculate angle (steeper at top)
-        double angle = baseAngle * (1 - 0.3 * posRatio);
+        // STAGE 1 & 2 PROGRESSION: Start small, reach max by end of stage 2
+        double progressionFactor;
+        if (phase <= mStage1) {
+          // Stage 1: 20% to 60% of max length
+          progressionFactor = Utils.remap(phase, 1, mStage1, 0.2, 0.6);
+        } else {
+          // Will be grown further in Stage 2, so keep at 60% for now
+          progressionFactor = 0.6;
+        }
+
+        double branchLength = maxLengthForThisHeight * progressionFactor;
+
+        // Calculate angle (steeper at top for natural tree shape)
+        double angle = baseAngle * (1 - 0.2 * posRatio);
 
         // Left branch
         Vector3d leftDir = new Vector3d(mPln.YAxis);
@@ -716,19 +745,23 @@ namespace BeingAliveLanguage {
       // Combine left and right branches
       mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
     }
+    // Generate an improved outline curve for smoother canopy
 
-    // Generate an outline curve to represent the tree boundary
     private void GenerateOutlineCurve() {
       if (mCurPhase < mStage3) {  // Only generate canopy for non-dying trees
-                                  // Create a list of all branch endpoints
+        // Create a list of all branch endpoints with additional smoothing points
         var points = new List<Point3d>();
 
         // Add trunk top
         points.Add(mCurTrunk.PointAtEnd);
 
-        // Add side branch endpoints
+        // Add side branch endpoints with interpolated smoothing points
         foreach (var branch in mSideBranch) {
           points.Add(branch.PointAtEnd);
+
+          // Add intermediate points for smoother canopy outline
+          Point3d midPoint = branch.PointAt(0.7);  // 70% along the branch
+          points.Add(midPoint);
         }
 
         // Add top branch endpoints
@@ -744,7 +777,7 @@ namespace BeingAliveLanguage {
           return;
         }
 
-        // Sort points by polar angle around trunk base
+        // Sort points by polar angle around trunk base for smoother outline
         Point3d center = mCurTrunk.PointAtStart;
         var sortedPoints = points
                                .OrderBy(p => {
@@ -753,28 +786,40 @@ namespace BeingAliveLanguage {
                                })
                                .ToList();
 
+        // Apply smoothing filter to reduce sharp angles in canopy outline
+        var smoothedPoints = new List<Point3d>();
+        for (int i = 0; i < sortedPoints.Count; i++) {
+          Point3d prevPoint = sortedPoints[(i - 1 + sortedPoints.Count) % sortedPoints.Count];
+          Point3d currentPoint = sortedPoints[i];
+          Point3d nextPoint = sortedPoints[(i + 1) % sortedPoints.Count];
+
+          // Apply weighted averaging for smoother transitions
+          Point3d smoothed = currentPoint * 0.6 + (prevPoint + nextPoint) * 0.2;
+          smoothedPoints.Add(smoothed);
+        }
+
         // Create left and right canopy sections
         var leftPoints = new List<Point3d>();
         var rightPoints = new List<Point3d>();
 
         // Find the split point (trunk top)
-        int splitIndex = sortedPoints.FindIndex(p => p.DistanceTo(mCurTrunk.PointAtEnd) < 1e-6);
+        int splitIndex = smoothedPoints.FindIndex(p => p.DistanceTo(mCurTrunk.PointAtEnd) < 1e-6);
 
         if (splitIndex >= 0) {
           // Add points to left and right sections
           for (int i = 0; i <= splitIndex; i++) {
-            leftPoints.Add(sortedPoints[i]);
+            leftPoints.Add(smoothedPoints[i]);
           }
 
-          for (int i = splitIndex; i < sortedPoints.Count; i++) {
-            rightPoints.Add(sortedPoints[i]);
+          for (int i = splitIndex; i < smoothedPoints.Count; i++) {
+            rightPoints.Add(smoothedPoints[i]);
           }
 
           // Add trunk base to close the curves
           leftPoints.Add(center);
           rightPoints.Add(center);
 
-          // Create canopy curves
+          // Create smoothed canopy curves
           if (leftPoints.Count >= 3) {
             mCurCanopy_l = new PolylineCurve(leftPoints);
           }
@@ -793,7 +838,6 @@ namespace BeingAliveLanguage {
         }
       }
     }
-
     // Select branches to use as base for new growth in dying phase
     private List<Curve> SelectBaseForNewGrowth() {
       List<Curve> selectedBranches = new List<Curve>();
@@ -931,7 +975,7 @@ namespace BeingAliveLanguage {
     private double mTrunkSegLen;                   // Length of trunk segment per phase
     private double mMaxBranchLen;                  // Maximum branch length
     private double mMinBranchLen;                  // Minimum branch length
-    private readonly double mBaseAngle = 60;       // Base angle for side branches
+    private readonly double mBaseAngle = 75;       // Base angle for side branches
     private readonly double mTopBranchAngle = 35;  // Angle for top branches
 
     // curve collection
