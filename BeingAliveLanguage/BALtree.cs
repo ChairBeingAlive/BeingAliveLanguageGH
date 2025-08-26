@@ -16,7 +16,7 @@ namespace BeingAliveLanguage {
   /// </summary>
   public class BALtree2d : GH_Component {
     public BALtree2d()
-        : base("Tree_Raimbault", "balTree_2D", "Generate the 2D version of BAL tree.", "BAL",
+        : base("Tree_2D", "balTree_2D", "Generate the 2D version of BAL tree.", "BAL",
                "03::plant") {}
 
     // string modeUnitary = "non-unitary";
