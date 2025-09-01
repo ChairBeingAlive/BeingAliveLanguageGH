@@ -33,12 +33,12 @@ namespace BeingAliveLanguage {
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager) {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
-      pManager.AddCurveParameter("Canopy", "C", "Tree canopy curves.", GH_ParamAccess.tree);
+      //pManager.AddCurveParameter("Canopy", "C", "Tree canopy curves.", GH_ParamAccess.tree);
       pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves.",
                                  GH_ParamAccess.tree);
       pManager.AddCurveParameter("TopBranch", "TB", "Tree top branch curves.", GH_ParamAccess.tree);
-      pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.",
-                                 GH_ParamAccess.tree);
+      //pManager.AddCurveParameter("BabyBranch", "BB", "Tree baby branch at dying phase curves.",
+      //                           GH_ParamAccess.tree);
 
       pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.",
                                    GH_ParamAccess.list);
@@ -62,11 +62,11 @@ namespace BeingAliveLanguage {
       }
 
       // var circ = new List<Curve>();
-      var canopy = new List<Curve>();
+      //var canopy = new List<Curve>();
       var trunk = new List<Curve>();
       var sideB = new List<Curve>();
       var topB = new List<Curve>();
-      var babyB = new List<Curve>();
+      //var babyB = new List<Curve>();
       var tInfoLst = new List<TreeProperty>();
 
       //! 1. determine horizontal scaling factor of the trees
@@ -175,11 +175,11 @@ namespace BeingAliveLanguage {
 
         // output the curves
         trunk.Add(t.mCurTrunk);
-        canopy.Add(t.mCurCanopy);
+        //canopy.Add(t.mCurCanopy);
         // circ.AddRange(t.mCircCol);
         sideB.AddRange(t.mSideBranch);
         topB.AddRange(t.mSubBranch);
-        babyB.AddRange(t.mNewBornBranch);
+        //babyB.AddRange(t.mNewBornBranch);
       }
 
       //! 6. compose tree info for downstream compoment usage
@@ -187,11 +187,11 @@ namespace BeingAliveLanguage {
         tInfoLst.Add(new TreeProperty(t.mPln, t.mCurPhase, t.mHeight, t.mRadius, 1));
       }
 
-      DA.SetDataList("Canopy", canopy);
+      //DA.SetDataList("Canopy", canopy);
       DA.SetDataList("Trunk", trunk);
       DA.SetDataList("SideBranch", sideB);
       DA.SetDataList("TopBranch", topB);
-      DA.SetDataList("BabyBranch", babyB);
+      //DA.SetDataList("BabyBranch", babyB);
       DA.SetDataList("TreeInfo", tInfoLst);
     }
   }
@@ -439,9 +439,9 @@ namespace BeingAliveLanguage {
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager) {
       pManager.AddCurveParameter("Trunk", "T", "Tree trunk curves.", GH_ParamAccess.tree);
-      pManager.AddCurveParameter("SingleBranch", "SB", "Tree side branch curves (non-split).",
+      pManager.AddCurveParameter("SideBranch", "SB", "Tree side branch curves (non-split).",
                                  GH_ParamAccess.tree);
-      pManager.AddCurveParameter("SplitBranch", "TB",
+      pManager.AddCurveParameter("TopBranch", "TB",
                                  "Tree top branch and duplicated branch curves (splitted).",
                                  GH_ParamAccess.tree);
       pManager.AddGenericParameter("TreeInfo", "Tinfo", "Information about the tree.",
