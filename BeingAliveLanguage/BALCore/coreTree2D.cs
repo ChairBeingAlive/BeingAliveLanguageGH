@@ -747,6 +747,11 @@ class Tree2D {
       double maxLengthForThisHeight =
           mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
 
+      // ROUNDED CANOPY MODIFICATION: Apply a curved length adjustment for more organic shape
+      // Use a parabolic curve to create a more rounded silhouette
+      double curvedLengthFactor = 1.0 - Math.Pow(posRatio - 0.3, 2) * 0.3;  // Parabolic adjustment
+      maxLengthForThisHeight *= curvedLengthFactor;
+
       // STAGE 1 & 2 PROGRESSION: Start small, reach max by end of stage 2
       double progressionFactor;
       if (phase <= mStage1) {
@@ -791,96 +796,113 @@ class Tree2D {
     mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
   }
 
-  // Generate an improved outline curve for smoother canopy
+  // SIMPLIFIED: Generate phase-specific canopy outline curves - TWO ARCS ONLY
   private void GenerateOutlineCurve() {
-    if (mCurPhase < mStage3) {  // Only generate canopy for non-dying trees
-      // Create a list of all branch endpoints with additional smoothing points
-      var points = new List<Point3d>();
+    // Always clear existing canopy
+    mCurCanopy = null;
+    mCurCanopy_l = null;
+    mCurCanopy_r = null;
 
-      // Add trunk top
-      points.Add(mCurTrunk.PointAtEnd);
+    if (mCurPhase <= mStage3) {
+      // PHASES 1-8: Arcs from bottom side branch tips
+      GenerateCanopyArcs();
+    }
+    // Phase 10+ (mStage3+): No canopy generated (dying trees)
+  }
 
-      // Add side branch endpoints with interpolated smoothing points
-      foreach (var branch in mSideBranch) {
-        points.Add(branch.PointAtEnd);
+  // COMBINED: Generate canopy arcs based on current phase
+  private void GenerateCanopyArcs() {
+    Point3d leftTip, rightTip;
+    double arcHeight;
 
-        // Add intermediate points for smoother canopy outline
-        Point3d midPoint = branch.PointAt(0.7);  // 70% along the branch
-        points.Add(midPoint);
-      }
-
-      // Add top branch endpoints
-      foreach (var branch in mSubBranch) {
-        points.Add(branch.PointAtEnd);
-      }
-
-      // Add trunk base
-      points.Add(mCurTrunk.PointAtStart);
-
-      if (points.Count < 3) {
-        // Not enough points for a proper canopy
+    if (mCurPhase <= mStage1) {
+      // PHASES 1-4: Use side branch tips
+      if (mSideBranch_l.Count == 0 || mSideBranch_r.Count == 0)
         return;
+
+      // Find the bottom (longest) branches - these should be at index 0
+      leftTip = mSideBranch_l[0].PointAtEnd + mSideBranch_l.First().TangentAtEnd * 0.1 * mHeight;
+      rightTip = mSideBranch_r[0].PointAtEnd + mSideBranch_r.First().TangentAtEnd * 0.1 * mHeight;
+
+      // Arc peak height above trunk top for young trees
+      arcHeight = mHeight * 0.1;
+    } else {
+      // PHASES 5+: Use top branch tips
+      if (mSubBranch_l.Count == 0 || mSubBranch_r.Count == 0)
+        return;
+
+      // Find the outermost top branch tips
+      leftTip = FindOutermostTopBranchTip(mSubBranch_l) +
+                mSideBranch_l.Last().TangentAtEnd * 0.05 * mHeight;
+      rightTip = FindOutermostTopBranchTip(mSubBranch_r) +
+                 mSideBranch_r.Last().TangentAtEnd * 0.05 * mHeight;
+
+      // Smaller arc height for mature trees
+      arcHeight = mHeight * 0.15;
+    }
+
+    // Create meeting point above the tree on center axis
+    Point3d trunkTop = mCurTrunk.PointAtEnd;
+    Point3d meetingPoint = trunkTop + mPln.YAxis * arcHeight;
+
+    // Create left arc (from left tip to meeting point)
+    mCurCanopy_l = CreateArc(leftTip, meetingPoint, true);
+
+    // Create right arc (from right tip to meeting point)
+    mCurCanopy_r = CreateArc(rightTip, meetingPoint, false);
+
+    // Join the arcs to form complete canopy
+    if (mCurCanopy_l != null && mCurCanopy_r != null) {
+      var joined = Curve.JoinCurves(new List<Curve> { mCurCanopy_l, mCurCanopy_r }, 0.02);
+      if (joined.Length > 0) {
+        mCurCanopy = joined[0];
       }
+    }
+  }
 
-      // Sort points by polar angle around trunk base for smoother outline
-      Point3d center = mCurTrunk.PointAtStart;
-      var sortedPoints = points
-                             .OrderBy(p => {
-                               Vector3d v = p - center;
-                               return Math.Atan2(v.Y, v.X);
-                             })
-                             .ToList();
+  // Helper method to find the outermost (furthest from center) top branch tip
+  private Point3d FindOutermostTopBranchTip(List<Curve> branches) {
+    Point3d outermostTip = branches[0].PointAtEnd;
+    double maxDistance = Math.Abs(Vector3d.Multiply(outermostTip - mPln.Origin, mPln.XAxis));
 
-      // Apply smoothing filter to reduce sharp angles in canopy outline
-      var smoothedPoints = new List<Point3d>();
-      for (int i = 0; i < sortedPoints.Count; i++) {
-        Point3d prevPoint = sortedPoints[(i - 1 + sortedPoints.Count) % sortedPoints.Count];
-        Point3d currentPoint = sortedPoints[i];
-        Point3d nextPoint = sortedPoints[(i + 1) % sortedPoints.Count];
-
-        // Apply weighted averaging for smoother transitions
-        Point3d smoothed = currentPoint * 0.6 + (prevPoint + nextPoint) * 0.2;
-        smoothedPoints.Add(smoothed);
+    foreach (var branch in branches) {
+      Point3d tip = branch.PointAtEnd;
+      double distance = Math.Abs(Vector3d.Multiply(tip - mPln.Origin, mPln.XAxis));
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        outermostTip = tip;
       }
+    }
 
-      // Create left and right canopy sections
-      var leftPoints = new List<Point3d>();
-      var rightPoints = new List<Point3d>();
+    return outermostTip;
+  }
 
-      // Find the split point (trunk top)
-      int splitIndex = smoothedPoints.FindIndex(p => p.DistanceTo(mCurTrunk.PointAtEnd) < 1e-6);
+  // Helper method to create a single arc between two points
+  private Curve CreateArc(Point3d startPoint, Point3d endPoint, bool isLeftSide) {
+    try {
+      // Calculate the midpoint
+      Point3d midPoint = (startPoint + endPoint) * 0.5;
 
-      if (splitIndex >= 0) {
-        // Add points to left and right sections
-        for (int i = 0; i <= splitIndex; i++) {
-          leftPoints.Add(smoothedPoints[i]);
-        }
+      // Create a control point for the arc curvature
+      // Offset the midpoint perpendicular to the line between start and end
+      Vector3d lineDirection = endPoint - startPoint;
+      lineDirection.Unitize();
 
-        for (int i = splitIndex; i < smoothedPoints.Count; i++) {
-          rightPoints.Add(smoothedPoints[i]);
-        }
+      // Create perpendicular vector in the plane
+      Vector3d perpendicular = Vector3d.CrossProduct(lineDirection, mPln.ZAxis);
+      perpendicular.Unitize();
+      perpendicular *= isLeftSide ? -1 : 1;
 
-        // Add trunk base to close the curves
-        leftPoints.Add(center);
-        rightPoints.Add(center);
+      // Offset the midpoint to create arc curvature
+      double arcDepth = startPoint.DistanceTo(endPoint) * 0.2;  // 30% of chord length
+      Point3d controlPoint = midPoint + perpendicular * arcDepth;
 
-        // Create smoothed canopy curves
-        if (leftPoints.Count >= 3) {
-          mCurCanopy_l = new PolylineCurve(leftPoints);
-        }
-
-        if (rightPoints.Count >= 3) {
-          mCurCanopy_r = new PolylineCurve(rightPoints);
-        }
-
-        // Join left and right to form complete canopy
-        if (mCurCanopy_l != null && mCurCanopy_r != null) {
-          var joined = Curve.JoinCurves(new List<Curve> { mCurCanopy_l, mCurCanopy_r }, 0.02);
-          if (joined.Length > 0) {
-            mCurCanopy = joined[0];
-          }
-        }
-      }
+      // Create a 3-point arc using start, control, and end points
+      Arc arc = new Arc(startPoint, controlPoint, endPoint);
+      return arc.ToNurbsCurve();
+    } catch {
+      // Fallback to straight line if arc creation fails
+      return new Line(startPoint, endPoint).ToNurbsCurve();
     }
   }
   // Select branches to use as base for new growth in dying phase
