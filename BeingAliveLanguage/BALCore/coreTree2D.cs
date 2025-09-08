@@ -182,7 +182,8 @@ class Tree2D {
     int stage2Phase = Math.Min(mCurPhase - mStage1, mStage2 - mStage1);
 
     // PROGRESSIVE GROWTH: Grow side branches from 60% to 100% of their max length during Stage 2
-    if (mCurPhase > mStage1) {  // Starting from phase 5
+    // STOP GROWING AFTER PHASE 8
+    if (mCurPhase > mStage1 && mCurPhase <= mStage2) {  // Only grow phases 5-8
       // Calculate target progression factor for current phase
       double targetProgressionFactor = Utils.remap(mCurPhase, mStage1 + 1, mStage2, 0.6, 1.0);
 
@@ -445,12 +446,23 @@ class Tree2D {
       return $"{start.X:F3},{start.Y:F3},{start.Z:F3}-{end.X:F3},{end.Y:F3},{end.Z:F3}";
     };
 
+    // Function to find all descendants of a branch recursively
+    Func<Curve, List<Curve>> getAllDescendants = null;
+    getAllDescendants = (parentBranch) => {
+      var descendants = new List<Curve>();
+      foreach (var branch in allTopBranches) {
+        if (branch.Item1 != parentBranch &&
+            branch.Item1.PointAtStart.DistanceTo(parentBranch.PointAtEnd) < 0.1) {
+          descendants.Add(branch.Item1);
+          // Recursively get all descendants of this child
+          descendants.AddRange(getAllDescendants(branch.Item1));
+        }
+      }
+      return descendants;
+    };
+
     // Use random seed for top branch removal
     Random rnd = Utils.balRnd;
-
-    // Calculate target percentage for current phase (15% for phase 11, 25% for phase 12)
-    double removalPercentage = stage4Phase == 1 ? 0.15 : 0.25;
-    int targetRemovalCount = (int)(allTopBranches.Count * removalPercentage);
 
     // Create a record of which top branches to remove
     HashSet<string> topBranchesToRemove = new HashSet<string>();
@@ -463,50 +475,109 @@ class Tree2D {
       }
     }
 
-    // For phase 11: Fresh random selection of top branches
+    // For phase 11: Remove 30% focusing on highest + second highest levels
     if (stage4Phase == 1) {
       BranchRemovalTracker.ClearTree(mTreeId);
 
-      // Focus on top 2-3 levels (highest levels)
-      var topBranchesByLevel = allTopBranches.GroupBy(b => b.Item3)
-                                   .OrderByDescending(g => g.Key)
-                                   .ToDictionary(g => g.Key, g => g.ToList());
+      // Group branches by level and identify highest and second highest
+      var branchesByLevel = allTopBranches.GroupBy(b => b.Item3)
+                                .OrderByDescending(g => g.Key)
+                                .ToDictionary(g => g.Key, g => g.ToList());
 
-      var topTargetLevels = topBranchesByLevel.Keys.Take(3).ToList();
-      var topBranchesForRemoval = new List<Tuple<Curve, bool, int>>();
+      var levels = branchesByLevel.Keys.ToList();
+      if (levels.Count >= 2) {
+        int highestLevel = levels[0];
+        int secondHighestLevel = levels[1];
 
-      foreach (int level in topTargetLevels) {
-        topBranchesForRemoval.AddRange(topBranchesByLevel[level]);
-      }
+        // Get branches from highest and second highest levels
+        var targetBranches = new List<Tuple<Curve, bool, int>>();
+        targetBranches.AddRange(branchesByLevel[highestLevel]);
+        targetBranches.AddRange(branchesByLevel[secondHighestLevel]);
 
-      // Randomly select top branches to remove
-      var shuffledTopBranches = topBranchesForRemoval
-                                    .OrderBy(
-                                        _ => rnd.NextDouble())
-                                    .ToList();
+        // Calculate 30% of total branches
+        int targetRemovalCount = (int)(allTopBranches.Count * 0.30);
 
-      foreach (var branch in shuffledTopBranches.Take(targetRemovalCount)) {
-        string branchId = getBranchId(branch.Item1);
-        topBranchesToRemove.Add(branchId);
-        BranchRemovalTracker.RecordRemovedBranch(mTreeId, branchId);
+        // Randomly select parent branches to remove (with all their descendants)
+        var shuffledTargets = targetBranches
+                                  .OrderBy(
+                                      _ => rnd.NextDouble())
+                                  .ToList();
+
+        int removedCount = 0;
+        foreach (var parentBranch in shuffledTargets) {
+          if (removedCount >= targetRemovalCount)
+            break;
+
+          string parentId = getBranchId(parentBranch.Item1);
+          if (!topBranchesToRemove.Contains(parentId)) {
+            // Remove parent
+            topBranchesToRemove.Add(parentId);
+            BranchRemovalTracker.RecordRemovedBranch(mTreeId, parentId);
+            removedCount++;
+
+            // Remove ALL descendants
+            var descendants = getAllDescendants(parentBranch.Item1);
+            foreach (var descendant in descendants) {
+              string descendantId = getBranchId(descendant);
+              if (!topBranchesToRemove.Contains(descendantId)) {
+                topBranchesToRemove.Add(descendantId);
+                BranchRemovalTracker.RecordRemovedBranch(mTreeId, descendantId);
+                removedCount++;
+              }
+            }
+          }
+        }
       }
     }
-    // For phase 12: Add more top branches to reach 25% total
+    // For phase 12: Add another 30% total, focusing on levels 2-3
     else if (stage4Phase == 2) {
-      var availableTopBranches =
+      // Find available branches not already removed
+      var availableBranches =
           allTopBranches.Where(b => !topBranchesToRemove.Contains(getBranchId(b.Item1))).ToList();
-      int additionalNeeded = targetRemovalCount - topBranchesToRemove.Count;
+
+      // Calculate total target (60% total, minus what's already removed)
+      int totalTarget = (int)(allTopBranches.Count * 0.60);
+      int additionalNeeded = totalTarget - topBranchesToRemove.Count;
 
       if (additionalNeeded > 0) {
-        var shuffledAvailable = availableTopBranches
-                                    .OrderBy(
-                                        _ => rnd.NextDouble())
-                                    .ToList();
+        // Focus on levels 2-3 for phase 12
+        var level2and3Branches =
+            availableBranches.Where(b => b.Item3 == 2 || b.Item3 == 3).ToList();
 
-        foreach (var branch in shuffledAvailable.Take(additionalNeeded)) {
-          string branchId = getBranchId(branch.Item1);
-          topBranchesToRemove.Add(branchId);
-          BranchRemovalTracker.RecordRemovedBranch(mTreeId, branchId);
+        // Randomly select 1-2 parent branches from levels 2-3
+        var shuffledLevel2and3 = level2and3Branches
+                                     .OrderBy(
+                                         _ => rnd.NextDouble())
+                                     .ToList();
+
+        int parentBranchesToRemove =
+            Math.Min(2,
+                     Math.Min(shuffledLevel2and3.Count,
+                              (additionalNeeded + 5) / 6));  // Estimate parent count needed
+
+        int removedCount = 0;
+        foreach (var parentBranch in shuffledLevel2and3.Take(parentBranchesToRemove)) {
+          if (removedCount >= additionalNeeded)
+            break;
+
+          string parentId = getBranchId(parentBranch.Item1);
+          if (!topBranchesToRemove.Contains(parentId)) {
+            // Remove parent
+            topBranchesToRemove.Add(parentId);
+            BranchRemovalTracker.RecordRemovedBranch(mTreeId, parentId);
+            removedCount++;
+
+            // Remove ALL descendants
+            var descendants = getAllDescendants(parentBranch.Item1);
+            foreach (var descendant in descendants) {
+              string descendantId = getBranchId(descendant);
+              if (!topBranchesToRemove.Contains(descendantId)) {
+                topBranchesToRemove.Add(descendantId);
+                BranchRemovalTracker.RecordRemovedBranch(mTreeId, descendantId);
+                removedCount++;
+              }
+            }
+          }
         }
       }
     }
@@ -655,7 +726,7 @@ class Tree2D {
     // Always generate at least one branch per side, more in later phases
     int numBranchesPerSide = Math.Max(1, phase * 2 - 1);
 
-    // WIDER ANGLES: Increase base angle from 60 to 85 degrees for more open appearance
+    // WIDER ANGLES: Increase base angle from 60 to 95 degrees for more open appearance
     double baseAngle = mBaseAngle * (1 - 0.02 * (phase - 1));  // Reduced angle decrease per phase
 
     for (int i = 0; i < numBranchesPerSide; i++) {
@@ -686,7 +757,8 @@ class Tree2D {
       double heightBasedAngleFactor = 0.5 + 0.5 * heightFactor;  // 0.5 at top, 1.0 at bottom
       double angle = baseAngle * heightBasedAngleFactor;
 
-      // Add some random variation for more natural look (±5°)
+      // RANDOM VARIATION ONLY DURING INITIAL GENERATION - NOT AFTER PHASE 8
+      // Add some random variation for more natural look during initial creation only
       double randomVariation = (Utils.balRnd.NextDouble() - 0.5) * 10.0;  // -5° to +5°
       angle += randomVariation;
 

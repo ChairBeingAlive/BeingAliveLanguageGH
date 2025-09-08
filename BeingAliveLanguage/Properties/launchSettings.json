@@ -8,7 +8,7 @@
       "environmentVariables": {
         "RHINO_PACKAGE_DIRS": "$(ProjectDir)$(OutputPath)\\"
       },
-      "nativeDebugging": true
+      "nativeDebugging": false
     },
     "Rhino7": {
       "commandName": "Executable",
