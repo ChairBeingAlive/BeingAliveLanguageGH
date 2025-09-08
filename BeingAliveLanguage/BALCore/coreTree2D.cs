@@ -53,8 +53,8 @@ class Tree2D {
 
     // Configure growth parameters
     mTrunkSegLen = height / mStage1;
-    mMaxBranchLen = height * 0.5;
-    mMinBranchLen = height * 0.35;
+    mMaxBranchLen = height * 0.7;
+    mMinBranchLen = height * 0.3;
 
     // Generate a unique identifier for this tree instance based on position and properties
     mTreeId = GenerateTreeId();
@@ -743,23 +743,19 @@ class Tree2D {
       Point3d branchPoint = mCurTrunk.PointAt(posRatio);
 
       // HEIGHT-BASED MAX LENGTH: Longer branches near ground, shorter higher up
-      double heightFactor = 1.0 - posRatio;  // 1.0 at bottom, 0.0 at top
+      double heightFactor = Math.Pow(1.0 - posRatio, 0.7);  // 1.0 at bottom, 0.0 at top
       double maxLengthForThisHeight =
-          mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
+          mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 2.5);
 
-      // ROUNDED CANOPY MODIFICATION: Apply a curved length adjustment for more organic shape
-      // Use a parabolic curve to create a more rounded silhouette
-      double curvedLengthFactor = 1.0 - Math.Pow(posRatio - 0.3, 2) * 0.3;  // Parabolic adjustment
+      // ENHANCED CURVED SILHOUETTE: More aggressive reduction for upper branches
+      double curvedLengthFactor = 0.7 + 0.3 * Math.Sin(posRatio * Math.PI);
       maxLengthForThisHeight *= curvedLengthFactor;
 
-      // STAGE 1 & 2 PROGRESSION: Start small, reach max by end of stage 2
-      double progressionFactor;
+      //// STAGE 1 & 2 PROGRESSION: Start small, reach max by end of stage 2
+      double progressionFactor = 0.5;
       if (phase <= mStage1) {
         // Stage 1: 20% to 60% of max length
-        progressionFactor = Utils.remap(phase, 1, mStage1, 0.2, 0.6);
-      } else {
-        // Will be grown further in Stage 2, so keep at 60% for now
-        progressionFactor = 0.6;
+        progressionFactor = Utils.remap(phase, 1, mStage1, 0.2, progressionFactor);
       }
 
       double branchLength = maxLengthForThisHeight * progressionFactor;
@@ -813,7 +809,7 @@ class Tree2D {
   // COMBINED: Generate canopy arcs based on current phase
   private void GenerateCanopyArcs() {
     Point3d leftTip, rightTip;
-    double arcHeight;
+    Point3d meetingPoint;
 
     if (mCurPhase <= mStage1) {
       // PHASES 1-4: Use side branch tips
@@ -821,11 +817,15 @@ class Tree2D {
         return;
 
       // Find the bottom (longest) branches - these should be at index 0
-      leftTip = mSideBranch_l[0].PointAtEnd + mSideBranch_l.First().TangentAtEnd * 0.1 * mHeight;
-      rightTip = mSideBranch_r[0].PointAtEnd + mSideBranch_r.First().TangentAtEnd * 0.1 * mHeight;
+      leftTip =
+          mSideBranch_l.First().PointAtEnd + mSideBranch_l.First().TangentAtEnd * 0.05 * mHeight;
+      rightTip =
+          mSideBranch_r.First().PointAtEnd + mSideBranch_r.First().TangentAtEnd * 0.05 * mHeight;
 
-      // Arc peak height above trunk top for young trees
-      arcHeight = mHeight * 0.1;
+      // Meeting point above trunk top for young trees (fixed height)
+      Point3d trunkTop = mCurTrunk.PointAtEnd;
+      double arcHeight = mHeight * 0.1;
+      meetingPoint = trunkTop + mPln.YAxis * arcHeight;
     } else {
       // PHASES 5+: Use top branch tips
       if (mSubBranch_l.Count == 0 || mSubBranch_r.Count == 0)
@@ -837,13 +837,21 @@ class Tree2D {
       rightTip = FindOutermostTopBranchTip(mSubBranch_r) +
                  mSideBranch_r.Last().TangentAtEnd * 0.05 * mHeight;
 
-      // Smaller arc height for mature trees
-      arcHeight = mHeight * 0.15;
-    }
+      // DYNAMIC MEETING POINT: Find the highest point of all top branches
+      double highestY = Math.Max(leftTip.Y, rightTip.Y);
 
-    // Create meeting point above the tree on center axis
-    Point3d trunkTop = mCurTrunk.PointAtEnd;
-    Point3d meetingPoint = trunkTop + mPln.YAxis * arcHeight;
+      // Check all top branches to find the absolute highest point
+      foreach (var branch in mSubBranch) {
+        double branchHighestY = branch.PointAtEnd.Y;
+        if (branchHighestY > highestY) {
+          highestY = branchHighestY;
+        }
+      }
+
+      // Meeting point above the highest top branch with additional height
+      double additionalHeight = mHeight * 0.05;  // 5% of tree height above highest branch
+      meetingPoint = new Point3d(mPln.Origin.X, highestY + additionalHeight, mPln.Origin.Z);
+    }
 
     // Create left arc (from left tip to meeting point)
     mCurCanopy_l = CreateArc(leftTip, meetingPoint, true);
@@ -894,7 +902,7 @@ class Tree2D {
       perpendicular *= isLeftSide ? -1 : 1;
 
       // Offset the midpoint to create arc curvature
-      double arcDepth = startPoint.DistanceTo(endPoint) * 0.2;  // 30% of chord length
+      double arcDepth = startPoint.DistanceTo(endPoint) * 0.125;  // 30% of chord length
       Point3d controlPoint = midPoint + perpendicular * arcDepth;
 
       // Create a 3-point arc using start, control, and end points

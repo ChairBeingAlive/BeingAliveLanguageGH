@@ -63,7 +63,7 @@ public class BALtree2d : GH_Component {
     }
 
     var trunk = new List<Curve>();
-    Curve canopyC = null;
+    var canopyC = new List<Curve>();
     var sideB = new List<Curve>();
     var topB = new List<Curve>();
     var tInfoLst = new List<TreeProperty>();
@@ -174,7 +174,7 @@ public class BALtree2d : GH_Component {
 
       // output the curves
       trunk.Add(t.mCurTrunk);
-      canopyC = t.mCurCanopy;
+      canopyC.Add(t.mCurCanopy);
       sideB.AddRange(t.mSideBranch);
       topB.AddRange(t.mSubBranch);
     }
@@ -185,7 +185,7 @@ public class BALtree2d : GH_Component {
     }
 
     DA.SetDataList("Trunk", trunk);
-    DA.SetData("CanopyCurve", canopyC);
+    DA.SetDataList("CanopyCurve", canopyC);
     DA.SetDataList("SideBranch", sideB);
     DA.SetDataList("TopBranch", topB);
     DA.SetDataList("TreeInfo", tInfoLst);
@@ -247,7 +247,7 @@ public class BALtree3dComposer : GH_Component {
     pManager.AddTextParameter("Id",
                               "id",
                               "An optional id of the tree or tree group, used for selecting " +
-                              "trees in the same group in the renderer.",
+                                  "trees in the same group in the renderer.",
                               GH_ParamAccess.item,
                               "");
   }
@@ -543,7 +543,7 @@ public class BALtreeInteraction : GH_Component {
       : base("Forest Interaction",
              "balForest",
              "Create interactions between trees based on space, shading, etc. to simulate tree " +
-             "status in a forest.",
+                 "status in a forest.",
              "BAL",
              "03::plant") {}
 
@@ -610,7 +610,7 @@ public class BALtreeInteraction : GH_Component {
     if (nearestNeighbors.Count == 0) {
       AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                         "No forest interaction happens. Either trees have no neighbour, or " +
-                        "something wrong happens.");
+                            "something wrong happens.");
       processedTrees = treeWrappers;
     } else {
       for (int i = 0; i < trees.Count; i++) {
