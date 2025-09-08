@@ -176,16 +176,17 @@ class Tree2D {
     GenerateSideBranches(growthPhase);
   }
 
-  // Stage 2: Mature tree growth - WITH GEOMETRIC BRANCH ASSIGNMENT
+  // Stage 2: Mature tree growth - FIXED to maintain Phase 8 length for later phases
   private void GrowStage2() {
     // Calculate how far into stage 2 we are
     int stage2Phase = Math.Min(mCurPhase - mStage1, mStage2 - mStage1);
 
     // PROGRESSIVE GROWTH: Grow side branches from 60% to 100% of their max length during Stage 2
-    // STOP GROWING AFTER PHASE 8
-    if (mCurPhase > mStage1 && mCurPhase <= mStage2) {  // Only grow phases 5-8
-      // Calculate target progression factor for current phase
-      double targetProgressionFactor = Utils.remap(mCurPhase, mStage1 + 1, mStage2, 0.6, 1.0);
+    // MAINTAIN PHASE 8 LENGTH FOR PHASES 9+
+    if (mCurPhase > mStage1) {  // Apply to all phases 5+
+      // Calculate target progression factor - but cap at phase 8's progression
+      int effectivePhase = Math.Min(mCurPhase, mStage2);  // Cap at phase 8
+      double targetProgressionFactor = Utils.remap(effectivePhase, mStage1 + 1, mStage2, 0.6, 1.0);
 
       // Extend existing side branches to reach their target length
       for (int i = 0; i < mSideBranch_l.Count; i++) {
@@ -200,7 +201,7 @@ class Tree2D {
         double maxLengthForThisHeight =
             mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
 
-        // Calculate target length for this phase
+        // Calculate target length for this phase (capped at phase 8's length)
         double targetLength = maxLengthForThisHeight * targetProgressionFactor;
 
         mSideBranch_l[i] =
@@ -219,7 +220,7 @@ class Tree2D {
         double maxLengthForThisHeight =
             mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
 
-        // Calculate target length for this phase
+        // Calculate target length for this phase (capped at phase 8's length)
         double targetLength = maxLengthForThisHeight * targetProgressionFactor;
 
         mSideBranch_r[i] =
@@ -247,9 +248,8 @@ class Tree2D {
     }
 
     mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
-  }
+  }  // Stage 3: Additional top-only bi-branching - WITH GEOMETRIC BRANCH ASSIGNMENT
 
-  // Stage 3: Additional top-only bi-branching - WITH GEOMETRIC BRANCH ASSIGNMENT
   private void GrowStage3() {
     int stage3Phase = Math.Min(mCurPhase - mStage2, mStage3 - mStage2);
 
@@ -416,7 +416,8 @@ class Tree2D {
     mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
   }
 
-  // Apply top branch removal with simplified logic
+  // Apply top branch removal with CORRECTED hierarchical logic - DON'T REMOVE LEVEL 2
+  // (trunk-attached)
   private void ApplyTopBranchRemoval(int stage4Phase) {
     if (mSubBranch.Count == 0)
       return;  // No top branches to remove
@@ -475,12 +476,14 @@ class Tree2D {
       }
     }
 
-    // For phase 11: Remove 30% focusing on highest + second highest levels
+    // For phase 11: Remove 30% focusing on highest + second highest levels (EXCLUDE LEVEL 2)
     if (stage4Phase == 1) {
       BranchRemovalTracker.ClearTree(mTreeId);
 
-      // Group branches by level and identify highest and second highest
-      var branchesByLevel = allTopBranches.GroupBy(b => b.Item3)
+      // Group branches by level and identify highest and second highest (EXCLUDE LEVEL 2)
+      var branchesByLevel = allTopBranches
+                                .Where(b => b.Item3 > 2)  // EXCLUDE LEVEL 2 (trunk-attached)
+                                .GroupBy(b => b.Item3)
                                 .OrderByDescending(g => g.Key)
                                 .ToDictionary(g => g.Key, g => g.ToList());
 
@@ -489,12 +492,12 @@ class Tree2D {
         int highestLevel = levels[0];
         int secondHighestLevel = levels[1];
 
-        // Get branches from highest and second highest levels
+        // Get branches from highest and second highest levels (both are > level 2)
         var targetBranches = new List<Tuple<Curve, bool, int>>();
         targetBranches.AddRange(branchesByLevel[highestLevel]);
         targetBranches.AddRange(branchesByLevel[secondHighestLevel]);
 
-        // Calculate 30% of total branches
+        // Calculate 30% of total branches (including level 2 in the count, but not in removal)
         int targetRemovalCount = (int)(allTopBranches.Count * 0.30);
 
         // Randomly select parent branches to remove (with all their descendants)
@@ -529,34 +532,41 @@ class Tree2D {
         }
       }
     }
-    // For phase 12: Add another 30% total, focusing on levels 2-3
+    // For phase 12: Add another 30% total, focusing on levels 3-4 (NOT 2-3)
     else if (stage4Phase == 2) {
-      // Find available branches not already removed
+      // Find available branches not already removed (EXCLUDE LEVEL 2)
       var availableBranches =
-          allTopBranches.Where(b => !topBranchesToRemove.Contains(getBranchId(b.Item1))).ToList();
+          allTopBranches
+              .Where(b => !topBranchesToRemove.Contains(getBranchId(b.Item1)) && b.Item3 > 2)
+              .ToList();
 
       // Calculate total target (60% total, minus what's already removed)
       int totalTarget = (int)(allTopBranches.Count * 0.60);
       int additionalNeeded = totalTarget - topBranchesToRemove.Count;
 
       if (additionalNeeded > 0) {
-        // Focus on levels 2-3 for phase 12
-        var level2and3Branches =
-            availableBranches.Where(b => b.Item3 == 2 || b.Item3 == 3).ToList();
+        // Focus on levels 3-4 for phase 12 (NOT 2-3, since we exclude level 2)
+        var level3and4Branches =
+            availableBranches.Where(b => b.Item3 == 3 || b.Item3 == 4).ToList();
 
-        // Randomly select 1-2 parent branches from levels 2-3
-        var shuffledLevel2and3 = level2and3Branches
+        // If not enough in 3-4, expand to any level > 2
+        if (level3and4Branches.Count < 2) {
+          level3and4Branches = availableBranches.ToList();
+        }
+
+        // Randomly select 1-2 parent branches from levels 3-4+
+        var shuffledLevel3and4 = level3and4Branches
                                      .OrderBy(
                                          _ => rnd.NextDouble())
                                      .ToList();
 
         int parentBranchesToRemove =
             Math.Min(2,
-                     Math.Min(shuffledLevel2and3.Count,
+                     Math.Min(shuffledLevel3and4.Count,
                               (additionalNeeded + 5) / 6));  // Estimate parent count needed
 
         int removedCount = 0;
-        foreach (var parentBranch in shuffledLevel2and3.Take(parentBranchesToRemove)) {
+        foreach (var parentBranch in shuffledLevel3and4.Take(parentBranchesToRemove)) {
           if (removedCount >= additionalNeeded)
             break;
 
@@ -603,9 +613,7 @@ class Tree2D {
     mSubBranch_l = newSubBranchL;
     mSubBranch_r = newSubBranchR;
     mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
-  }
-
-  // Helper method to determine if a branch is on the left side of the plane
+  }  // Helper method to determine if a branch is on the left side of the plane
   private bool IsBranchOnLeftSide(Curve branch) {
     // Get the branch's endpoint (or midpoint for better accuracy)
     Point3d branchEnd = branch.PointAtEnd;
