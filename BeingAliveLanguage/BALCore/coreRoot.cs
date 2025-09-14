@@ -538,14 +538,14 @@ class RootTree3D {
   /// assign them different phase range [start, end]
   /// when rootbranch in "start" phase, it falls into the "new" branch category
   /// when rootbranch in "end" phase, it falls into the "dead" branch category
+  ///
+  /// The logic applies to Level 1-3, where the level represent the layer in depth.
+  ///
   /// </summary>
   public String GrowRoot() {
     // Get the directional vector based on divN
     Plane basePln = mMap3d.mPln;
     var vecLst = new List<Vector3d>();
-
-    // Define growth parameters
-    // double maxLength = mTreeHeight * 3; // Maximum length of each root branch
 
     // ---------------------------------------------
     // Main TAP root
@@ -609,15 +609,20 @@ class RootTree3D {
         surroundTapRoots.Add(newTapRoot);
 
         // exploiter
-        var rootExplorer = GenerateExplorationalRoots(root, 5);
+        var rootExplorer = GenerateExplorationalRoots(root, 4);
         explorerRoots.AddRange(rootExplorer);
       }
 
-      // collect the newly growed roots with phase interval
+      //! collect the newly growed roots with phase interval
+      // master roots lives till end
       nextLevelRoots.ForEach(
           x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 12))));
-      surroundTapRoots.ForEach(
-          x => mRootTap.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 11))));
+
+      // tap roots have lifespan = 5
+      surroundTapRoots.ForEach(x => mRootTap.Add(new RootBranch(
+                                   x.ToNurbsCurve(), new Interval(startPhase, startPhase + 5))));
+
+      // explorer roots have lifespan = 4
       explorerRoots.ForEach(
           x => mRootExplorer.Add(new RootBranch(
               x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, mPhase + 4)))));
@@ -640,7 +645,7 @@ class RootTree3D {
                                             4);
         masterColletion.AddRange(newSegments);
 
-        var newExploiter = GenerateExplorationalRoots(root, 5);
+        var newExploiter = GenerateExplorationalRoots(root, 4);
         exploiterCollection.AddRange(newExploiter);
       }
 
@@ -648,12 +653,12 @@ class RootTree3D {
           x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 12))));
       exploiterCollection.ForEach(
           x => mRootExplorer.Add(new RootBranch(
-              x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, mPhase + 3)))));
+              x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, startPhase + 5)))));
 
       frontEndRoots = masterColletion;
     }
     // additional explorer of the last generate seg
-    if (mPhase > 5) {
+    if (mPhase > 6) {
       var startPhase = 6;
       var exploiterCollection = new List<Polyline>();
       foreach (var root in frontEndRoots) {
@@ -663,7 +668,7 @@ class RootTree3D {
 
       exploiterCollection.ForEach(
           x => mRootExplorer.Add(new RootBranch(
-              x.ToNurbsCurve(), new Interval(startPhase, Math.Min(12, mPhase + 4)))));
+              x.ToNurbsCurve(), new Interval(startPhase, Math.Min(12, startPhase + 5)))));
     }
 
     // ---------------------------------------------
@@ -705,10 +710,10 @@ class RootTree3D {
       // collect the newly growed roots with phase interval
       nextLevelRoots.ForEach(
           x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
-      surroundTapRoots.ForEach(
-          x => mRootTap.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
-      explorerRoots.ForEach(
-          x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
+      surroundTapRoots.ForEach(x => mRootTap.Add(new RootBranch(
+                                   x.ToNurbsCurve(), new Interval(startPhase, startPhase + 3))));
+      explorerRoots.ForEach(x => mRootExplorer.Add(new RootBranch(
+                                x.ToNurbsCurve(), new Interval(startPhase, startPhase + 3))));
 
       // update currentLevel for the next iteration
       frontEndRoots = nextLevelRoots;
