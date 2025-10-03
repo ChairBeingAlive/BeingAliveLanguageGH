@@ -124,6 +124,39 @@
   <data name="balGaussen" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\balGaussen.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
+  <data name="balOrganBulb" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganBulb.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganCreepingShoot" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganCreepingShoot.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganCushion" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganCushion.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganGroundRunner" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganGroundRunner.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganHiddenReserved" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganHiddenReserved.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganMultiRoot" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganMultiRoot.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganRhizome" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganRhizome.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganStemTuber" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganStemTuber.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganSucculentPlant" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganSucculentPlant.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganTapRoot" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganTapRoot.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="balOrganTuft" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\balOrganTuft.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="balRootOrganicMatter" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\balRootOrganicMatter.png;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>

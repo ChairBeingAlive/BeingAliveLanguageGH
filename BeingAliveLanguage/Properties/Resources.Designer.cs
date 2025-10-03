@@ -19,10 +19,10 @@ namespace BeingAliveLanguage.Properties {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
+    public class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -36,7 +36,7 @@ namespace BeingAliveLanguage.Properties {
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BeingAliveLanguage.Properties.Resources", typeof(Resources).Assembly);
@@ -51,7 +51,7 @@ namespace BeingAliveLanguage.Properties {
         ///   resource lookups using this strongly typed resource class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -63,7 +63,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balEvapotranspiration {
+        public static byte[] balEvapotranspiration {
             get {
                 object obj = ResourceManager.GetObject("balEvapotranspiration", resourceCulture);
                 return ((byte[])(obj));
@@ -73,7 +73,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balGaussen {
+        public static byte[] balGaussen {
             get {
                 object obj = ResourceManager.GetObject("balGaussen", resourceCulture);
                 return ((byte[])(obj));
@@ -81,9 +81,119 @@ namespace BeingAliveLanguage.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganBulb {
+            get {
+                object obj = ResourceManager.GetObject("balOrganBulb", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganCreepingShoot {
+            get {
+                object obj = ResourceManager.GetObject("balOrganCreepingShoot", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganCushion {
+            get {
+                object obj = ResourceManager.GetObject("balOrganCushion", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganGroundRunner {
+            get {
+                object obj = ResourceManager.GetObject("balOrganGroundRunner", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganHiddenReserved {
+            get {
+                object obj = ResourceManager.GetObject("balOrganHiddenReserved", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganMultiRoot {
+            get {
+                object obj = ResourceManager.GetObject("balOrganMultiRoot", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganRhizome {
+            get {
+                object obj = ResourceManager.GetObject("balOrganRhizome", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganStemTuber {
+            get {
+                object obj = ResourceManager.GetObject("balOrganStemTuber", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganSucculentPlant {
+            get {
+                object obj = ResourceManager.GetObject("balOrganSucculentPlant", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganTapRoot {
+            get {
+                object obj = ResourceManager.GetObject("balOrganTapRoot", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap balOrganTuft {
+            get {
+                object obj = ResourceManager.GetObject("balOrganTuft", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balRootOrganicMatter {
+        public static byte[] balRootOrganicMatter {
             get {
                 object obj = ResourceManager.GetObject("balRootOrganicMatter", resourceCulture);
                 return ((byte[])(obj));
@@ -93,7 +203,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balRootPlanar {
+        public static byte[] balRootPlanar {
             get {
                 object obj = ResourceManager.GetObject("balRootPlanar", resourceCulture);
                 return ((byte[])(obj));
@@ -103,7 +213,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balRootSectional {
+        public static byte[] balRootSectional {
             get {
                 object obj = ResourceManager.GetObject("balRootSectional", resourceCulture);
                 return ((byte[])(obj));
@@ -113,7 +223,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilAnalysis {
+        public static byte[] balSoilAnalysis {
             get {
                 object obj = ResourceManager.GetObject("balSoilAnalysis", resourceCulture);
                 return ((byte[])(obj));
@@ -123,7 +233,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilBase {
+        public static byte[] balSoilBase {
             get {
                 object obj = ResourceManager.GetObject("balSoilBase", resourceCulture);
                 return ((byte[])(obj));
@@ -133,7 +243,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilCompact {
+        public static byte[] balSoilCompact {
             get {
                 object obj = ResourceManager.GetObject("balSoilCompact", resourceCulture);
                 return ((byte[])(obj));
@@ -143,7 +253,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilDiv {
+        public static byte[] balSoilDiv {
             get {
                 object obj = ResourceManager.GetObject("balSoilDiv", resourceCulture);
                 return ((byte[])(obj));
@@ -153,7 +263,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilDiv_rnd {
+        public static byte[] balSoilDiv_rnd {
             get {
                 object obj = ResourceManager.GetObject("balSoilDiv_rnd", resourceCulture);
                 return ((byte[])(obj));
@@ -163,27 +273,27 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilInfo {
+        public static byte[] balSoilInfo {
             get {
                 object obj = ResourceManager.GetObject("balSoilInfo", resourceCulture);
                 return ((byte[])(obj));
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilMap2D {
+        public static byte[] balSoilMap2D {
             get {
                 object obj = ResourceManager.GetObject("balSoilMap2D", resourceCulture);
                 return ((byte[])(obj));
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilMap3D {
+        public static byte[] balSoilMap3D {
             get {
                 object obj = ResourceManager.GetObject("balSoilMap3D", resourceCulture);
                 return ((byte[])(obj));
@@ -193,7 +303,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilMorphFan {
+        public static byte[] balSoilMorphFan {
             get {
                 object obj = ResourceManager.GetObject("balSoilMorphFan", resourceCulture);
                 return ((byte[])(obj));
@@ -203,7 +313,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilOrganicsInner {
+        public static byte[] balSoilOrganicsInner {
             get {
                 object obj = ResourceManager.GetObject("balSoilOrganicsInner", resourceCulture);
                 return ((byte[])(obj));
@@ -213,7 +323,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilOrganicsTop {
+        public static byte[] balSoilOrganicsTop {
             get {
                 object obj = ResourceManager.GetObject("balSoilOrganicsTop", resourceCulture);
                 return ((byte[])(obj));
@@ -223,7 +333,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilOrganicsTopDep {
+        public static byte[] balSoilOrganicsTopDep {
             get {
                 object obj = ResourceManager.GetObject("balSoilOrganicsTopDep", resourceCulture);
                 return ((byte[])(obj));
@@ -233,7 +343,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilUrban {
+        public static byte[] balSoilUrban {
             get {
                 object obj = ResourceManager.GetObject("balSoilUrban", resourceCulture);
                 return ((byte[])(obj));
@@ -243,7 +353,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balSoilWaterVis {
+        public static byte[] balSoilWaterVis {
             get {
                 object obj = ResourceManager.GetObject("balSoilWaterVis", resourceCulture);
                 return ((byte[])(obj));
@@ -253,7 +363,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTree2D {
+        public static byte[] balTree2D {
             get {
                 object obj = ResourceManager.GetObject("balTree2D", resourceCulture);
                 return ((byte[])(obj));
@@ -263,7 +373,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTree3D {
+        public static byte[] balTree3D {
             get {
                 object obj = ResourceManager.GetObject("balTree3D", resourceCulture);
                 return ((byte[])(obj));
@@ -273,7 +383,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTree3DVolume {
+        public static byte[] balTree3DVolume {
             get {
                 object obj = ResourceManager.GetObject("balTree3DVolume", resourceCulture);
                 return ((byte[])(obj));
@@ -283,7 +393,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTreeComposer {
+        public static byte[] balTreeComposer {
             get {
                 object obj = ResourceManager.GetObject("balTreeComposer", resourceCulture);
                 return ((byte[])(obj));
@@ -293,7 +403,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTreeInteraction {
+        public static byte[] balTreeInteraction {
             get {
                 object obj = ResourceManager.GetObject("balTreeInteraction", resourceCulture);
                 return ((byte[])(obj));
@@ -303,7 +413,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTreeRenderer {
+        public static byte[] balTreeRenderer {
             get {
                 object obj = ResourceManager.GetObject("balTreeRenderer", resourceCulture);
                 return ((byte[])(obj));
@@ -313,7 +423,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTreeRoot2D {
+        public static byte[] balTreeRoot2D {
             get {
                 object obj = ResourceManager.GetObject("balTreeRoot2D", resourceCulture);
                 return ((byte[])(obj));
@@ -323,7 +433,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] balTreeRoot3D {
+        public static byte[] balTreeRoot3D {
             get {
                 object obj = ResourceManager.GetObject("balTreeRoot3D", resourceCulture);
                 return ((byte[])(obj));
@@ -333,7 +443,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] packageManagerIcon {
+        public static byte[] packageManagerIcon {
             get {
                 object obj = ResourceManager.GetObject("packageManagerIcon", resourceCulture);
                 return ((byte[])(obj));
@@ -343,7 +453,7 @@ namespace BeingAliveLanguage.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] pluginIcon {
+        public static byte[] pluginIcon {
             get {
                 object obj = ResourceManager.GetObject("pluginIcon", resourceCulture);
                 return ((byte[])(obj));
