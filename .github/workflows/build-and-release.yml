@@ -115,6 +115,7 @@ jobs:
       Configuration: Release
       ARTIFACTS_DIR: artifacts/release
       CPP_PREBUILD_DIR: cppPrebuild
+      YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
 
     steps:
       - uses: actions/checkout@v3
@@ -253,6 +254,41 @@ jobs:
             ${{ env.ARTIFACTS_DIR }}/*.yak
             ${{ env.ARTIFACTS_DIR }}/releaseRH8/
             ${{ env.ARTIFACTS_DIR }}/bin/
+
+      # Push to Yak server
+      - name: Push to Yak Server
+        if: github.ref_type == 'tag' && env.YAK_TOKEN != ''
+        shell: pwsh
+        run: |
+          Write-Host "Pushing .yak package to Yak server..."
+
+          # Find the .yak file
+          $yakFile = Get-ChildItem -Path "${{ env.ARTIFACTS_DIR }}" -Filter "*.yak" | Select-Object -First 1
+
+          if ($yakFile) {
+            Write-Host "Found .yak file: $($yakFile.Name)"
+            
+            # The yak.exe should already be downloaded by prepare_yak_pkg.ps1
+            $yakExe = "${{ github.workspace }}\_release\yak.exe"
+            
+            if (Test-Path $yakExe) {
+              Write-Host "Using yak.exe from: $yakExe"
+              & $yakExe push $yakFile.FullName
+              
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "✓ Successfully pushed $($yakFile.Name) to Yak server"
+              } else {
+                Write-Error "Failed to push to Yak server (exit code: $LASTEXITCODE)"
+                exit 1
+              }
+            } else {
+              Write-Error "yak.exe not found at $yakExe"
+              exit 1
+            }
+          } else {
+            Write-Error "No .yak file found in ${{ env.ARTIFACTS_DIR }}"
+            exit 1
+          }
 
       # Create GitHub Release
       - name: Create Release
