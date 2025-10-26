@@ -183,32 +183,44 @@ jobs:
           # Copy entire bin directory (includes DLLs from postbuild.ps1)
           Copy-Item -Path "${{ github.workspace }}\bin" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
 
-          # Run Yak packaging script
-          $yakScriptPath = "${{ github.workspace }}\_release\prepare_yak_pkg.ps1"
-          & "$yakScriptPath"
+          # Change to _release directory and run Yak packaging script
+          Push-Location "${{ github.workspace }}\_release"
+          & ".\prepare_yak_pkg.ps1"
+          Pop-Location
 
-          # Debug: List contents of _release directory
-          Write-Host "Contents of _release directory:"
-          Get-ChildItem -Path "${{ github.workspace }}\_release" | ForEach-Object { Write-Host $_.FullName }
-
-          # Check if releaseRH8 exists
+          # Debug: Check where releaseRH8 was created
+          Write-Host "Checking for releaseRH8 in _release:"
           if (Test-Path "${{ github.workspace }}\_release\releaseRH8") {
-            Write-Host "releaseRH8 folder found"
-            Get-ChildItem -Path "${{ github.workspace }}\_release\releaseRH8" -Recurse | ForEach-Object { Write-Host $_.FullName }
-          } else {
-            Write-Host "releaseRH8 folder NOT found in _release"
+            Write-Host "Found in _release directory"
+            Get-ChildItem -Path "${{ github.workspace }}\_release\releaseRH8" | ForEach-Object { Write-Host $_.Name }
           }
 
-          # Copy Yak packages from releaseRH8 to _release and then to artifacts
-          Copy-Item -Path "${{ github.workspace }}\_release\releaseRH8\*.yak" -Destination "${{ github.workspace }}\_release\" -Force
-          Copy-Item -Path "${{ github.workspace }}\_release\*.yak" -Destination ${{ env.ARTIFACTS_DIR }} -Force
+          Write-Host "Checking for releaseRH8 in workspace root:"
+          if (Test-Path "${{ github.workspace }}\releaseRH8") {
+            Write-Host "Found in workspace root directory"
+            Get-ChildItem -Path "${{ github.workspace }}\releaseRH8" | ForEach-Object { Write-Host $_.Name }
+          }
 
-          # Copy releaseRH8 folder to artifacts
-          if (Test-Path "${{ github.workspace }}\_release\releaseRH8") {
-            Copy-Item -Path "${{ github.workspace }}\_release\releaseRH8" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
-            Write-Host "Successfully copied releaseRH8 folder to artifacts"
+          # Copy Yak file and releaseRH8 folder from wherever they were created
+          $releaseRH8Path = if (Test-Path "${{ github.workspace }}\_release\releaseRH8") {
+            "${{ github.workspace }}\_release\releaseRH8"
+          } elseif (Test-Path "${{ github.workspace }}\releaseRH8") {
+            "${{ github.workspace }}\releaseRH8"
           } else {
-            Write-Warning "releaseRH8 folder not found, skipping folder copy"
+            $null
+          }
+
+          if ($releaseRH8Path) {
+            # Copy .yak file to artifacts
+            Copy-Item -Path "$releaseRH8Path\*.yak" -Destination ${{ env.ARTIFACTS_DIR }} -Force
+            Write-Host "Copied .yak file from $releaseRH8Path"
+            
+            # Copy releaseRH8 folder to artifacts
+            Copy-Item -Path $releaseRH8Path -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
+            Write-Host "Copied releaseRH8 folder to artifacts"
+          } else {
+            Write-Error "releaseRH8 folder not found in expected locations"
+            exit 1
           }
 
       - name: Upload Build Artifacts
