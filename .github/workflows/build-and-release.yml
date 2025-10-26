@@ -298,7 +298,6 @@ jobs:
         with:
           files: |
             ${{ env.ARTIFACTS_DIR }}/*.yak
-            ${{ env.ARTIFACTS_DIR }}/releaseRH8/**
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
