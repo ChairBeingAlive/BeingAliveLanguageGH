@@ -290,6 +290,28 @@ jobs:
             exit 1
           }
 
+      # Extract tag message for release notes
+      - name: Extract Tag Message
+        if: github.ref_type == 'tag'
+        id: tag_message
+        shell: pwsh
+        run: |
+          # Get the tag annotation message
+          $tagMessage = git tag -l --format='%(contents)' ${{ github.ref_name }}
+
+          if ([string]::IsNullOrWhiteSpace($tagMessage)) {
+            Write-Host "No tag annotation found, will use auto-generated notes only"
+            echo "has_message=false" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Found tag annotation message:"
+            Write-Host $tagMessage
+            
+            # Escape for JSON/multiline
+            $tagMessage = $tagMessage -replace "`r`n", "%0A" -replace "`n", "%0A" -replace '"', '\"'
+            echo "has_message=true" >> $env:GITHUB_OUTPUT
+            echo "message=$tagMessage" >> $env:GITHUB_OUTPUT
+          }
+
       # Create GitHub Release
       - name: Create Release
         if: github.ref_type == 'tag'
@@ -299,6 +321,7 @@ jobs:
           files: |
             ${{ env.ARTIFACTS_DIR }}/*.yak
           name: Release ${{ github.ref_name }}
+          body: ${{ steps.tag_message.outputs.has_message == 'true' && steps.tag_message.outputs.message || '' }}
           draft: false
           prerelease: false
           generate_release_notes: true
