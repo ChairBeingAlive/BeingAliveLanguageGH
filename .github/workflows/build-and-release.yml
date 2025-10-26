@@ -187,12 +187,29 @@ jobs:
           $yakScriptPath = "${{ github.workspace }}\_release\prepare_yak_pkg.ps1"
           & "$yakScriptPath"
 
+          # Debug: List contents of _release directory
+          Write-Host "Contents of _release directory:"
+          Get-ChildItem -Path "${{ github.workspace }}\_release" | ForEach-Object { Write-Host $_.FullName }
+
+          # Check if releaseRH8 exists
+          if (Test-Path "${{ github.workspace }}\_release\releaseRH8") {
+            Write-Host "releaseRH8 folder found"
+            Get-ChildItem -Path "${{ github.workspace }}\_release\releaseRH8" -Recurse | ForEach-Object { Write-Host $_.FullName }
+          } else {
+            Write-Host "releaseRH8 folder NOT found in _release"
+          }
+
           # Copy Yak packages from releaseRH8 to _release and then to artifacts
           Copy-Item -Path "${{ github.workspace }}\_release\releaseRH8\*.yak" -Destination "${{ github.workspace }}\_release\" -Force
           Copy-Item -Path "${{ github.workspace }}\_release\*.yak" -Destination ${{ env.ARTIFACTS_DIR }} -Force
 
           # Copy releaseRH8 folder to artifacts
-          Copy-Item -Path "${{ github.workspace }}\_release\releaseRH8" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
+          if (Test-Path "${{ github.workspace }}\_release\releaseRH8") {
+            Copy-Item -Path "${{ github.workspace }}\_release\releaseRH8" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
+            Write-Host "Successfully copied releaseRH8 folder to artifacts"
+          } else {
+            Write-Warning "releaseRH8 folder not found, skipping folder copy"
+          }
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
