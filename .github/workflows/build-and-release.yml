@@ -2,9 +2,9 @@ name: Build and Release
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build-cpp:
@@ -13,92 +13,107 @@ jobs:
         os: [windows-latest, macos-latest]
         include:
           - os: windows-latest
-            output-ext: '.dll'
-            output-path: 'build/GeoSharPlusCPP.dll' # use ninja on github actions
-            triplet: 'x64-windows'
-            configure-preset: 'windows-default'
-            build-preset: 'windows-release'
+            output-ext: ".dll"
+            output-path: "build/GeoSharPlusCPP.dll" # use ninja on github actions
+            triplet: "x64-windows"
+            configure-preset: "windows-default"
+            build-preset: "windows-release"
           - os: macos-latest
-            output-ext: '.dylib'
-            output-path: 'build/libGeoSharPlusCPP.dylib'
-            triplet: 'arm64-osx'
-            configure-preset: 'macos-default'
-            build-preset: 'macos-release' 
+            output-ext: ".dylib"
+            output-path: "build/libGeoSharPlusCPP.dylib"
+            triplet: "arm64-osx"
+            configure-preset: "macos-default"
+            build-preset: "macos-release"
     runs-on: ${{ matrix.os }}
     env:
       CPP_Project: GeoSharPlusCPP
       CPP_PREBUILD_DIR: cppPrebuild
 
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    
-    # Setup vcpkg (required by the C++ project)
-    - uses: lukka/get-cmake@latest
-    - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v11
-      with:
-        vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b  # 2025-04-09 version
-        
-        
-    # Configure and build using CMake with presets
-    - name: Configure and Build with CMake
-      uses: lukka/run-cmake@v10
-      with:
-        cmakeListsTxtPath: '${{ github.workspace }}/${{ env.CPP_Project }}/CMakeLists.txt'
-        configurePreset: ${{ matrix.configure-preset }}
-        buildPreset: ${{ matrix.build-preset }}
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-    # Create platform-specific directory in cppPrebuild
-    - name: Create platform directory
-      shell: bash
-      run: |
-        mkdir -p ${{ env.CPP_PREBUILD_DIR }}
-      
-    - name: List build directory contents
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        Write-Host "Contents of build directory:"
-        Get-ChildItem -Path "${{ github.workspace }}/${{ env.CPP_Project }}/build" -Recurse | ForEach-Object { Write-Host $_.FullName }
-        
-        Write-Host "Contents of cppPrebuild directory:"
-        Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -Recurse | ForEach-Object { Write-Host $_.FullName }
+      # Setup vcpkg (required by the C++ project)
+      - uses: lukka/get-cmake@latest
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b # 2025-04-09 version
 
-    # Copy the built libraries to the platform-specific directory
-    - name: Copy C++ artifacts (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        # Then check build directory
-        if (Test-Path "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}") {
-          Copy-Item "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}" -Destination "${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}"
-        }
-        else {
-          # List all files in build directory to help diagnose
-          Write-Host "Searching for DLL in build directory..."
-          Get-ChildItem -Path "${{ github.workspace }}/${{ env.CPP_Project }}/build" -Recurse -Filter "*.dll" | ForEach-Object { Write-Host $_.FullName }
-          
-          Write-Error "ERROR: Built library not found at expected locations"
-        }
+      # Configure and build using CMake with presets
+      - name: Configure and Build with CMake
+        uses: lukka/run-cmake@v10
+        with:
+          cmakeListsTxtPath: "${{ github.workspace }}/${{ env.CPP_Project }}/CMakeLists.txt"
+          configurePreset: ${{ matrix.configure-preset }}
+          buildPreset: ${{ matrix.build-preset }}
 
-    - name: Copy C++ artifacts (MacOS)
-      if: matrix.os == 'macos-latest'
-      shell: bash
-      run: |
-        if [ -f "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}" ]; then
-          cp ${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
-        else
-          echo "ERROR: Built library not found at ${{ matrix.output-path }}"
-        fi
+      # Create platform-specific directory in cppPrebuild
+      - name: Create platform directory
+        shell: bash
+        run: |
+          mkdir -p ${{ env.CPP_PREBUILD_DIR }}
 
-    # Upload C++ artifacts
-    - name: Upload C++ artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: cpp-libs-${{ matrix.os }}  # Dynamic name based on OS
-        path: ${{ env.CPP_PREBUILD_DIR }}
+      - name: List build directory contents
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Write-Host "Contents of build directory:"
+          Get-ChildItem -Path "${{ github.workspace }}/${{ env.CPP_Project }}/build" -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+          Write-Host "Contents of cppPrebuild directory:"
+          Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+      # Copy the built libraries to the platform-specific directory
+      - name: Copy C++ artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # Check the specified output path first
+          if (Test-Path "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}") {
+            Copy-Item "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}" -Destination "${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}"
+            Write-Host "Successfully copied from ${{ matrix.output-path }}"
+          }
+          # Check build/Release subdirectory
+          elseif (Test-Path "${{ github.workspace }}/${{ env.CPP_Project }}/build/Release/GeoSharPlusCPP.dll") {
+            Copy-Item "${{ github.workspace }}/${{ env.CPP_Project }}/build/Release/GeoSharPlusCPP.dll" -Destination "${{ env.CPP_PREBUILD_DIR }}/GeoSharPlusCPP${{ matrix.output-ext }}"
+            Write-Host "Successfully copied from build/Release/"
+          }
+          else {
+            # List all files in build directory to help diagnose
+            Write-Host "Searching for DLL in build directory..."
+            Get-ChildItem -Path "${{ github.workspace }}/${{ env.CPP_Project }}/build" -Recurse -Filter "*.dll" | ForEach-Object { Write-Host $_.FullName }
+            
+            Write-Error "ERROR: Built library not found at expected locations"
+            exit 1
+          }
+
+      - name: Copy C++ artifacts (MacOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          # Check the specified output path first
+          if [ -f "${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }}" ]; then
+            cp ${{ github.workspace }}/${{ env.CPP_Project }}/${{ matrix.output-path }} ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
+            echo "Successfully copied from ${{ matrix.output-path }}"
+          # Check build/Release subdirectory
+          elif [ -f "${{ github.workspace }}/${{ env.CPP_Project }}/build/Release/libGeoSharPlusCPP.dylib" ]; then
+            cp ${{ github.workspace }}/${{ env.CPP_Project }}/build/Release/libGeoSharPlusCPP.dylib ${{ env.CPP_PREBUILD_DIR }}/libGeoSharPlusCPP${{ matrix.output-ext }}
+            echo "Successfully copied from build/Release/"
+          else
+            echo "ERROR: Built library not found at expected locations"
+            echo "Searching for dylib files..."
+            find ${{ github.workspace }}/${{ env.CPP_Project }}/build -name "*.dylib" -type f
+            exit 1
+          fi
+
+      # Upload C++ artifacts
+      - name: Upload C++ artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpp-libs-${{ matrix.os }} # Dynamic name based on OS
+          path: ${{ env.CPP_PREBUILD_DIR }}
 
   # Build C# project
   build-csharp:
@@ -112,88 +127,92 @@ jobs:
       CPP_PREBUILD_DIR: cppPrebuild
 
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-        
-    - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v1.1
-      
-    - name: Setup NuGet
-      uses: NuGet/setup-nuget@v1.2.0
-        
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-         dotnet-version: 7.0.x
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-    # Download C++ artifacts for Windows and macOS
-    - name: Download Windows C++ libs
-      uses: actions/download-artifact@v4
-      with:
-        name: cpp-libs-windows-latest
-        path: ${{ env.CPP_PREBUILD_DIR }}
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
 
-    - name: Download macOS C++ libs
-      uses: actions/download-artifact@v4
-      with:
-        name: cpp-libs-macos-latest
-        path: ${{ env.CPP_PREBUILD_DIR }}
-        
-    # List the downloaded C++ libraries for verification
-    - name: List C++ libraries
-      shell: pwsh
-      run: |
-        Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -Recurse
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1.2.0
 
-    - name: Restore NuGet packages
-      run: nuget restore ${{ env.Solution_Name }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 7.0.x
 
-    # Build C# Project - does NOT rebuild C++
-    - name: Build C# Project 
-      run: |
-        $solutionPath = "${{ github.workspace }}\BeingAliveLanguage.sln"
-        msbuild ${{ env.CSProj_Path }} `
-          /p:Configuration=${{ env.Configuration }} `
-          /p:Platform=AnyCPU `
-          /p:SolutionDir="${{ github.workspace }}\" `
-          /p:SolutionPath="$solutionPath"
-      
-    - name: Prepare Artifacts
-      shell: pwsh
-      run: |
-        # Create artifacts directory
-        New-Item -ItemType Directory -Path ${{ env.ARTIFACTS_DIR }} -Force
-        
-        # Copy entire bin directory (includes DLLs from postbuild.ps1)
-        Copy-Item -Path "${{ github.workspace }}\bin" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
-        
-        # Run Yak packaging script
-        $yakScriptPath = "${{ github.workspace }}\_release\prepare_yak_pkg.ps1"
-        & "$yakScriptPath"
-        
-        # Copy Yak packages to artifacts
-        Copy-Item -Path "${{ github.workspace }}\_release\*.yak" -Destination ${{ env.ARTIFACTS_DIR }} -Force
+      # Download C++ artifacts for Windows and macOS
+      - name: Download Windows C++ libs
+        uses: actions/download-artifact@v4
+        with:
+          name: cpp-libs-windows-latest
+          path: ${{ env.CPP_PREBUILD_DIR }}
 
-    - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-packages
-        path: |
-          ${{ env.ARTIFACTS_DIR }}/**/*.dll
-          ${{ env.ARTIFACTS_DIR }}/**/*.gha
-          ${{ env.ARTIFACTS_DIR }}/**/*.yak
-          ${{ env.ARTIFACTS_DIR }}/**/*.dylib
-          ${{ env.ARTIFACTS_DIR }}/bin/
-        
-    # Create GitHub Release
-    - name: Create Release
-      if: github.ref_type == 'tag'
-      id: create_release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: ${{ env.ARTIFACTS_DIR }}/*
-        name: Release ${{ github.ref_name }}
-        draft: false
-        prerelease: false
-        generate_release_notes: true
+      - name: Download macOS C++ libs
+        uses: actions/download-artifact@v4
+        with:
+          name: cpp-libs-macos-latest
+          path: ${{ env.CPP_PREBUILD_DIR }}
+
+      # List the downloaded C++ libraries for verification
+      - name: List C++ libraries
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -Recurse
+
+      - name: Restore NuGet packages
+        run: nuget restore ${{ env.Solution_Name }}
+
+      # Build C# Project - does NOT rebuild C++
+      - name: Build C# Project
+        run: |
+          $solutionPath = "${{ github.workspace }}\BeingAliveLanguage.sln"
+          msbuild ${{ env.CSProj_Path }} `
+            /p:Configuration=${{ env.Configuration }} `
+            /p:Platform=AnyCPU `
+            /p:SolutionDir="${{ github.workspace }}\" `
+            /p:SolutionPath="$solutionPath"
+
+      - name: Prepare Artifacts
+        shell: pwsh
+        run: |
+          # Create artifacts directory
+          New-Item -ItemType Directory -Path ${{ env.ARTIFACTS_DIR }} -Force
+
+          # Copy entire bin directory (includes DLLs from postbuild.ps1)
+          Copy-Item -Path "${{ github.workspace }}\bin" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
+
+          # Run Yak packaging script
+          $yakScriptPath = "${{ github.workspace }}\_release\prepare_yak_pkg.ps1"
+          & "$yakScriptPath"
+
+          # Copy Yak packages from releaseRH8 to _release and then to artifacts
+          Copy-Item -Path "${{ github.workspace }}\_release\releaseRH8\*.yak" -Destination "${{ github.workspace }}\_release\" -Force
+          Copy-Item -Path "${{ github.workspace }}\_release\*.yak" -Destination ${{ env.ARTIFACTS_DIR }} -Force
+
+          # Copy releaseRH8 folder to artifacts
+          Copy-Item -Path "${{ github.workspace }}\_release\releaseRH8" -Destination ${{ env.ARTIFACTS_DIR }} -Recurse -Force
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: |
+            ${{ env.ARTIFACTS_DIR }}/*.yak
+            ${{ env.ARTIFACTS_DIR }}/releaseRH8/
+            ${{ env.ARTIFACTS_DIR }}/bin/
+
+      # Create GitHub Release
+      - name: Create Release
+        if: github.ref_type == 'tag'
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.ARTIFACTS_DIR }}/*.yak
+            ${{ env.ARTIFACTS_DIR }}/releaseRH8/**
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
