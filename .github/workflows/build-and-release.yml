@@ -55,16 +55,6 @@ jobs:
         run: |
           mkdir -p ${{ env.CPP_PREBUILD_DIR }}
 
-      - name: List build directory contents
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          Write-Host "Contents of build directory:"
-          Get-ChildItem -Path "${{ github.workspace }}/${{ env.CPP_Project }}/build" -Recurse | ForEach-Object { Write-Host $_.FullName }
-
-          Write-Host "Contents of cppPrebuild directory:"
-          Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -Recurse | ForEach-Object { Write-Host $_.FullName }
-
       # Copy the built libraries to the platform-specific directory
       - name: Copy C++ artifacts (Windows)
         if: matrix.os == 'windows-latest'
@@ -142,7 +132,20 @@ jobs:
         with:
           dotnet-version: 7.0.x
 
-      # Download C++ artifacts for Windows and macOS
+      - name: Restore NuGet packages
+        run: nuget restore ${{ env.Solution_Name }}
+
+      # Build C# Project first - does NOT rebuild C++
+      - name: Build C# Project
+        run: |
+          $solutionPath = "${{ github.workspace }}\BeingAliveLanguage.sln"
+          msbuild ${{ env.CSProj_Path }} `
+            /p:Configuration=${{ env.Configuration }} `
+            /p:Platform=AnyCPU `
+            /p:SolutionDir="${{ github.workspace }}\" `
+            /p:SolutionPath="$solutionPath"
+
+      # Download C++ artifacts and copy directly to output directories
       - name: Download Windows C++ libs
         uses: actions/download-artifact@v4
         with:
@@ -155,43 +158,43 @@ jobs:
           name: cpp-libs-macos-latest
           path: ${{ env.CPP_PREBUILD_DIR }}/macos
 
-      # Combine both platform artifacts into the main cppPrebuild directory
-      - name: Combine C++ libraries
+      - name: Copy C++ libraries to output directories
         shell: pwsh
         run: |
-          # Create the main cppPrebuild directory
-          New-Item -ItemType Directory -Path "${{ env.CPP_PREBUILD_DIR }}" -Force | Out-Null
+          Write-Host "Copying C++ libraries to bin output directories..."
 
-          # Copy Windows artifacts
-          if (Test-Path "${{ env.CPP_PREBUILD_DIR }}/windows") {
-            Copy-Item -Path "${{ env.CPP_PREBUILD_DIR }}/windows/*" -Destination "${{ env.CPP_PREBUILD_DIR }}" -Force
-            Write-Host "Copied Windows C++ artifacts"
+          # Find all target framework directories in bin/Release/
+          $targetDirs = Get-ChildItem -Path "${{ github.workspace }}\bin\Release" -Directory
+
+          foreach ($targetDir in $targetDirs) {
+            Write-Host "`nCopying to: $($targetDir.FullName)"
+            
+            # Copy Windows DLL
+            $windowsDll = "${{ env.CPP_PREBUILD_DIR }}\windows\GeoSharPlusCPP.dll"
+            if (Test-Path $windowsDll) {
+              Copy-Item -Path $windowsDll -Destination $targetDir.FullName -Force
+              Write-Host "  ✓ Copied GeoSharPlusCPP.dll"
+            } else {
+              Write-Warning "Windows DLL not found at $windowsDll"
+            }
+            
+            # Copy macOS dylib
+            $macosDylib = "${{ env.CPP_PREBUILD_DIR }}\macos\libGeoSharPlusCPP.dylib"
+            if (Test-Path $macosDylib) {
+              Copy-Item -Path $macosDylib -Destination $targetDir.FullName -Force
+              Write-Host "  ✓ Copied libGeoSharPlusCPP.dylib"
+            } else {
+              Write-Warning "macOS dylib not found at $macosDylib"
+            }
           }
 
-          # Copy macOS artifacts
-          if (Test-Path "${{ env.CPP_PREBUILD_DIR }}/macos") {
-            Copy-Item -Path "${{ env.CPP_PREBUILD_DIR }}/macos/*" -Destination "${{ env.CPP_PREBUILD_DIR }}" -Force
-            Write-Host "Copied macOS C++ artifacts"
-          }
-
-          # List combined artifacts
-          Write-Host "`nCombined C++ libraries in ${{ env.CPP_PREBUILD_DIR }}:"
-          Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -File | ForEach-Object { 
-            Write-Host "  - $($_.Name) ($([math]::Round($_.Length/1KB, 2)) KB)"
-          }
-
-      - name: Restore NuGet packages
-        run: nuget restore ${{ env.Solution_Name }}
-
-      # Build C# Project - does NOT rebuild C++
-      - name: Build C# Project
-        run: |
-          $solutionPath = "${{ github.workspace }}\BeingAliveLanguage.sln"
-          msbuild ${{ env.CSProj_Path }} `
-            /p:Configuration=${{ env.Configuration }} `
-            /p:Platform=AnyCPU `
-            /p:SolutionDir="${{ github.workspace }}\" `
-            /p:SolutionPath="$solutionPath"
+          # List contents of bin/Release directories to verify
+          Write-Host "`n=== Contents of bin/Release directories ==="
+          Get-ChildItem -Path "${{ github.workspace }}\bin\Release" -Recurse -File | 
+            Where-Object { $_.Extension -in '.dll', '.gha', '.dylib' } | 
+            ForEach-Object { 
+              Write-Host "$($_.FullName.Replace('${{ github.workspace }}\', ''))" 
+            }
 
       - name: Prepare Artifacts
         shell: pwsh
