@@ -147,19 +147,38 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: cpp-libs-windows-latest
-          path: ${{ env.CPP_PREBUILD_DIR }}
+          path: ${{ env.CPP_PREBUILD_DIR }}/windows
 
       - name: Download macOS C++ libs
         uses: actions/download-artifact@v4
         with:
           name: cpp-libs-macos-latest
-          path: ${{ env.CPP_PREBUILD_DIR }}
+          path: ${{ env.CPP_PREBUILD_DIR }}/macos
 
-      # List the downloaded C++ libraries for verification
-      - name: List C++ libraries
+      # Combine both platform artifacts into the main cppPrebuild directory
+      - name: Combine C++ libraries
         shell: pwsh
         run: |
-          Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -Recurse
+          # Create the main cppPrebuild directory
+          New-Item -ItemType Directory -Path "${{ env.CPP_PREBUILD_DIR }}" -Force | Out-Null
+
+          # Copy Windows artifacts
+          if (Test-Path "${{ env.CPP_PREBUILD_DIR }}/windows") {
+            Copy-Item -Path "${{ env.CPP_PREBUILD_DIR }}/windows/*" -Destination "${{ env.CPP_PREBUILD_DIR }}" -Force
+            Write-Host "Copied Windows C++ artifacts"
+          }
+
+          # Copy macOS artifacts
+          if (Test-Path "${{ env.CPP_PREBUILD_DIR }}/macos") {
+            Copy-Item -Path "${{ env.CPP_PREBUILD_DIR }}/macos/*" -Destination "${{ env.CPP_PREBUILD_DIR }}" -Force
+            Write-Host "Copied macOS C++ artifacts"
+          }
+
+          # List combined artifacts
+          Write-Host "`nCombined C++ libraries in ${{ env.CPP_PREBUILD_DIR }}:"
+          Get-ChildItem -Path "${{ env.CPP_PREBUILD_DIR }}" -File | ForEach-Object { 
+            Write-Host "  - $($_.Name) ($([math]::Round($_.Length/1KB, 2)) KB)"
+          }
 
       - name: Restore NuGet packages
         run: nuget restore ${{ env.Solution_Name }}
