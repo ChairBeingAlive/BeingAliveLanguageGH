@@ -859,9 +859,10 @@ namespace BeingAliveLanguage {
 
         // Meeting point above the highest top branch with additional height
         double additionalHeight = mHeight * 0.05;  // 5% of tree height above highest branch
-        meetingPoint = new Point3d(mPln.Origin.X, highestY + additionalHeight, mPln.Origin.Z);
-        var xform = Transform.ChangeBasis(mPln, Plane.WorldXY);
-        meetingPoint.Transform(xform);
+        // Create point in plane-local coordinates (X=0 to be centered, Y=highest, Z=0)
+        Point3d meetingPointLocal = new Point3d(0, highestY + additionalHeight, 0);
+        // Transform from plane-local to world coordinates
+        meetingPoint = mPln.PointAt(meetingPointLocal.X, meetingPointLocal.Y, meetingPointLocal.Z);
       }
 
       // Create left arc (from left tip to meeting point)
