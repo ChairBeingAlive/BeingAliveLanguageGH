@@ -552,7 +552,8 @@ public class Tree3D {
   public void ForestInteract() {
     HashSet<int> scaledBranches = new HashSet<int>();
 
-    var scaleBasePhase = 8;
+    // Start scaling from phase 6 (mature branching phase)
+    var scaleBasePhase = 6;
     var branchesInPhase =
         mAllNode
             .Where(node => node.mNodePhase == scaleBasePhase && !scaledBranches.Contains(node.mID))
@@ -577,11 +578,15 @@ public class Tree3D {
   /// <param name="node"></param>
   /// <returns></returns>
   private double CalculateScaleFactor(BranchNode3D node) {
-    double openingAngle = Math.PI;
+    // Use 135-degree cone to determine if neighbor affects this branch
+    double openingAngle = Math.PI * 3 / 4;  // 135 degrees total (67.5 degrees each side)
     double nearestTreeDist = double.MaxValue;
     double furthestBranchDist = 0;
 
-    // Calculate the radius to the furthest branch endpoint
+    // Get tree center (origin of tree plane)
+    Point3d treeCenter = mPln.Origin;
+
+    // Calculate the maximum reach of this branch hierarchy from tree center (in XY plane)
     Queue<BranchNode3D> branchQueue = new Queue<BranchNode3D>();
     branchQueue.Enqueue(node);
     HashSet<int> visitedBranches = new HashSet<int>();
@@ -594,33 +599,45 @@ public class Tree3D {
       visitedBranches.Add(currentBranch.mID);
 
       foreach (var branchCurve in currentBranch.mBranch) {
-        double distToEnd = node.GetPos().DistanceTo(branchCurve.PointAtEnd);
-        furthestBranchDist = Math.Max(furthestBranchDist, distToEnd);
+        // Calculate 2D distance from tree center to branch endpoint
+        Vector3d toEnd = branchCurve.PointAtEnd - treeCenter;
+        double dist2D = Math.Sqrt(toEnd.X * toEnd.X + toEnd.Y * toEnd.Y);
+        furthestBranchDist = Math.Max(furthestBranchDist, dist2D);
       }
 
       // Add sub-branches to the queue
       if (mBranchRelation.ContainsKey(currentBranch.mID)) {
         foreach (var childId in mBranchRelation[currentBranch.mID]) {
-          branchQueue.Enqueue(mAllNode[childId]);
+          var childNode = mAllNode.FirstOrDefault(n => n.mID == childId);
+          if (childNode != null) {
+            branchQueue.Enqueue(childNode);
+          }
         }
       }
     }
 
-    // Calculate the direction of the main branch
-    Vector3d branchDir = node.mBranch[0].PointAtEnd - node.mBranch[0].PointAtStart;
+    // Calculate the direction of the main branch from tree center (in 2D)
+    Vector3d branchDir = node.mBranch[0].PointAtEnd - treeCenter;
     Vector3d branchDir2D = new Vector3d(branchDir.X, branchDir.Y, 0);
+    if (branchDir2D.Length < 0.001) {
+      return 1.0;  // Branch is essentially vertical, no horizontal scaling needed
+    }
     branchDir2D.Unitize();
 
-    // Find the nearest tree within the opening angle
+    // Find the nearest tree within the opening angle of this branch direction
     foreach (var treePt in mNearestTrees) {
-      Vector3d dirToTree = treePt - node.GetPos();
+      // Direction from tree center to neighbor (in 2D)
+      Vector3d dirToTree = treePt - treeCenter;
       Vector3d treeDir2D = new Vector3d(dirToTree.X, dirToTree.Y, 0);
       double dist = treeDir2D.Length;
+      
+      if (dist < 0.001) continue;  // Skip if neighbor is at same position
       treeDir2D.Unitize();
 
+      // Calculate angle between branch direction and direction to neighbor
       double angle = Vector3d.VectorAngle(branchDir2D, treeDir2D);
-      angle %= Math.PI;
 
+      // Check if neighbor is within the cone of influence for this branch
       if (angle <= openingAngle / 2) {
         if (dist < nearestTreeDist) {
           nearestTreeDist = dist;
@@ -628,9 +645,18 @@ public class Tree3D {
       }
     }
 
-    // Calculate scaling factor
-    if (furthestBranchDist > nearestTreeDist - mSoloRadius) {
-      return Math.Max((nearestTreeDist - mSoloRadius) / furthestBranchDist, 0);
+    // If no neighbor tree affects this branch, no scaling needed
+    if (nearestTreeDist == double.MaxValue) {
+      return 1.0;
+    }
+
+    // Calculate available space: distance to neighbor minus own radius
+    // Note: ideally we'd also subtract neighbor's radius, but we don't have that info here
+    double availableSpace = nearestTreeDist - mSoloRadius;
+    
+    // Only scale if branch extends beyond available space
+    if (furthestBranchDist > availableSpace && availableSpace > 0) {
+      return Math.Max(availableSpace / furthestBranchDist, 0.2);  // Don't scale below 20%
     }
 
     return 1.0;
@@ -638,28 +664,60 @@ public class Tree3D {
 
   private void
   ScaleBranchAndSubBranches(BranchNode3D branch, double scaleFactor, HashSet<int> scaledBranches) {
-    Queue<BranchNode3D> branchesToScale = new Queue<BranchNode3D>();
-    branchesToScale.Enqueue(branch);
+    // Process branches level by level (BFS) to ensure parents are processed before children
+    // Store the new endpoint position for each scaled branch so children can attach correctly
+    Dictionary<int, Point3d> newEndpoints = new Dictionary<int, Point3d>();
+    
+    Queue<(BranchNode3D node, int parentId)> branchQueue = new Queue<(BranchNode3D, int)>();
+    branchQueue.Enqueue((branch, -1));  // -1 means no parent (this is the root of scaling)
 
-    while (branchesToScale.Count > 0) {
-      var currentBranch = branchesToScale.Dequeue();
+    while (branchQueue.Count > 0) {
+      var (currentBranch, parentId) = branchQueue.Dequeue();
 
       if (scaledBranches.Contains(currentBranch.mID))
         continue;
 
-      // Scale the current branch
-      foreach (var branchCurve in currentBranch.mBranch) {
-        var xform = Transform.Scale(mPln, scaleFactor, scaleFactor, 1);
-        branchCurve.Transform(xform);
+      // Process each curve in this branch node
+      for (int i = 0; i < currentBranch.mBranch.Count; i++) {
+        var branchCurve = currentBranch.mBranch[i];
+        Point3d originalStart = branchCurve.PointAtStart;
+        Point3d originalEnd = branchCurve.PointAtEnd;
+        
+        // Determine the new start point
+        Point3d newStart;
+        if (parentId >= 0 && newEndpoints.ContainsKey(parentId)) {
+          // Attach to parent's new endpoint
+          newStart = newEndpoints[parentId];
+        } else {
+          // Root branch or no parent info - keep original start
+          newStart = originalStart;
+        }
+        
+        // Calculate original branch vector and scale it
+        Vector3d originalVec = originalEnd - originalStart;
+        Vector3d scaledVec = originalVec * scaleFactor;
+        
+        // Calculate the new endpoint
+        Point3d newEnd = newStart + scaledVec;
+        
+        // Create new scaled curve
+        Line scaledLine = new Line(newStart, newEnd);
+        currentBranch.mBranch[i] = scaledLine.ToNurbsCurve();
+        currentBranch.mBranch[i].Domain = new Interval(0.0, 1.0);
+        
+        // Store the new endpoint for children to use
+        newEndpoints[currentBranch.mID] = newEnd;
       }
 
       scaledBranches.Add(currentBranch.mID);
 
-      // Add sub-branches to the queue
+      // Add child branches to the queue
       if (mBranchRelation.ContainsKey(currentBranch.mID)) {
         foreach (var childId in mBranchRelation[currentBranch.mID]) {
-          var childNode = mAllNode.First(n => n.mID == childId);
-          branchesToScale.Enqueue(childNode);
+          var childNode = mAllNode.FirstOrDefault(n => n.mID == childId);
+          if (childNode != null) {
+            branchQueue.Enqueue((childNode, currentBranch.mID));
+          }
         }
       }
     }
@@ -733,8 +791,10 @@ public class Tree3D {
         branchCollection[node.mNodePhase].AddRange(node.mBranch);
         branchSplitFlagCollection[node.mNodePhase].AddRange(node.flagBranchSplit);
       } else {
-        branchCollection.Add(node.mNodePhase, node.mBranch);
-        branchSplitFlagCollection.Add(node.mNodePhase, node.flagBranchSplit);
+        // Create NEW lists instead of adding references to node.mBranch directly
+        // This prevents mutation of the original node data
+        branchCollection.Add(node.mNodePhase, new List<Curve>(node.mBranch));
+        branchSplitFlagCollection.Add(node.mNodePhase, new List<bool>(node.flagBranchSplit));
       }
     }
     return (branchCollection, branchSplitFlagCollection);
