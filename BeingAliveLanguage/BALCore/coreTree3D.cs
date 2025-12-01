@@ -624,7 +624,9 @@ public class Tree3D {
     }
     branchDir2D.Unitize();
 
-    // Find the nearest tree within the opening angle of this branch direction
+    // Find the nearest tree and the angle to it
+    double smallestAngle = double.MaxValue;
+    
     foreach (var treePt in mNearestTrees) {
       // Direction from tree center to neighbor (in 2D)
       Vector3d dirToTree = treePt - treeCenter;
@@ -641,6 +643,7 @@ public class Tree3D {
       if (angle <= openingAngle / 2) {
         if (dist < nearestTreeDist) {
           nearestTreeDist = dist;
+          smallestAngle = angle;
         }
       }
     }
@@ -651,15 +654,33 @@ public class Tree3D {
     }
 
     // Calculate available space: distance to neighbor minus own radius
-    // Note: ideally we'd also subtract neighbor's radius, but we don't have that info here
     double availableSpace = nearestTreeDist - mSoloRadius;
     
-    // Only scale if branch extends beyond available space
+    // Calculate the base scale factor based on space
+    double baseScaleFactor = 1.0;
     if (furthestBranchDist > availableSpace && availableSpace > 0) {
-      return Math.Max(availableSpace / furthestBranchDist, 0.2);  // Don't scale below 20%
+      baseScaleFactor = Math.Max(availableSpace / furthestBranchDist, 0.2);  // Don't scale below 20%
     }
-
-    return 1.0;
+    
+    // If no scaling needed based on space, return early
+    if (baseScaleFactor >= 1.0) {
+      return 1.0;
+    }
+    
+    // Apply gradient based on angle: 
+    // - At angle = 0 (directly facing neighbor): apply full scale factor
+    // - At angle = openingAngle/2 (edge of cone): blend toward 1.0 (no scaling)
+    // Use smooth cosine interpolation for natural falloff
+    double halfAngle = openingAngle / 2;
+    double angleRatio = smallestAngle / halfAngle;  // 0 at center, 1 at edge
+    
+    // Smooth falloff using cosine curve (eases in and out)
+    double blendFactor = 0.5 * (1.0 - Math.Cos(angleRatio * Math.PI));  // 0 at center, 1 at edge
+    
+    // Interpolate between baseScaleFactor (at center) and 1.0 (at edge)
+    double finalScaleFactor = baseScaleFactor + blendFactor * (1.0 - baseScaleFactor);
+    
+    return finalScaleFactor;
   }
 
   private void
