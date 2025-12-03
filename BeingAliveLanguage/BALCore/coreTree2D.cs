@@ -172,10 +172,12 @@ namespace BeingAliveLanguage {
       Point3d trunkStart = mPln.Origin;
       Point3d trunkEnd = mPln.Origin + mPln.YAxis * trunkHeight;
       mCurTrunk = new Line(trunkStart, trunkEnd).ToNurbsCurve();
-      mCurTrunk.Domain = new Interval(0.0, 1.0);
+      if (mCurTrunk != null) {
+        mCurTrunk.Domain = new Interval(0.0, 1.0);
 
-      // Always generate side branches, even at phase 1
-      GenerateSideBranches(growthPhase);
+        // Always generate side branches, even at phase 1
+        GenerateSideBranches(growthPhase);
+      }
     }
 
     // Stage 2: Mature tree growth - FIXED to maintain Phase 8 length for later phases

@@ -456,37 +456,33 @@ namespace BeingAliveLanguage
         double recordArea = stoneTypeArea.Sum();
         foreach (var i in stoneIndices)
         {
-          // ! 1. select a non-picked triangle in the neighbour set based on distance
+          // ! 1. select the best triangle using compactness-based selection
           var curStoneType = stoneCol[i].typeId;
-          var orderedNeigh = stoneCol[i].strIdNeigh.OrderBy(x => stoneCol[i].distMap[x]);
 
-          string nearestT = "";
-          foreach (var orderedId in orderedNeigh)
-          {
-            if (!pickedTriCenStr.Contains(orderedId))
-            {
-              nearestT = orderedId;
-              break;
-            }
-          }
+          // Use the new selection method that prioritizes shared edges and compactness
+          string bestT = SelectBestTriangle(
+            stoneCol[i].strIdNeigh,
+            stoneCol[i].strIdInside,
+            pickedTriCenStr,
+            stoneCol[i].cen,
+            stoneCol[i].distMap);
 
           // if no available neighbour, this stone is complete (cannot expand any more)
-          if (nearestT == "")
+          if (bestT == null || bestT == "")
             continue;
 
-          // ! 2. find a neighbour of this triangle, update the area of the stone type
-          //if (stoneTypeArea[curStoneType] < areaLst[curStoneType] && stoneCol[i].GetAveRadius() < stoneR[curStoneType])
+          // ! 2. add the selected triangle, update the area of the stone type
           if (stoneTypeArea[curStoneType] < areaLst[curStoneType])
           {
-            stoneCol[i].strIdInside.Add(nearestT); // add to the collection
-            stoneCol[i].strIdNeigh.Remove(nearestT);
+            stoneCol[i].strIdInside.Add(bestT); // add to the collection
+            stoneCol[i].strIdNeigh.Remove(bestT);
 
-            pickedTriCenStr.Add(nearestT);
-            stoneTypeArea[curStoneType] += Utils.triArea(cenMap[nearestT].Item2); // add up area
+            pickedTriCenStr.Add(bestT);
+            stoneTypeArea[curStoneType] += Utils.triArea(cenMap[bestT].Item2); // add up area
           }
 
           // ! 3. expand, and update corresponding neighbouring set
-          foreach (var it in nbMap[nearestT])
+          foreach (var it in nbMap[bestT])
           {
             if (!pickedTriCenStr.Contains(it))
             {
@@ -540,6 +536,141 @@ namespace BeingAliveLanguage
       allT.AddRange(sandT);
       allT.AddRange(clayT);
       allT.AddRange(biocharT);
+    }
+
+    /// <summary>
+    /// Calculate the number of shared edges between a candidate triangle and the existing stone cluster.
+    /// More shared edges = triangle fills a concave gap = smoother shape.
+    /// </summary>
+    private int CountSharedEdges(string candidateId, HashSet<string> stoneTriangles)
+    {
+      if (!nbMap.ContainsKey(candidateId))
+        return 0;
+
+      int sharedCount = 0;
+      foreach (var neighbor in nbMap[candidateId])
+      {
+        if (stoneTriangles.Contains(neighbor))
+          sharedCount++;
+      }
+      return sharedCount;
+    }
+
+    /// <summary>
+    /// Calculate the compactness score of the stone cluster if a candidate triangle is added.
+    /// Compactness = 4π × Area / Perimeter². Higher is more circular/compact.
+    /// </summary>
+    private double CalculateCompactness(HashSet<string> stoneTriangles, string candidateId)
+    {
+      // Create a temporary set including the candidate
+      var tempSet = new HashSet<string>(stoneTriangles) { candidateId };
+
+      // Calculate total area
+      double totalArea = 0;
+      foreach (var id in tempSet)
+      {
+        if (cenMap.ContainsKey(id))
+          totalArea += Utils.triArea(cenMap[id].Item2);
+      }
+
+      // Estimate perimeter by counting boundary edges
+      // A boundary edge is one where the neighboring triangle is NOT in the set
+      int boundaryEdgeCount = 0;
+      foreach (var id in tempSet)
+      {
+        if (!nbMap.ContainsKey(id)) continue;
+        foreach (var neighbor in nbMap[id])
+        {
+          if (!tempSet.Contains(neighbor))
+            boundaryEdgeCount++;
+        }
+      }
+
+      // Approximate perimeter (each boundary edge contributes to perimeter)
+      // Use first triangle to estimate edge length
+      double edgeLength = 1.0;
+      if (cenMap.Count > 0)
+      {
+        var firstTri = cenMap.Values.First().Item2;
+        edgeLength = firstTri[0].DistanceTo(firstTri[1]);
+      }
+      double perimeter = boundaryEdgeCount * edgeLength;
+
+      if (perimeter < 1e-10)
+        return 0;
+
+      // Compactness: 4π × Area / Perimeter²
+      return (4 * Math.PI * totalArea) / (perimeter * perimeter);
+    }
+
+    /// <summary>
+    /// Select the best triangle to add to the stone cluster based on:
+    /// 1. Primary: Number of shared edges (more = fills gaps better)
+    /// 2. Secondary: Compactness improvement
+    /// 3. Tertiary: Distance to center (prefer closer)
+    /// </summary>
+    private string SelectBestTriangle(
+      HashSet<string> candidates,
+      HashSet<string> stoneTriangles,
+      HashSet<string> pickedTriangles,
+      Point3d stoneCen,
+      Dictionary<string, double> distMap)
+    {
+      string bestCandidate = null;
+      int bestSharedEdges = -1;
+      double bestCompactness = -1;
+      double bestDistance = double.MaxValue;
+
+      foreach (var candidateId in candidates)
+      {
+        if (pickedTriangles.Contains(candidateId))
+          continue;
+
+        // Calculate shared edges (primary criterion)
+        int sharedEdges = CountSharedEdges(candidateId, stoneTriangles);
+
+        // Get distance (tertiary criterion)
+        double dist = distMap.ContainsKey(candidateId) ? distMap[candidateId] : double.MaxValue;
+
+        // Selection logic:
+        // 1. More shared edges is always better (fills concave gaps)
+        // 2. If same shared edges, prefer better compactness
+        // 3. If similar compactness, prefer closer to center
+        bool isBetter = false;
+
+        if (sharedEdges > bestSharedEdges)
+        {
+          isBetter = true;
+        }
+        else if (sharedEdges == bestSharedEdges)
+        {
+          // Calculate compactness only when needed (expensive operation)
+          double compactness = CalculateCompactness(stoneTriangles, candidateId);
+
+          if (compactness > bestCompactness + 0.01) // Small threshold to avoid floating point issues
+          {
+            isBetter = true;
+            bestCompactness = compactness;
+          }
+          else if (Math.Abs(compactness - bestCompactness) <= 0.01 && dist < bestDistance)
+          {
+            isBetter = true;
+            bestCompactness = compactness;
+          }
+        }
+
+        if (isBetter)
+        {
+          bestCandidate = candidateId;
+          bestSharedEdges = sharedEdges;
+          bestDistance = dist;
+          // Only calculate compactness if not already calculated
+          if (bestCompactness < 0)
+            bestCompactness = CalculateCompactness(stoneTriangles, candidateId);
+        }
+      }
+
+      return bestCandidate;
     }
 
     SoilBase sBase;

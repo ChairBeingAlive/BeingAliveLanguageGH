@@ -513,10 +513,13 @@ struct RootBranch {
 
 class RootTree3D {
   private SoilMap3d mMap3d = null;
+  private Plane mBasePln = Plane.WorldXY;
   private Point3d mAnchor = new Point3d();
   double mUnitLen = 0.0;
   int mPhase = 0;
   int mDivN = 1;
+  bool mToggleExplorer = false;
+  bool mSimplifiedMode = false;  // true when no SoilMap3d provided
 
   List<RootBranch> mRootMaster = new List<RootBranch>();
   List<RootBranch> mRootTap = new List<RootBranch>();
@@ -525,12 +528,20 @@ class RootTree3D {
 
   public RootTree3D() {}
 
-  public RootTree3D(in SoilMap3d map3d, in Point3d anchor, double unitLen, int phase, int divN) {
+  public RootTree3D(in SoilMap3d map3d, in Plane basePln, in Point3d anchor, double unitLen, int phase, int divN, bool toggleExplorer = false) {
     this.mMap3d = map3d;
+    this.mBasePln = basePln;
     this.mAnchor = anchor;
     this.mUnitLen = unitLen;
     this.mPhase = phase;
     this.mDivN = divN;
+    this.mToggleExplorer = toggleExplorer;
+    this.mSimplifiedMode = (map3d == null);
+    
+    // If map3d is provided, use its plane
+    if (map3d != null) {
+      this.mBasePln = map3d.mPln;
+    }
   }
 
   /// <summary>
@@ -544,7 +555,7 @@ class RootTree3D {
   /// </summary>
   public String GrowRoot() {
     // Get the directional vector based on divN
-    Plane basePln = mMap3d.mPln;
+    Plane basePln = mBasePln;
     var vecLst = new List<Vector3d>();
 
     // ---------------------------------------------
@@ -559,7 +570,8 @@ class RootTree3D {
     mRootTap.Add(new RootBranch(tapRoot_1, new Interval(1, 11)));
     mRootTap.Add(new RootBranch(tapRoot_2, new Interval(2, 11)));
 
-    if (tapRoot_1.GetLength() + tapRoot_2.GetLength() > tapRootLen * 1.5) {
+    // Only check soil density in non-simplified mode
+    if (!mSimplifiedMode && tapRoot_1.GetLength() + tapRoot_2.GetLength() > tapRootLen * 1.5) {
       return String.Format("Soil context doesn't have enough points (density too low). Please " +
                            "increase the point number.");
     }
@@ -608,9 +620,11 @@ class RootTree3D {
         Polyline newTapRoot = GenerateTapRoot(root.ToNurbsCurve().PointAtEnd, tapRootLen * 0.7);
         surroundTapRoots.Add(newTapRoot);
 
-        // exploiter
-        var rootExplorer = GenerateExplorationalRoots(root, 4);
-        explorerRoots.AddRange(rootExplorer);
+        // exploiter (only when toggle is on)
+        if (mToggleExplorer) {
+          var rootExplorer = GenerateExplorationalRoots(root, 4);
+          explorerRoots.AddRange(rootExplorer);
+        }
       }
 
       //! collect the newly growed roots with phase interval
@@ -620,12 +634,14 @@ class RootTree3D {
 
       // tap roots have lifespan = 5
       surroundTapRoots.ForEach(x => mRootTap.Add(new RootBranch(
-                                   x.ToNurbsCurve(), new Interval(startPhase, startPhase + 5))));
+                                   x.ToNurbsCurve(), new Interval(startPhase, startPhase + 4))));
 
       // explorer roots have lifespan = 4
-      explorerRoots.ForEach(
-          x => mRootExplorer.Add(new RootBranch(
-              x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, mPhase + 4)))));
+      if (mToggleExplorer) {
+        explorerRoots.ForEach(
+            x => mRootExplorer.Add(new RootBranch(
+                x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, mPhase + 2)))));
+      }
 
       // update currentLevel for the next iteration
       frontEndRoots = nextLevelRoots;
@@ -645,20 +661,24 @@ class RootTree3D {
                                             4);
         masterColletion.AddRange(newSegments);
 
-        var newExploiter = GenerateExplorationalRoots(root, 4);
-        exploiterCollection.AddRange(newExploiter);
+        if (mToggleExplorer) {
+          var newExploiter = GenerateExplorationalRoots(root, 4);
+          exploiterCollection.AddRange(newExploiter);
+        }
       }
 
       masterColletion.ForEach(
           x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 12))));
-      exploiterCollection.ForEach(
-          x => mRootExplorer.Add(new RootBranch(
-              x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, startPhase + 5)))));
+      if (mToggleExplorer) {
+        exploiterCollection.ForEach(
+            x => mRootExplorer.Add(new RootBranch(
+                x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, startPhase + 5)))));
+      }
 
       frontEndRoots = masterColletion;
     }
     // additional explorer of the last generate seg
-    if (mPhase > 6) {
+    if (mPhase > 6 && mToggleExplorer) {
       var startPhase = 6;
       var exploiterCollection = new List<Polyline>();
       foreach (var root in frontEndRoots) {
@@ -702,9 +722,11 @@ class RootTree3D {
         Polyline newTapRoot = GenerateTapRoot(root.ToNurbsCurve().PointAtEnd, tapRootLen * 0.3);
         surroundTapRoots.Add(newTapRoot);
 
-        // exploiter
-        var rootExplorer = GenerateExplorationalRoots(root, 3);
-        explorerRoots.AddRange(rootExplorer);
+        // exploiter (only when toggle is on)
+        if (mToggleExplorer) {
+          var rootExplorer = GenerateExplorationalRoots(root, 3);
+          explorerRoots.AddRange(rootExplorer);
+        }
       }
 
       // collect the newly growed roots with phase interval
@@ -712,8 +734,10 @@ class RootTree3D {
           x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
       surroundTapRoots.ForEach(x => mRootTap.Add(new RootBranch(
                                    x.ToNurbsCurve(), new Interval(startPhase, startPhase + 3))));
-      explorerRoots.ForEach(x => mRootExplorer.Add(new RootBranch(
-                                x.ToNurbsCurve(), new Interval(startPhase, startPhase + 3))));
+      if (mToggleExplorer) {
+        explorerRoots.ForEach(x => mRootExplorer.Add(new RootBranch(
+                                  x.ToNurbsCurve(), new Interval(startPhase, startPhase + 3))));
+      }
 
       // update currentLevel for the next iteration
       frontEndRoots = nextLevelRoots;
@@ -733,14 +757,18 @@ class RootTree3D {
                                             4);
         masterColletion.AddRange(newSegments);
 
-        var newExploiter = GenerateExplorationalRoots(root, 5);
-        exploiterCollection.AddRange(newExploiter);
+        if (mToggleExplorer) {
+          var newExploiter = GenerateExplorationalRoots(root, 5);
+          exploiterCollection.AddRange(newExploiter);
+        }
       }
 
       masterColletion.ForEach(
           x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
-      exploiterCollection.ForEach(
-          x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
+      if (mToggleExplorer) {
+        exploiterCollection.ForEach(
+            x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
+      }
 
       frontEndRoots = masterColletion;
     }
@@ -770,14 +798,18 @@ class RootTree3D {
                                             4);
         masterColletion.AddRange(newSegments);
 
-        var newExploiter = GenerateExplorationalRoots(root, 5);
-        exploiterCollection.AddRange(newExploiter);
+        if (mToggleExplorer) {
+          var newExploiter = GenerateExplorationalRoots(root, 5);
+          exploiterCollection.AddRange(newExploiter);
+        }
       }
 
       masterColletion.ForEach(
           x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 9))));
-      exploiterCollection.ForEach(
-          x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 9))));
+      if (mToggleExplorer) {
+        exploiterCollection.ForEach(
+            x => mRootExplorer.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 9))));
+      }
 
       frontEndRoots = masterColletion;
     }
@@ -813,13 +845,23 @@ class RootTree3D {
 
   // grwoing a segment along given vector
   private Polyline GrowAlongVec(in Point3d cen, in double maxLength, in Vector3d dir) {
-    int selectNum = 20;  // Number of candidate points to consider at each step
     var rootBranch = new Polyline();
+    rootBranch.Add(cen);
 
+    // Simplified mode: just grow straight lines
+    if (mSimplifiedMode) {
+      Vector3d unitDir = dir;
+      unitDir.Unitize();
+      Point3d endPt = cen + unitDir * maxLength;
+      rootBranch.Add(endPt);
+      return rootBranch;
+    }
+
+    // Full mode: use soil map points
+    int selectNum = 20;  // Number of candidate points to consider at each step
     Point3d curPt = cen;
     Vector3d curDir = dir;
 
-    rootBranch.Add(cen);
     while (rootBranch.Length < maxLength) {
       // Get candidate points
       List<Point3d> candidates = mMap3d.GetNearestPoints(curPt, selectNum);
@@ -889,7 +931,7 @@ class RootTree3D {
       var tanVec = rootCurve.TangentAt(t);
 
       var sign = Math.Pow(-1, i);
-      var perVec = sign * Vector3d.CrossProduct(tanVec, mMap3d.mPln.ZAxis);
+      var perVec = sign * Vector3d.CrossProduct(tanVec, mBasePln.ZAxis);
       var branchDir = perVec * 0.5 + tanVec * 0.5;
       branchDir.Unitize();
 
@@ -910,11 +952,11 @@ class RootTree3D {
       Vector3d tangent = rootCurve.TangentAtEnd;
 
       // Create two branch directions in the horizontal plane
-      Vector3d horizontalPerp = Vector3d.CrossProduct(tangent, mMap3d.mPln.ZAxis);
+      Vector3d horizontalPerp = Vector3d.CrossProduct(tangent, mBasePln.ZAxis);
       horizontalPerp.Unitize();
 
       // project the tangent vector to the horizontal plane
-      tangent = Vector3d.CrossProduct(mMap3d.mPln.ZAxis, horizontalPerp);
+      tangent = Vector3d.CrossProduct(mBasePln.ZAxis, horizontalPerp);
       tangent.Unitize();
 
       Vector3d branchDir1 = (tangent + 0.5 * horizontalPerp);
@@ -936,7 +978,7 @@ class RootTree3D {
   }
 
   private Polyline GenerateTapRoot(Point3d startPoint, double length) {
-    Vector3d downwardDirection = -mMap3d.mPln.ZAxis;
+    Vector3d downwardDirection = -mBasePln.ZAxis;
     return GrowAlongVec(startPoint, length, downwardDirection);
   }
 
@@ -984,7 +1026,7 @@ class RootTree3D {
     Polyline explorationRoot = new Polyline();
     explorationRoot.Add(
         startPt);  // needed as later we only add segments by segments excluding the first pt
-    Vector3d horizontalDir = Vector3d.CrossProduct(parentRootDir, mMap3d.mPln.ZAxis);
+    Vector3d horizontalDir = Vector3d.CrossProduct(parentRootDir, mBasePln.ZAxis);
     horizontalDir *= isReverse ? -1 : 1;
 
     Point3d curPt = startPt;
@@ -994,7 +1036,7 @@ class RootTree3D {
     for (int step = 0; step < totalSteps; step++) {
       if (step >= horizontalSteps) {
         // Transition to a more downward direction
-        curDir -= 0.5 * mMap3d.mPln.ZAxis;
+        curDir -= 0.5 * mBasePln.ZAxis;
         // curDir.Unitize();
       }
 

@@ -8,16 +8,6 @@
       "environmentVariables": {
         "RHINO_PACKAGE_DIRS": "$(ProjectDir)$(OutputPath)\\"
       },
-      "nativeDebugging": false
-    },
-    "Rhino7": {
-      "commandName": "Executable",
-      "executablePath": "C:\\Program Files\\Rhino 7\\System\\Rhino.exe",
-      "commandLineArgs": "/runscript=\"_Grasshopper\"",
-      "workingDirectory": "$(ProjectDir)\\bin\\$(Configuration)",
-      "environmentVariables": {
-        "RHINO_PACKAGE_DIRS": "$(ProjectDir)$(OutputPath)\\"
-      },
       "nativeDebugging": true
     }
   }

@@ -1174,8 +1174,13 @@ namespace BeingAliveLanguage {
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager) {
       pManager.AddGenericParameter("TreeInfo", "tInfo", "Information about the tree.",
                                    GH_ParamAccess.item);
-      pManager.AddGenericParameter("SoilMap3d", "sMap3d", "The soil map class to build root upon.",
+      pManager.AddGenericParameter("SoilMap3d", "sMap3d", 
+                                   "Optional: The soil map class to build root upon. If not provided, generates simplified symmetric roots.",
                                    GH_ParamAccess.item);
+      pManager[1].Optional = true;
+      pManager.AddBooleanParameter("ToggleExplorer", "tExp",
+                                   "Toggle explorer root generation. Set to False for faster computation with multiple trees.",
+                                   GH_ParamAccess.item, false);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager) {
@@ -1203,13 +1208,14 @@ namespace BeingAliveLanguage {
         return;
       }
 
-      var sMap3d = new SoilMap3d(tInfo.pln);
-      if (!DA.GetData("SoilMap3d", ref sMap3d)) {
-        return;
-      }
+      // SoilMap3d is optional - if not provided, use simplified growth
+      SoilMap3d sMap3d = null;
+      DA.GetData("SoilMap3d", ref sMap3d);
+
+      bool toggleExplorer = false;
+      DA.GetData("ToggleExplorer", ref toggleExplorer);
 
       // ! get anchor additional info
-      // var anchorPt = sMap3d.GetNearestPoint(tInfo.pln.Origin);
       var anchorPt = tInfo.pln.Origin;
       var curPhase = tInfo.phase;
       var curHeight = tInfo.height;
@@ -1218,7 +1224,8 @@ namespace BeingAliveLanguage {
 #endregion
 
       // Draw Roots based on the current phase
-      var rootTree3D = new RootTree3D(sMap3d, anchorPt, curUnitLen, curPhase, 6);
+      // Pass the plane from tInfo for simplified mode when sMap3d is null
+      var rootTree3D = new RootTree3D(sMap3d, tInfo.pln, anchorPt, curUnitLen, curPhase, 6, toggleExplorer);
       string msg = rootTree3D.GrowRoot();
       if (msg != "Success") {
         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, msg);
