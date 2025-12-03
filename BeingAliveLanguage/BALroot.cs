@@ -26,7 +26,7 @@ namespace BeingAliveLanguage {
         SysUtils.cvtByteBitmap(Properties.Resources.balSoilMap2D);
     public override Guid ComponentGuid => new Guid("B17755A9-2101-49D3-8535-EC8F93A8BA01");
 
-    protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager) {
+    protected override void RegisterInputParams(GH_InputParamManager pManager) {
       pManager.AddPlaneParameter(
           "Plane", "P",
           "Base plane where the soil map exists." +
@@ -43,7 +43,7 @@ namespace BeingAliveLanguage {
       pManager[1].DataMapping = GH_DataMapping.Flatten;  // flatten the triangle list by default
     }
 
-    protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager) {
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager) {
       pManager.AddGenericParameter("SoilMap2D", "sMap2D", "The soil map class to build root upon.",
                                    GH_ParamAccess.item);
     }
