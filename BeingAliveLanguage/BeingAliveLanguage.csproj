@@ -114,10 +114,10 @@
 		<_SafeSolutionDir>$(SolutionDir.TrimEnd('\'))</_SafeSolutionDir>
 	  </PropertyGroup>
 	  
-	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(MSBuildThisFileDirectory)postbuild.ps1' -TargetDir '$(TargetDir)' -SolutionDir '$(SolutionDir)' -Configuration '$(Configuration)'&quot;" />
+	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(SolutionDir)scripts\postbuild.ps1' -TargetDir '$(TargetDir)' -SolutionDir '$(SolutionDir)' -Configuration '$(Configuration)'&quot;" />
 	</Target>
 
 	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(MSBuildThisFileDirectory)prebuild.ps1' -TargetDir '$(TargetDir)' -SourceDir '$(SolutionDir)GeoSharPlusCPP\build\' -Configuration '$(Configuration)'&quot;" />
+	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(SolutionDir)scripts\prebuild.ps1' -TargetDir '$(TargetDir)' -SourceDir '$(SolutionDir)GeoSharPlusCPP\build\' -Configuration '$(Configuration)'&quot;" />
 	</Target>
 </Project>
