@@ -1,0 +1,29 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="MinSizeRel" />
+    <BuildType Name="Release" />
+    <BuildType Name="RelWithDebInfo" />
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="LICENSE" />
+    <File Path=".github/copilot-instructions.md" />
+  </Folder>
+  <Folder Name="/Scripts/">
+    <File Path="scripts/prebuild.ps1" />
+    <File Path="scripts/postbuild.ps1" />
+    <File Path="scripts/prepare_yak_pkg.ps1" />
+  </Folder>
+  <Project Path="GeoSharPlusCPP/build/GeoSharPlusCPP.vcxproj" Id="652524ad-3bcd-3a66-a7e4-312a2117b455" />
+  <Project Path="GeoSharPlusNET/GeoSharPlusNET.csproj">
+    <BuildType Solution="MinSizeRel|*" Project="Release" />
+    <BuildType Solution="RelWithDebInfo|*" Project="Debug" />
+  </Project>
+  <Project Path="BeingAliveLanguage/BeingAliveLanguage.csproj">
+    <BuildDependency Project="GeoSharPlusNET/GeoSharPlusNET.csproj" />
+    <BuildType Solution="MinSizeRel|*" Project="Release" />
+    <BuildType Solution="RelWithDebInfo|*" Project="Debug" />
+  </Project>
+</Solution>

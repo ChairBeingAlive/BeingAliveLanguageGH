@@ -1,8 +1,15 @@
 ﻿using System.Runtime.InteropServices;
 using Rhino.Geometry;
 
+// This file is kept for backward compatibility.
+// New code should use GSP.Extensions.Bal.BalUtils instead.
+
 namespace GSP
 {
+  /// <summary>
+  /// Legacy BalFuncWrapper class. Use GSP.Extensions.Bal.BalUtils for new code.
+  /// </summary>
+  [System.Obsolete("Use GSP.Extensions.Bal.BalUtils instead")]
   public static class BalFuncWrapper
   {
 

@@ -2,7 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
+// This file is kept for backward compatibility.
+// New code should use:
+//   - GSP.Core.Platform for OS detection and library loading
+//   - GSP.Core.MarshalHelper for memory management
+//   - GSP.Extensions.Bal.BalBridge for P/Invoke declarations
+
 namespace GSP {
+/// <summary>
+/// Legacy NativeBridge class. Delegates to new GSP.Core and GSP.Extensions classes.
+/// </summary>
+[Obsolete("Use GSP.Core.Platform and GSP.Extensions.Bal.BalBridge instead")]
 public static class NativeBridge {
   private const string WinLibName = @"GeoSharPlusCPP.dll";
   private const string MacLibName = @"libGeoSharPlusCPP.dylib";

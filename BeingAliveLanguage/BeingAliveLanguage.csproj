@@ -112,12 +112,23 @@
 		<!-- Remove any trailing backslashes using string replacement -->
 		<_SafeTargetDir>$(TargetDir.TrimEnd('\'))</_SafeTargetDir>
 		<_SafeSolutionDir>$(SolutionDir.TrimEnd('\'))</_SafeSolutionDir>
+		<!-- Define solution directory relative to project if not set -->
+		<_ScriptsDir Condition="'$(SolutionDir)' != '' AND '$(SolutionDir)' != '*Undefined*'">$(SolutionDir)scripts\</_ScriptsDir>
+		<_ScriptsDir Condition="'$(SolutionDir)' == '' OR '$(SolutionDir)' == '*Undefined*'">$(MSBuildThisFileDirectory)..\scripts\</_ScriptsDir>
+		<_SolutionDirFallback Condition="'$(SolutionDir)' != '' AND '$(SolutionDir)' != '*Undefined*'">$(SolutionDir)</_SolutionDirFallback>
+		<_SolutionDirFallback Condition="'$(SolutionDir)' == '' OR '$(SolutionDir)' == '*Undefined*'">$(MSBuildThisFileDirectory)..\</_SolutionDirFallback>
 	  </PropertyGroup>
 	  
-	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(SolutionDir)scripts\postbuild.ps1' -TargetDir '$(TargetDir)' -SolutionDir '$(SolutionDir)' -Configuration '$(Configuration)'&quot;" />
+	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(_ScriptsDir)postbuild.ps1' -TargetDir '$(TargetDir)' -SolutionDir '$(_SolutionDirFallback)' -Configuration '$(Configuration)'&quot;" />
 	</Target>
 
 	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(SolutionDir)scripts\prebuild.ps1' -TargetDir '$(TargetDir)' -SourceDir '$(SolutionDir)GeoSharPlusCPP\build\' -Configuration '$(Configuration)'&quot;" />
+	  <PropertyGroup>
+		<_ScriptsDir Condition="'$(SolutionDir)' != '' AND '$(SolutionDir)' != '*Undefined*'">$(SolutionDir)scripts\</_ScriptsDir>
+		<_ScriptsDir Condition="'$(SolutionDir)' == '' OR '$(SolutionDir)' == '*Undefined*'">$(MSBuildThisFileDirectory)..\scripts\</_ScriptsDir>
+		<_CppBuildDir Condition="'$(SolutionDir)' != '' AND '$(SolutionDir)' != '*Undefined*'">$(SolutionDir)GeoSharPlusCPP\build\</_CppBuildDir>
+		<_CppBuildDir Condition="'$(SolutionDir)' == '' OR '$(SolutionDir)' == '*Undefined*'">$(MSBuildThisFileDirectory)..\GeoSharPlusCPP\build\</_CppBuildDir>
+	  </PropertyGroup>
+	  <Exec Command="powershell -NonInteractive -ExecutionPolicy Bypass -Command &quot;&amp; '$(_ScriptsDir)prebuild.ps1' -TargetDir '$(TargetDir)' -SourceDir '$(_CppBuildDir)' -Configuration '$(Configuration)'&quot;" />
 	</Target>
 </Project>

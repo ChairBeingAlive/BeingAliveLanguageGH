@@ -1,6 +1,6 @@
 ﻿using Rhino.Geometry;
 using System.Collections.Generic;
-using GSP;
+using GSP.Extensions.Bal;
 
 namespace BeingAliveLanguage
 {
@@ -10,7 +10,7 @@ namespace BeingAliveLanguage
     public static void SampleElim(in List<Point3d> inPt, double generalArea, int dim, int num, out List<Point3d> outPt)
     {
       outPt = new List<Point3d>();
-      BalFuncWrapper.SampleElim(inPt, generalArea, num, out outPt);
+      BalUtils.SampleElim(inPt, generalArea, num, out outPt);
     }
 
 
@@ -19,7 +19,7 @@ namespace BeingAliveLanguage
 
       genPt = new List<Point3d>();
       outPt = new List<Point3d>();
-      BalFuncWrapper.SampleElim(bnd, num, out genPt, out outPt, seed, bndScale, initPtRange);
+      BalUtils.SampleElim(bnd, num, out genPt, out outPt, seed, bndScale, initPtRange);
     }
   }
 

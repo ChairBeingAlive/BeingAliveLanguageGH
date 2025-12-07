@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Grasshopper.Kernel;
+using GSP.Core;
 
 namespace BeingAliveLanguage {
 public class BALinfoExporter : GH_Component {
@@ -25,8 +26,8 @@ public class BALinfoExporter : GH_Component {
   protected override void SolveInstance(IGH_DataAccess DA) {
     try {
       // Check if the native library is loaded before proceeding
-      if (!GSP.NativeBridge.IsNativeLibraryLoaded) {
-        string[] errors = GSP.NativeBridge.GetErrorMessages();
+      if (!Platform.IsNativeLibraryLoaded) {
+        string[] errors = Platform.GetErrorMessages();
         string errorMsg = string.Join("\n", errors);
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                           $"Native library not loaded. Check the following errors:\n{errorMsg}");
@@ -34,7 +35,7 @@ public class BALinfoExporter : GH_Component {
       } else {
         // Create an instance of BeingAliveLanguageInfo to access the non-static property
         string version = new BeingAliveLanguageInfo().AssemblyVersion;
-        string loadedPath = GSP.NativeBridge.LoadedLibraryPath;
+        string loadedPath = Platform.LoadedLibraryPath;
         string libName = Path.GetFileName(loadedPath);
 
         string infoText = $"Native library loaded successfully from: {loadedPath}\n" +

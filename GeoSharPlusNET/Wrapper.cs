@@ -1,7 +1,14 @@
 ﻿using Google.FlatBuffers;
 using Rhino.Geometry;
 
+// This file is kept for backward compatibility.
+// New code should use GSP.Adapters.Rhino.RhinoAdapter instead.
+
 namespace GSP {
+/// <summary>
+/// Legacy Wrapper class. Use GSP.Adapters.Rhino.RhinoAdapter for new code.
+/// </summary>
+[System.Obsolete("Use GSP.Adapters.Rhino.RhinoAdapter instead")]
 public static class Wrapper {
   // Point3d IO
   public static byte[] ToPointBuffer(Point3d pt) {
