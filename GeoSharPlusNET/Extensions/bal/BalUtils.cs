@@ -22,6 +22,24 @@ namespace GSP.Extensions.Bal {
                                   out List<Point3d> outPt, int dim = 3) {
       outPt = new List<Point3d>();
 
+      // Guard: if num <= 0, return empty list
+      if (num <= 0) {
+        return;
+      }
+
+      // Guard: if input is empty, return empty list
+      if (inPt == null || inPt.Count == 0) {
+        return;
+      }
+
+      // Guard: if num >= input count, we can't use elimination (outputSize must be < inputSize)
+      // In this case, return all input points (the best we can do)
+      if (num >= inPt.Count) {
+        outPt = new List<Point3d>(inPt);
+        return;
+      }
+
+      // Normal case: call C++ elimination
       var buf = RhinoAdapter.ToBuffer(inPt.ToArray());
       var success = BalBridge.PoissonDiskElimSample(buf, buf.Length, generalArea, dim, num,
                                                     out IntPtr outBuffer, out int outSize);
