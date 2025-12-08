@@ -463,12 +463,18 @@ namespace BeingAliveLanguage {
       // var rOffset = Utils.remap(szStone.Sum() / szStone.Count(), 1, 5, 0.97, 0.91);
       // rOffset = 0.6;
 
-      var offsetSandT =
-          urbanS.sandT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-      var offsetClayT =
-          urbanS.clayT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
-      var offsetBiocharT =
-          urbanS.biocharT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+      var offsetSandT = urbanS.sandT
+          .Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset))
+          .Where(p => p != null && p.Count > 0)
+          .ToList();
+      var offsetClayT = urbanS.clayT
+          .Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset))
+          .Where(p => p != null && p.Count > 0)
+          .ToList();
+      var offsetBiocharT = urbanS.biocharT
+          .Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset))
+          .Where(p => p != null && p.Count > 0)
+          .ToList();
 
       // ! For stone polylines, we need to create a tree structure for storing them
       // var offsetStoneT = urbanS.stonePoly.Select(x => ClipperUtils.OffsetPolygon(cPln, x,
@@ -477,13 +483,17 @@ namespace BeingAliveLanguage {
       GH_Structure<GH_Curve> offsetStonePoly = new GH_Structure<GH_Curve>();
       for (int i = 0; i < urbanS.stonePoly.Count; i++) {
         var path = new GH_Path(i);
-        offsetStonePoly.AppendRange(
-            urbanS.stonePoly[i].Select(
-                x => new GH_Curve(ClipperUtils.OffsetPolygon(cPln, x, rOffset).ToPolylineCurve())),
-            path);
+        var offsetCurves = urbanS.stonePoly[i]
+            .Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset))
+            .Where(p => p != null && p.Count > 0)
+            .Select(p => new GH_Curve(p.ToPolylineCurve()));
+        offsetStonePoly.AppendRange(offsetCurves, path);
       }
 
-      var offsetAllT = allT.Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+      var offsetAllT = allT
+          .Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset))
+          .Where(p => p != null && p.Count > 0)
+          .ToList();
 
       // ! step5: create organic matter
       var omLn = Utils.GenOrganicMatterUrban(sBase, allT, offsetAllT, rOM);
@@ -493,8 +503,10 @@ namespace BeingAliveLanguage {
       List<Polyline> originStoneT = new List<Polyline>();
       for (int i = 0; i < urbanS.stonePoly.Count; i++) {
         originStoneT.AddRange(urbanS.stonePoly[i]);
-        var stoneCol =
-            urbanS.stonePoly[i].Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset)).ToList();
+        var stoneCol = urbanS.stonePoly[i]
+            .Select(x => ClipperUtils.OffsetPolygon(cPln, x, rOffset))
+            .Where(p => p != null && p.Count > 0)
+            .ToList();
         offsetStoneT.AddRange(stoneCol);
       }
 
