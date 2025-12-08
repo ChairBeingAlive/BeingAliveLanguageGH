@@ -18,14 +18,13 @@ namespace GSP.Extensions.Bal {
     /// <param name="num">Target number of output points</param>
     /// <param name="outPt">Output sampled points</param>
     /// <param name="dim">Dimension (2 or 3, default 3)</param>
-    public static void SampleElim(
-        in List<Point3d> inPt, double generalArea, int num,
-        out List<Point3d> outPt, int dim = 3) {
+    public static void SampleElim(in List<Point3d> inPt, double generalArea, int num,
+                                  out List<Point3d> outPt, int dim = 3) {
       outPt = new List<Point3d>();
 
       var buf = RhinoAdapter.ToBuffer(inPt.ToArray());
-      var success = BalBridge.PoissonDiskElimSample(
-          buf, buf.Length, generalArea, dim, num, out IntPtr outBuffer, out int outSize);
+      var success = BalBridge.PoissonDiskElimSample(buf, buf.Length, generalArea, dim, num,
+                                                    out IntPtr outBuffer, out int outSize);
 
       if (!success) {
         return;
@@ -48,10 +47,9 @@ namespace GSP.Extensions.Bal {
     /// <param name="bndScale">Boundary scale factor</param>
     /// <param name="initPtRange">Initial point multiplier</param>
     /// <param name="dim">Dimension (2 or 3, default 2)</param>
-    public static void SampleElim(
-        in Rectangle3d bnd, int num,
-        out List<Point3d> genPt, out List<Point3d> outPt,
-        int seed = -1, double bndScale = 1.0, int initPtRange = 8, int dim = 2) {
+    public static void SampleElim(in Rectangle3d bnd, int num, out List<Point3d> genPt,
+                                  out List<Point3d> outPt, int seed = -1, double bndScale = 1.0,
+                                  int initPtRange = 8, int dim = 2) {
       var rnd = seed >= 0 ? new Random(seed) : new Random(Guid.NewGuid().GetHashCode());
 
       var toLocal = Transform.ChangeBasis(Plane.WorldXY, bnd.Plane);
@@ -79,10 +77,9 @@ namespace GSP.Extensions.Bal {
 
       genPt = new List<Point3d>();
       for (int i = 0; i < num * initPtRange * 2; i++) {
-        genPt.Add(new Point3d(
-            rnd.NextDouble() * diagVec.X,
-            rnd.NextDouble() * diagVec.Y,
-            rnd.NextDouble() * diagVec.Z) + lowerLeft);
+        genPt.Add(new Point3d(rnd.NextDouble() * diagVec.X, rnd.NextDouble() * diagVec.Y,
+                              rnd.NextDouble() * diagVec.Z) +
+                  lowerLeft);
       }
 
       SampleElim(genPt, curBnd.Area, num, out outPt, dim);
