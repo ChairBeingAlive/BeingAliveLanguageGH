@@ -118,7 +118,7 @@ public class BALETP : GH_Component {
     // dry-run for one year to get the December data
     var decemberRes = maxReserve;
     for (int i = 0; i < 12; i++) {
-      var previousRes = (i == 0 ? decemberRes : reserve[i - 1]);
+      var previousRes = (i == 0 ? 0 : reserve[i - 1]);
       var curETR = Math.Min(etpCorrected[i], precipitation[i] + previousRes);
       var curRes = Math.Min(previousRes + precipitation[i] - curETR, maxReserve);
       reserve.Add(curRes);
@@ -129,7 +129,7 @@ public class BALETP : GH_Component {
     // real calculation
     reserve.Clear();
     for (int i = 0; i < 12; i++) {
-      var previousRes = (i == 0 ? decemberRes : reserve[i - 1]);
+      var previousRes = (i == 0 ? 0 : reserve[i - 1]);
       var curETR = Math.Min(etpCorrected[i], precipitation[i] + previousRes);
       var curRes = Math.Min(previousRes + precipitation[i] - curETR, maxReserve);
       var curSur = Math.Max(previousRes + precipitation[i] - curETR - maxReserve, 0);
