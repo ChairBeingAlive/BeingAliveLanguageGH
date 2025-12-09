@@ -723,8 +723,9 @@ class RootTree3D {
 
   /// <summary>
   /// Scale all roots uniformly in 3D to fit within the target root radius.
-  /// This is called after GrowRoot() to ensure roots span approximately 1.5x the tree canopy.
+  /// This is called after GrowRoot() to ensure roots span approximately 2.5x the tree canopy.
   /// Uniform 3D scaling preserves the natural proportions of the root system.
+  /// Note: Only scales DOWN if roots exceed target - never scales up.
   /// </summary>
   public void ScaleToTargetRadius() {
     if (mTargetRootRadius <= 0) return;
@@ -743,10 +744,11 @@ class RootTree3D {
       maxHorizontalDist = Math.Max(maxHorizontalDist, GetMaxHorizontalDistance(root.crv));
     }
 
+    // Only scale DOWN if roots exceed target - never scale up
     // If roots are already within target or no roots exist, skip scaling
     if (maxHorizontalDist <= 0 || maxHorizontalDist <= mTargetRootRadius) return;
 
-    // Calculate scale factor
+    // Calculate scale factor (will always be < 1.0 since we only scale down)
     double scaleFactor = mTargetRootRadius / maxHorizontalDist;
 
     // Apply uniform 3D scaling from the anchor point
