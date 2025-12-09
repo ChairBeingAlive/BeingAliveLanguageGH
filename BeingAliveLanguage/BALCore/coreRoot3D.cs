@@ -20,10 +20,12 @@ class RootTree3D {
   private Plane mBasePln = Plane.WorldXY;
   private Point3d mAnchor = new Point3d();
   double mUnitLen = 0.0;
+  double mTargetRootRadius = 0.0;  // Target horizontal span based on tree canopy
   int mPhase = 0;
   int mDivN = 1;
   bool mToggleExplorer = false;
   bool mSimplifiedMode = false;  // true when no SoilMap3d provided
+  bool mTrueScale = false;  // true to scale roots to match tree canopy
 
   List<RootBranch> mRootMaster = new List<RootBranch>();
   List<RootBranch> mRootTap = new List<RootBranch>();
@@ -45,6 +47,11 @@ class RootTree3D {
   /// 
   /// This ensures explorer roots die off progressively from center to outside,
   /// preventing dense accumulation around phases 7-10.
+  /// 
+  /// Root Span Control:
+  /// The root system is scaled post-generation to fit within targetRootRadius,
+  /// which is typically 1.5x the tree's canopy radius. This ensures biological
+  /// accuracy regardless of soil point density.
   /// </summary>
 
   public RootTree3D() {}
@@ -55,7 +62,9 @@ class RootTree3D {
                     double unitLen,
                     int phase,
                     int divN,
-                    bool toggleExplorer = false) {
+                    bool toggleExplorer = false,
+                    double targetRootRadius = 0.0,
+                    bool trueScale = false) {
     this.mMap3d = map3d;
     this.mBasePln = basePln;
     this.mAnchor = anchor;
@@ -64,6 +73,8 @@ class RootTree3D {
     this.mDivN = divN;
     this.mToggleExplorer = toggleExplorer;
     this.mSimplifiedMode = (map3d == null);
+    this.mTargetRootRadius = targetRootRadius;
+    this.mTrueScale = trueScale;
 
     // If map3d is provided, use its plane
     if (map3d != null) {
@@ -179,11 +190,11 @@ class RootTree3D {
     for (int branchLv = 0; branchLv < maxBranchLevel; branchLv++) {
       // FIX: startPhase should increment with branchLv (phase 6, 7, 8)
       var startPhase = 6 + branchLv;
-      var masterColletion = new List<Polyline>();
+      var masterCollection = new List<Polyline>();
       var exploiterCollection = new List<Polyline>();
       foreach (var root in frontEndRoots) {
         var newSegments = GrowAlongVecInSeg(root.ToNurbsCurve().PointAtEnd, mUnitLen * lenParam, root.ToNurbsCurve().TangentAtEnd, 4);
-        masterColletion.AddRange(newSegments);
+        masterCollection.AddRange(newSegments);
 
         if (mToggleExplorer) {
           var newExploiter = GenerateExplorationalRoots(root, 4);
@@ -191,14 +202,14 @@ class RootTree3D {
         }
       }
 
-      masterColletion.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 12))));
+      masterCollection.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 12))));
       if (mToggleExplorer) {
         int explorerLifespan = 2;  // shorter fixed lifespan: dies after 2 phases
         exploiterCollection.ForEach(x => mRootExplorer.Add(new RootBranch(
             x.ToNurbsCurve(), new Interval(startPhase, Math.Min(11, startPhase + explorerLifespan)))));
       }
 
-      frontEndRoots = masterColletion;
+      frontEndRoots = masterCollection;
     }
     
     // additional explorer of the last generate seg - only runs once when mPhase > 6
@@ -273,11 +284,11 @@ class RootTree3D {
     for (int branchLv = 0; branchLv < maxBranchLevel; branchLv++) {
       // FIX: startPhase should be 7 + branchLv
       var startPhase = 7 + branchLv;
-      var masterColletion = new List<Polyline>();
+      var masterCollection = new List<Polyline>();
       var exploiterCollection = new List<Polyline>();
       foreach (var root in frontEndRoots) {
         var newSegments = GrowAlongVecInSeg(root.ToNurbsCurve().PointAtEnd, mUnitLen * lenParam, root.ToNurbsCurve().TangentAtEnd, 4);
-        masterColletion.AddRange(newSegments);
+        masterCollection.AddRange(newSegments);
 
         if (mToggleExplorer) {
           var newExploiter = GenerateExplorationalRoots(root, 5);
@@ -285,14 +296,14 @@ class RootTree3D {
         }
       }
 
-      masterColletion.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
+      masterCollection.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 10))));
       if (mToggleExplorer) {
         int explorerLifespan = 2;
         exploiterCollection.ForEach(x => mRootExplorer.Add(new RootBranch(
             x.ToNurbsCurve(), new Interval(startPhase, Math.Min(10, startPhase + explorerLifespan)))));
       }
 
-      frontEndRoots = masterColletion;
+      frontEndRoots = masterCollection;
     }
 
     // ---------------------------------------------
@@ -312,11 +323,11 @@ class RootTree3D {
     for (int branchLv = 0; branchLv < maxBranchLevel; branchLv++) {
       // FIX: startPhase should be 7 + branchLv (though loop only runs once)
       var startPhase = 7 + branchLv;
-      var masterColletion = new List<Polyline>();
+      var masterCollection = new List<Polyline>();
       var exploiterCollection = new List<Polyline>();
       foreach (var root in frontEndRoots) {
         var newSegments = GrowAlongVecInSeg(root.ToNurbsCurve().PointAtEnd, mUnitLen * lenParam, root.ToNurbsCurve().TangentAtEnd, 4);
-        masterColletion.AddRange(newSegments);
+        masterCollection.AddRange(newSegments);
 
         if (mToggleExplorer) {
           var newExploiter = GenerateExplorationalRoots(root, 5);
@@ -324,14 +335,19 @@ class RootTree3D {
         }
       }
 
-      masterColletion.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 9))));
+      masterCollection.ForEach(x => mRootMaster.Add(new RootBranch(x.ToNurbsCurve(), new Interval(startPhase, 9))));
       if (mToggleExplorer) {
         int explorerLifespan = 2;
         exploiterCollection.ForEach(x => mRootExplorer.Add(new RootBranch(
             x.ToNurbsCurve(), new Interval(startPhase, Math.Min(9, startPhase + explorerLifespan)))));
       }
 
-      frontEndRoots = masterColletion;
+      frontEndRoots = masterCollection;
+    }
+
+    // Scale all roots to fit within the target root radius (only if trueScale is enabled)
+    if (mTrueScale) {
+      ScaleToTargetRadius();
     }
 
     return "Success";
@@ -703,6 +719,97 @@ class RootTree3D {
       }
     }
     return res;
+  }
+
+  /// <summary>
+  /// Scale all roots uniformly in 3D to fit within the target root radius.
+  /// This is called after GrowRoot() to ensure roots span approximately 1.5x the tree canopy.
+  /// Uniform 3D scaling preserves the natural proportions of the root system.
+  /// </summary>
+  public void ScaleToTargetRadius() {
+    if (mTargetRootRadius <= 0) return;
+
+    // Calculate current maximum horizontal extent from anchor
+    double maxHorizontalDist = 0;
+    
+    // Check all root types for maximum horizontal distance
+    foreach (var root in mRootMaster) {
+      maxHorizontalDist = Math.Max(maxHorizontalDist, GetMaxHorizontalDistance(root.crv));
+    }
+    foreach (var root in mRootTap) {
+      maxHorizontalDist = Math.Max(maxHorizontalDist, GetMaxHorizontalDistance(root.crv));
+    }
+    foreach (var root in mRootExplorer) {
+      maxHorizontalDist = Math.Max(maxHorizontalDist, GetMaxHorizontalDistance(root.crv));
+    }
+
+    // If roots are already within target or no roots exist, skip scaling
+    if (maxHorizontalDist <= 0 || maxHorizontalDist <= mTargetRootRadius) return;
+
+    // Calculate scale factor
+    double scaleFactor = mTargetRootRadius / maxHorizontalDist;
+
+    // Apply uniform 3D scaling from the anchor point
+    ScaleRootsUniformly(scaleFactor);
+  }
+
+  /// <summary>
+  /// Get the maximum horizontal (XY plane) distance from anchor for any point on the curve.
+  /// </summary>
+  private double GetMaxHorizontalDistance(NurbsCurve crv) {
+    double maxDist = 0;
+    
+    // Sample points along the curve
+    int sampleCount = Math.Max(10, (int)(crv.GetLength() / (mUnitLen * 0.1)));
+    crv.Domain = new Interval(0, 1);
+    
+    for (int i = 0; i <= sampleCount; i++) {
+      double t = (double)i / sampleCount;
+      Point3d pt = crv.PointAt(t);
+      
+      // Project to horizontal plane and calculate distance from anchor
+      Vector3d toPoint = pt - mAnchor;
+      // Remove vertical component (along plane's Z axis)
+      double verticalComponent = toPoint * mBasePln.ZAxis;
+      Vector3d horizontalVec = toPoint - verticalComponent * mBasePln.ZAxis;
+      
+      maxDist = Math.Max(maxDist, horizontalVec.Length);
+    }
+    
+    return maxDist;
+  }
+
+  /// <summary>
+  /// Scale all root curves uniformly in 3D from the anchor point.
+  /// This preserves the natural proportions of the root system.
+  /// </summary>
+  private void ScaleRootsUniformly(double scaleFactor) {
+    // Create uniform 3D scale transform centered at anchor
+    Transform scaleXform = Transform.Scale(mAnchor, scaleFactor);
+    
+    // Scale master roots
+    for (int i = 0; i < mRootMaster.Count; i++) {
+      var crv = mRootMaster[i].crv.DuplicateCurve() as NurbsCurve;
+      crv.Transform(scaleXform);
+      crv.Domain = new Interval(0, 1);
+      mRootMaster[i] = new RootBranch(crv, mRootMaster[i].phaseRange);
+    }
+    
+    // Scale tap roots
+    for (int i = 0; i < mRootTap.Count; i++) {
+      var crv = mRootTap[i].crv.DuplicateCurve() as NurbsCurve;
+      crv.Transform(scaleXform);
+      crv.Domain = new Interval(0, 1);
+      mRootTap[i] = new RootBranch(crv, mRootTap[i].phaseRange);
+    }
+    
+    // Scale explorer roots
+    for (int i = 0; i < mRootExplorer.Count; i++) {
+      var crv = mRootExplorer[i].crv.DuplicateCurve() as NurbsCurve;
+      crv.Transform(scaleXform);
+      crv.Domain = new Interval(0, 1);
+      mRootExplorer[i] = new RootBranch(crv, mRootExplorer[i].phaseRange);
+    }
   }
 }
 }
