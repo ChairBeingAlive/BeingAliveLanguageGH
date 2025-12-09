@@ -30,6 +30,23 @@ class RootTree3D {
   List<RootBranch> mRootExplorer = new List<RootBranch>();
   public Point3d debugPt;
 
+  /// <summary>
+  /// Explorer Root Lifespan Table:
+  /// All explorer roots have a lifespan of 2 phases.
+  /// 
+  /// | Start Phase | End Phase | Visible At      |
+  /// |-------------|-----------|-----------------|
+  /// | 3           | 5         | Phases 3, 4, 5  |
+  /// | 4           | 6         | Phases 4, 5, 6  |
+  /// | 5           | 7         | Phases 5, 6, 7  |
+  /// | 6           | 8         | Phases 6, 7, 8  |
+  /// | 7           | 9         | Phases 7, 8, 9  |
+  /// | 8           | 10        | Phases 8, 9, 10 |
+  /// 
+  /// This ensures explorer roots die off progressively from center to outside,
+  /// preventing dense accumulation around phases 7-10.
+  /// </summary>
+
   public RootTree3D() {}
 
   public RootTree3D(in SoilMap3d map3d,
