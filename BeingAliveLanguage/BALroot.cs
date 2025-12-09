@@ -819,6 +819,13 @@ protected
         "Toggle explorer root generation. Set to False for faster computation with multiple trees.",
         GH_ParamAccess.item,
         false);
+    pManager.AddBooleanParameter(
+        "TrueScale",
+        "tScale",
+        "Scale roots to match tree canopy size (2.5x canopy radius). " +
+        "When False, root size depends on soil point density.",
+        GH_ParamAccess.item,
+        false);
   }
 
 protected
@@ -860,18 +867,24 @@ protected
     bool toggleExplorer = false;
     DA.GetData("ToggleExplorer", ref toggleExplorer);
 
+    bool trueScale = false;
+    DA.GetData("TrueScale", ref trueScale);
+
     // ! get anchor additional info
     var anchorPt = tInfo.pln.Origin;
     var curPhase = tInfo.phase;
     var curHeight = tInfo.height;
     var curRadius = tInfo.radius;
     var curUnitLen = tInfo.unitLen;
+    
+    // Calculate target root radius: 2.5x tree canopy radius (biological rule)
+    var targetRootRadius = curRadius * 2.5;
 #endregion
 
     // Draw Roots based on the current phase
     // Pass the plane from tInfo for simplified mode when sMap3d is null
     var rootTree3D =
-        new RootTree3D(sMap3d, tInfo.pln, anchorPt, curUnitLen, curPhase, 6, toggleExplorer);
+        new RootTree3D(sMap3d, tInfo.pln, anchorPt, curUnitLen, curPhase, 6, toggleExplorer, targetRootRadius, trueScale);
     string msg = rootTree3D.GrowRoot();
     if (msg != "Success") {
       AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, msg);
