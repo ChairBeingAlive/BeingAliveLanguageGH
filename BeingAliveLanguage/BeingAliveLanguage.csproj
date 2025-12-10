@@ -29,7 +29,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Grasshopper" Version="8.0.23304.9001" Condition="!$(TargetFramework.StartsWith('net4'))" ExcludeAssets="runtime" />
+		<PackageReference Include="Grasshopper" Version="8.15.25019.13001" Condition="!$(TargetFramework.StartsWith('net4'))" ExcludeAssets="runtime" />
 		<PackageReference Include="Clipper2" Version="1.5.4" />
 		<PackageReference Include="KdTree" Version="1.4.1" />
 		<PackageReference Include="MathNet.Numerics" Version="5.0.0" />
