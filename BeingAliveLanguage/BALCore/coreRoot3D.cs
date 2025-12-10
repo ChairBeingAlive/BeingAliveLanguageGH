@@ -334,7 +334,7 @@ namespace BeingAliveLanguage {
 
       // Phase 7-8: more steps growth without branching
       maxBranchLevel = Math.Min(1, mPhase - 5);
-      lenParam = 0.5;
+      lenParam = 0.4;
       for (int branchLv = 0; branchLv < maxBranchLevel; branchLv++) {
         var startPhase = 7 + branchLv;
         var masterCollection = new List<Polyline>();
@@ -471,7 +471,7 @@ namespace BeingAliveLanguage {
 
       // Allow moderate vertical variation (up to 35%) for natural undulation
       // but clamp to prevent excessive downward drift
-      double maxVerticalRatio = 0.35;
+      double maxVerticalRatio = 0.3;
       double clampedVertical = Math.Max(-maxVerticalRatio, Math.Min(maxVerticalRatio, verticalComponent));
 
       Vector3d constrainedDir = horizontalDir + clampedVertical * mBasePln.ZAxis;
@@ -482,7 +482,7 @@ namespace BeingAliveLanguage {
 
     /// <summary>
     /// Find the best direction to grow based on nearby soil points.
-    /// Returns a unit vector in the best direction with slight random variation.
+    /// Returns a unit vector that blends candidate direction with preferred direction for smoothness.
     /// </summary>
     private Vector3d FindBestDirection(Point3d currentPoint, List<Point3d> candidates, Vector3d preferredDir) {
       preferredDir.Unitize();
@@ -511,21 +511,25 @@ namespace BeingAliveLanguage {
       // Sort by alignment (best first)
       goodCandidates.Sort((a, b) => b.alignment.CompareTo(a.alignment));
 
-      // Pick from top candidates with some randomness for variety
-      int pickIndex = 0;
-      if (goodCandidates.Count > 1) {
-        // Weighted random selection favoring better alignments
-        double rand = mRnd.NextDouble();
-        if (rand < 0.7) {
-          pickIndex = 0;  // 70% chance: pick best
-        } else if (rand < 0.9 && goodCandidates.Count > 1) {
-          pickIndex = 1;  // 20% chance: pick second best
-        } else if (goodCandidates.Count > 2) {
-          pickIndex = Math.Min(2, goodCandidates.Count - 1);  // 10% chance: pick third
-        }
+      // Always pick the best aligned candidate for smoother paths
+      Vector3d bestCandidateDir = goodCandidates[0].dir;
+
+      // Blend candidate direction with preferred direction for smooth curves
+      // Higher blend ratio = smoother but less responsive to soil
+      // Lower blend ratio = more responsive to soil but potentially jagged
+      double blendRatio = 0.4;  // 40% preferred direction, 60% candidate direction
+      Vector3d blendedDir = preferredDir * blendRatio + bestCandidateDir * (1.0 - blendRatio);
+      blendedDir.Unitize();
+
+      // Add very slight random perturbation for natural variation (±5 degrees max)
+      double perturbAngle = MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, -0.087, 0.087);  // ~5 degrees in radians
+      Vector3d perpVec = Vector3d.CrossProduct(blendedDir, mBasePln.ZAxis);
+      if (perpVec.Length > 0.001) {
+        perpVec.Unitize();
+        blendedDir.Rotate(perturbAngle, perpVec);
       }
 
-      return goodCandidates[pickIndex].dir;
+      return blendedDir;
     }
 
     /// <summary>
@@ -639,10 +643,11 @@ namespace BeingAliveLanguage {
     /// <summary>
     /// Grow a single explorational root from the given start point.
     /// Explorer roots grow perpendicular to parent with progressive downward curve.
+    /// Uses more steps for smoother appearance and curves downward more aggressively.
     /// </summary>
     private Polyline GrowSingleExplorationalRoot(Point3d startPt, Vector3d parentRootDir, double length, bool isReverse) {
-      const int totalSteps = 5;
-      const int horizontalSteps = 2;  // Stay horizontal for first 2 steps, then curve down
+      const int totalSteps = 8;       // Increased from 5 for smoother curves
+      const int horizontalSteps = 2;  // Stay mostly horizontal for first 2 steps, then curve down
       double stepLength = length / totalSteps;
       parentRootDir.Unitize();
 
@@ -656,18 +661,18 @@ namespace BeingAliveLanguage {
 
       // Use seed-based random for reproducible patterns
       // Explorer grows perpendicular to parent root with slight forward component
-      double randRatio = mSimplifiedMode ? 0.3 : MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, 0.2, 0.4);
+      double randRatio = mSimplifiedMode ? 0.25 : MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, 0.15, 0.35);
 
-      // Start with slight downward bias even in horizontal phase
-      double initialDownward = mSimplifiedMode ? 0.1 : MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, 0.05, 0.15);
-      Vector3d curDir = 0.8 * horizontalDir + randRatio * parentRootDir - initialDownward * mBasePln.ZAxis;
+      // Start with stronger downward bias from the beginning
+      double initialDownward = mSimplifiedMode ? 0.2 : MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, 0.15, 0.25);
+      Vector3d curDir = 0.7 * horizontalDir + randRatio * parentRootDir - initialDownward * mBasePln.ZAxis;
       curDir.Unitize();
 
       for (int step = 0; step < totalSteps; step++) {
-        // After horizontal steps, progressively add more downward component
+        // Progressive downward curve - starts earlier and increases more gradually
         if (step >= horizontalSteps) {
-          // Increase downward bias as we go further (0.25, 0.4, 0.55)
-          double downwardStrength = 0.25 + 0.15 * (step - horizontalSteps);
+          // Smoother progression over more steps: 0.15, 0.22, 0.29, 0.36, 0.43, 0.50
+          double downwardStrength = 0.15 + 0.07 * (step - horizontalSteps);
           curDir = curDir - downwardStrength * mBasePln.ZAxis;
           curDir.Unitize();
         }
@@ -706,8 +711,8 @@ namespace BeingAliveLanguage {
         }
       }
 
-      // Base length for explorer roots - make them longer to fill gaps between main roots
-      double baseLength = mSimplifiedMode ? mUnitLen * 0.2 : mainRoot.Length;
+      // Base length for explorer roots - increased by 50% for longer explorers
+      double baseLength = mSimplifiedMode ? mUnitLen * 0.2 : mainRoot.Length * 1.5;
 
       foreach (var param in ptParams) {
         var pt = mainRootCurve.PointAt(param);
@@ -716,11 +721,11 @@ namespace BeingAliveLanguage {
 
         double explorationDist;
         if (mSimplifiedMode) {
-          // In simplified mode, use fixed distance - longer explorers
-          explorationDist = baseLength * 1.2;
+          // In simplified mode, use fixed distance - longer explorers (1.5x increase)
+          explorationDist = baseLength * 1.5;
         } else {
-          // In full mode, use seed-based random ratio - longer range (1.8-2.5x parent length)
-          explorationDist = baseLength * MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, 1.8, 2.5);
+          // In full mode, use seed-based random ratio - longer range (2.5-3.5x parent length)
+          explorationDist = baseLength * MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, 2.0, 2.8);
         }
 
         // Grow two explorational roots in opposite directions

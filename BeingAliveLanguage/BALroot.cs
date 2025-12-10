@@ -702,6 +702,20 @@ namespace BeingAliveLanguage {
   /// Draw Tree Root in 3D
   /// </summary>
   public class BALtreeRoot3d : GH_Component {
+    // Cache for optimization: avoid regenerating roots when only scale changes
+    // Cache is now per-tree using a dictionary keyed by tree index
+    private List<TreeProperty> mLastTreeInfoList = null;
+    private bool mLastToggleExplorer = false;
+    private SoilMap3d mLastSoilMap = null;
+    private double mLastScale = 1.0;
+    
+    // Cached unscaled root results - now stored per tree
+    private List<Dictionary<int, List<NurbsCurve>>> mCachedTapRootsList = null;
+    private List<Dictionary<int, List<NurbsCurve>>> mCachedMasterRootsList = null;
+    private List<Dictionary<int, List<NurbsCurve>>> mCachedExplorerRootsList = null;
+    private List<Dictionary<int, List<NurbsCurve>>> mCachedDeadRootsList = null;
+    private List<Point3d> mCachedAnchorList = null;
+
     public BALtreeRoot3d()
         : base("TreeRoot3D", "balTreeRoot3D",
                "Generate the BAL tree-root drawing in 3D using the BAL tree and soil information.",
@@ -713,8 +727,9 @@ namespace BeingAliveLanguage {
     public override Guid ComponentGuid => new Guid("3f18edbd-320a-49e8-b16f-6c19b5654301");
 
     protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager) {
-      pManager.AddGenericParameter("TreeInfo", "tInfo", "Information about the tree.",
-                                   GH_ParamAccess.item);
+      pManager.AddGenericParameter("TreeInfo", "tInfo", 
+                                   "Information about the tree(s). Can be a single tree or a list.",
+                                   GH_ParamAccess.list);
       pManager.AddGenericParameter("SoilMap3d", "sMap3d",
                                    "Optional: The soil map class to build root upon. If not " +
                                        "provided, generates simplified symmetric roots.",
@@ -724,32 +739,97 @@ namespace BeingAliveLanguage {
           "ToggleExplorer", "tExp",
           "Toggle explorer root generation. Set to False for faster computation with multiple trees.",
           GH_ParamAccess.item, false);
+      pManager.AddNumberParameter(
+          "GlobalScale", "gScale",
+          "Global scaling factor for all roots. Changing only this value will not regenerate roots, just scale them.",
+          GH_ParamAccess.item, 1.0);
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager) {
       pManager.AddCurveParameter("Root3dTap", "root3dT",
-                                 "Tap roots in 3D, organized by start phase in DataTree branches.",
+                                 "Tap roots in 3D. Path format: {treeIndex; phaseIndex}",
                                  GH_ParamAccess.tree);
       pManager.AddCurveParameter(
           "Root3dMaster", "root3dM",
-          "Master horizontal roots in 3D, organized by start phase in DataTree branches.",
+          "Master horizontal roots in 3D. Path format: {treeIndex; phaseIndex}",
           GH_ParamAccess.tree);
       pManager.AddCurveParameter(
           "Root3dExplorer", "root3dE",
-          "Explorer horizontal roots in 3D, organized by start phase in DataTree branches.",
+          "Explorer horizontal roots in 3D. Path format: {treeIndex; phaseIndex}",
           GH_ParamAccess.tree);
       pManager.AddCurveParameter(
           "Root3dDead", "root3dD",
-          "Dead roots in various phases of a tree's life in 3D, organized by original start phase.",
+          "Dead roots in 3D. Path format: {treeIndex; phaseIndex}",
           GH_ParamAccess.tree);
+    }
+
+    /// <summary>
+    /// Check if we need to regenerate roots or can just rescale cached results.
+    /// Returns true if regeneration is needed.
+    /// </summary>
+    private bool NeedsRegeneration(List<TreeProperty> tInfoList, SoilMap3d sMap3d, bool toggleExplorer) {
+      // First run or no cache
+      if (mCachedTapRootsList == null || mCachedMasterRootsList == null) return true;
+      
+      // Check if list size changed
+      if (mLastTreeInfoList == null || mLastTreeInfoList.Count != tInfoList.Count) return true;
+      
+      // Check if any tree info changed
+      for (int i = 0; i < tInfoList.Count; i++) {
+        var tInfo = tInfoList[i];
+        var lastInfo = mLastTreeInfoList[i];
+        
+        if (lastInfo.phase != tInfo.phase) return true;
+        if (Math.Abs(lastInfo.unitLen - tInfo.unitLen) > 1e-6) return true;
+        if (lastInfo.seed != tInfo.seed) return true;
+        if (lastInfo.pln.Origin.DistanceTo(tInfo.pln.Origin) > 1e-6) return true;
+      }
+      
+      // Check if explorer toggle changed
+      if (mLastToggleExplorer != toggleExplorer) return true;
+      
+      // Check if soil map changed (reference comparison is sufficient)
+      if (mLastSoilMap != sMap3d) return true;
+      
+      return false;
+    }
+
+    /// <summary>
+    /// Scale a dictionary of curves uniformly from anchor point.
+    /// </summary>
+    private Dictionary<int, List<NurbsCurve>> ScaleRootsByPhase(
+        Dictionary<int, List<NurbsCurve>> roots, double scaleFactor, Point3d anchor) {
+      if (Math.Abs(scaleFactor - 1.0) < 1e-6) {
+        // No scaling needed, return copy
+        var result = new Dictionary<int, List<NurbsCurve>>();
+        foreach (var kvp in roots) {
+          result[kvp.Key] = kvp.Value.Select(c => c.DuplicateCurve() as NurbsCurve).ToList();
+        }
+        return result;
+      }
+
+      Transform scaleXform = Transform.Scale(anchor, scaleFactor);
+      var scaled = new Dictionary<int, List<NurbsCurve>>();
+      
+      foreach (var kvp in roots) {
+        var scaledList = new List<NurbsCurve>();
+        foreach (var crv in kvp.Value) {
+          var dup = crv.DuplicateCurve() as NurbsCurve;
+          dup.Transform(scaleXform);
+          dup.Domain = new Interval(0, 1);
+          scaledList.Add(dup);
+        }
+        scaled[kvp.Key] = scaledList;
+      }
+      
+      return scaled;
     }
 
     protected override void SolveInstance(IGH_DataAccess DA) {
 #region input handling
-      //! Get data
-      var tInfo = new TreeProperty();
-
-      if (!DA.GetData("TreeInfo", ref tInfo)) {
+      //! Get data - now as a list
+      var tInfoList = new List<TreeProperty>();
+      if (!DA.GetDataList("TreeInfo", tInfoList) || tInfoList.Count == 0) {
         return;
       }
 
@@ -760,59 +840,106 @@ namespace BeingAliveLanguage {
       bool toggleExplorer = false;
       DA.GetData("ToggleExplorer", ref toggleExplorer);
 
-      // ! get anchor additional info
-      var anchorPt = tInfo.pln.Origin;
-      var curPhase = tInfo.phase;
-      var curUnitLen = tInfo.unitLen;
-      var seed = tInfo.seed;
+      double globalScale = 1.0;
+      DA.GetData("GlobalScale", ref globalScale);
+      if (globalScale <= 0) {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "GlobalScale must be positive.");
+        return;
+      }
 #endregion
 
-      // Draw Roots based on the current phase
-      // Root sizes are controlled by unitLen - all growth lengths are proportional to it
-      // Pass seed for reproducible root patterns that match the tree
-      var rootTree3D = new RootTree3D(sMap3d, tInfo.pln, anchorPt, curUnitLen, curPhase, 6,
-                                      toggleExplorer, seed);
-      string msg = rootTree3D.GrowRoot();
-      if (msg != "Success") {
-        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, msg);
+      // Check if we need to regenerate or can just rescale
+      bool needsRegen = NeedsRegeneration(tInfoList, sMap3d, toggleExplorer);
+
+      if (needsRegen) {
+        // Initialize cache lists
+        mCachedTapRootsList = new List<Dictionary<int, List<NurbsCurve>>>();
+        mCachedMasterRootsList = new List<Dictionary<int, List<NurbsCurve>>>();
+        mCachedExplorerRootsList = new List<Dictionary<int, List<NurbsCurve>>>();
+        mCachedDeadRootsList = new List<Dictionary<int, List<NurbsCurve>>>();
+        mCachedAnchorList = new List<Point3d>();
+
+        // Process each tree
+        for (int treeIdx = 0; treeIdx < tInfoList.Count; treeIdx++) {
+          var tInfo = tInfoList[treeIdx];
+          var anchorPt = tInfo.pln.Origin;
+          var curPhase = tInfo.phase;
+          var curUnitLen = tInfo.unitLen;
+          var seed = tInfo.seed;
+
+          // Draw Roots based on the current phase
+          var rootTree3D = new RootTree3D(sMap3d, tInfo.pln, anchorPt, curUnitLen, curPhase, 6,
+                                          toggleExplorer, seed);
+          string msg = rootTree3D.GrowRoot();
+          if (msg != "Success") {
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Tree {treeIdx}: {msg}");
+          }
+
+          // Cache the unscaled results for this tree
+          mCachedTapRootsList.Add(rootTree3D.GetRootTapByPhase());
+          mCachedMasterRootsList.Add(rootTree3D.GetRootMasterByPhase());
+          mCachedExplorerRootsList.Add(rootTree3D.GetRootExplorerByPhase());
+          mCachedDeadRootsList.Add(rootTree3D.GetRootDeadByPhase());
+          mCachedAnchorList.Add(anchorPt);
+        }
+        
+        // Update cache keys
+        mLastTreeInfoList = new List<TreeProperty>(tInfoList);
+        mLastSoilMap = sMap3d;
+        mLastToggleExplorer = toggleExplorer;
+        
+        Message = "";  // Clear any previous message
+      } else {
+        // Using cached roots - show indicator
+        Message = "Cached";
       }
 
-      // Output data organized by phase using DataTrees
-      // Tap roots by phase
-      var tapByPhase = rootTree3D.GetRootTapByPhase();
+      // Output data organized by {treeIndex; phaseIndex} using DataTrees
       var tapTree = new DataTree<Curve>();
-      foreach (var kvp in tapByPhase.OrderBy(x => x.Key)) {
-        var path = new GH_Path(kvp.Key);
-        tapTree.AddRange(kvp.Value.Cast<Curve>(), path);
-      }
-      DA.SetDataTree(0, tapTree);
-
-      // Master roots by phase
-      var masterByPhase = rootTree3D.GetRootMasterByPhase();
       var masterTree = new DataTree<Curve>();
-      foreach (var kvp in masterByPhase.OrderBy(x => x.Key)) {
-        var path = new GH_Path(kvp.Key);
-        masterTree.AddRange(kvp.Value.Cast<Curve>(), path);
-      }
-      DA.SetDataTree(1, masterTree);
-
-      // Explorer roots by phase
-      var explorerByPhase = rootTree3D.GetRootExplorerByPhase();
       var explorerTree = new DataTree<Curve>();
-      foreach (var kvp in explorerByPhase.OrderBy(x => x.Key)) {
-        var path = new GH_Path(kvp.Key);
-        explorerTree.AddRange(kvp.Value.Cast<Curve>(), path);
-      }
-      DA.SetDataTree(2, explorerTree);
-
-      // Dead roots by phase
-      var deadByPhase = rootTree3D.GetRootDeadByPhase();
       var deadTree = new DataTree<Curve>();
-      foreach (var kvp in deadByPhase.OrderBy(x => x.Key)) {
-        var path = new GH_Path(kvp.Key);
-        deadTree.AddRange(kvp.Value.Cast<Curve>(), path);
+
+      // Process each tree's cached results
+      for (int treeIdx = 0; treeIdx < mCachedTapRootsList.Count; treeIdx++) {
+        var anchor = mCachedAnchorList[treeIdx];
+
+        // Scale and add tap roots
+        var scaledTap = ScaleRootsByPhase(mCachedTapRootsList[treeIdx], globalScale, anchor);
+        foreach (var kvp in scaledTap.OrderBy(x => x.Key)) {
+          var path = new GH_Path(treeIdx, kvp.Key);  // {treeIndex; phaseIndex}
+          tapTree.AddRange(kvp.Value.Cast<Curve>(), path);
+        }
+
+        // Scale and add master roots
+        var scaledMaster = ScaleRootsByPhase(mCachedMasterRootsList[treeIdx], globalScale, anchor);
+        foreach (var kvp in scaledMaster.OrderBy(x => x.Key)) {
+          var path = new GH_Path(treeIdx, kvp.Key);
+          masterTree.AddRange(kvp.Value.Cast<Curve>(), path);
+        }
+
+        // Scale and add explorer roots
+        var scaledExplorer = ScaleRootsByPhase(mCachedExplorerRootsList[treeIdx], globalScale, anchor);
+        foreach (var kvp in scaledExplorer.OrderBy(x => x.Key)) {
+          var path = new GH_Path(treeIdx, kvp.Key);
+          explorerTree.AddRange(kvp.Value.Cast<Curve>(), path);
+        }
+
+        // Scale and add dead roots
+        var scaledDead = ScaleRootsByPhase(mCachedDeadRootsList[treeIdx], globalScale, anchor);
+        foreach (var kvp in scaledDead.OrderBy(x => x.Key)) {
+          var path = new GH_Path(treeIdx, kvp.Key);
+          deadTree.AddRange(kvp.Value.Cast<Curve>(), path);
+        }
       }
+
+      DA.SetDataTree(0, tapTree);
+      DA.SetDataTree(1, masterTree);
+      DA.SetDataTree(2, explorerTree);
       DA.SetDataTree(3, deadTree);
+
+      // Update last scale for reference
+      mLastScale = globalScale;
     }
   }
 }  // namespace BeingAliveLanguage
