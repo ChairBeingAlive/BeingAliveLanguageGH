@@ -573,7 +573,7 @@ namespace BeingAliveLanguage {
     /// <returns></returns>
     private double CalculateScaleFactor(BranchNode3D node) {
       // Use 135-degree cone to determine if neighbor affects this branch
-      double openingAngle = Math.PI * 3 / 4;  // 135 degrees total (67.5 degrees each side)
+      double openingAngle = Math.PI;  // 135 degrees total (67.5 degrees each side)
       double nearestTreeDist = double.MaxValue;
       double furthestBranchDist = 0;
 
@@ -648,14 +648,19 @@ namespace BeingAliveLanguage {
         return 1.0;
       }
 
-      // Calculate available space: distance to neighbor minus own radius
-      double availableSpace = nearestTreeDist - mSoloRadius;
+      // Calculate available space: half the distance to neighbor (meeting point between two trees)
+      // This ensures branches scale properly even when trees overlap
+      double availableSpace = nearestTreeDist * 0.4;
+
+      // Ensure minimum available space to prevent division issues
+      double minAvailableSpace = mSoloRadius * 0.1;  // At least 10% of own radius
+      availableSpace = Math.Max(availableSpace, minAvailableSpace);
 
       // Calculate the base scale factor based on space
       double baseScaleFactor = 1.0;
-      if (furthestBranchDist > availableSpace && availableSpace > 0) {
-        baseScaleFactor =
-            Math.Max(availableSpace / furthestBranchDist, 0.2);  // Don't scale below 20%
+      if (furthestBranchDist > availableSpace) {
+        // Scale down to fit in available space, with minimum of 10%
+        baseScaleFactor = Math.Max(availableSpace / furthestBranchDist, 0.1);
       }
 
       // If no scaling needed based on space, return early
