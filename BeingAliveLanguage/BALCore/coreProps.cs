@@ -149,14 +149,16 @@ namespace BeingAliveLanguage
     public double radius;
     public double unitLen;
     public int phase;
+    public int seed;
 
-    public TreeProperty(in Plane plane, int phase, double height, double radius, double unitLen)
+    public TreeProperty(in Plane plane, int phase, double height, double radius, double unitLen, int seed = 0)
     {
       this.pln = plane;
       this.phase = phase;
       this.height = height;
       this.radius = radius;
       this.unitLen = unitLen;
+      this.seed = seed;
     }
   }
 

@@ -21,7 +21,7 @@
     <BuildType Solution="MinSizeRel|*" Project="Release" />
     <BuildType Solution="RelWithDebInfo|*" Project="Debug" />
   </Project>
-  <Project Path="GeoSharPlusCPP/build/GeoSharPlusCPP.vcxproj" Id="652524ad-3bcd-3a66-a7e4-312a2117b455" />
+  <Project Path="GeoSharPlusCPP/build/GeoSharPlusCPP.vcxproj" Id="18fd686b-7adc-3eb9-bbc2-21f12db1cd6c" />
   <Project Path="GeoSharPlusNET/GeoSharPlusNET.csproj">
     <BuildType Solution="MinSizeRel|*" Project="Release" />
     <BuildType Solution="RelWithDebInfo|*" Project="Debug" />
