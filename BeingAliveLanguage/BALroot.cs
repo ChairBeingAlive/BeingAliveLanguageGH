@@ -724,11 +724,6 @@ namespace BeingAliveLanguage {
           "ToggleExplorer", "tExp",
           "Toggle explorer root generation. Set to False for faster computation with multiple trees.",
           GH_ParamAccess.item, false);
-      //pManager.AddNumberParameter("RootScale", "rScale",
-      //                             "Scaling factor for root extent (default 1.0). " +
-      //                                 "Final root radius = canopyRadius * 1.5 * rScale.",
-      //                             GH_ParamAccess.item, 1.0);
-      //pManager[3].Optional = true;
     }
 
     protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager) {
