@@ -11,10 +11,6 @@
     {
       "name": "flatbuffers",
       "version": "25.2.10"
-    },
-    {
-      "name": "libigl",
-      "version": "2.6.0"
     }
   ]
 }
