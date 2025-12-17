@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Grasshopper.Kernel;
 using GSP.Core;
+using BeingAliveLanguage.BalCore;
 
 namespace BeingAliveLanguage {
 public class BALinfoExporter : GH_Component {
@@ -13,7 +14,7 @@ public class BALinfoExporter : GH_Component {
              "00::info") {}
 
   public override GH_Exposure Exposure => GH_Exposure.primary;
-  // protected override System.Drawing.Bitmap Icon => null;
+  protected override System.Drawing.Bitmap Icon => SysUtils.cvtByteBitmap(Properties.Resources.pluginIcon);
   public override Guid ComponentGuid => new Guid("dc1c6827-4e84-48f5-be11-a18e9f410291");
 
   protected override void RegisterInputParams(GH_InputParamManager pManager) {}
