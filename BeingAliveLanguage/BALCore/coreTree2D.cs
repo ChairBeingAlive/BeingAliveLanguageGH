@@ -46,10 +46,11 @@ namespace BeingAliveLanguage {
 
   class Tree2D {
     public Tree2D() {}
-    public Tree2D(Plane pln, double height, bool unitary = false) {
+    public Tree2D(Plane pln, double height, bool unitary = false, double sideBranchAngle = 95.0) {
       mPln = pln;
       mHeight = height;
       mUnitary = unitary;
+      mBaseAngle = sideBranchAngle;  // Use the provided angle instead of default
 
       // Configure growth parameters
       mTrunkSegLen = height / mStage1;
@@ -622,6 +623,7 @@ namespace BeingAliveLanguage {
       mSubBranch_r = newSubBranchR;
       mSubBranch = mSubBranch_l.Concat(mSubBranch_r).ToList();
     }  // Helper method to determine if a branch is on the left side of the plane
+
     private bool IsBranchOnLeftSide(Curve branch) {
       // Get the branch's endpoint (or midpoint for better accuracy)
       Point3d branchEnd = branch.PointAtEnd;
@@ -1066,7 +1068,7 @@ namespace BeingAliveLanguage {
     private double mTrunkSegLen;                   // Length of trunk segment per phase
     private double mMaxBranchLen;                  // Maximum branch length
     private double mMinBranchLen;                  // Minimum branch length
-    private readonly double mBaseAngle = 95;       // Base angle for side branches
+    private double mBaseAngle = 95;                // Base angle for side branches (can be overridden)
     private readonly double mTopBranchAngle = 35;  // Angle for top branches
 
     // curve collection

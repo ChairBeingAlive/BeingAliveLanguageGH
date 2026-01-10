@@ -31,6 +31,12 @@ public class BALtree2d : GH_Component {
                                Plane.WorldXY);
     pManager.AddNumberParameter("Height", "H", "Height of the tree.", GH_ParamAccess.list);
     pManager.AddIntegerParameter("Phase", "phase", "Phase of the tree.", GH_ParamAccess.list);
+    pManager.AddNumberParameter("SideBranchAngle",
+                                "sbAng",
+                                "Opening angle of side branches in degrees (30-120).",
+                                GH_ParamAccess.list,
+                                95.0);
+    pManager[3].Optional = true;
   }
 
   protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager) {
@@ -62,6 +68,9 @@ public class BALtree2d : GH_Component {
       return;
     }
 
+    var angLst = new List<double>();
+    DA.GetDataList("SideBranchAngle", angLst);
+
     var trunk = new List<Curve>();
     var canopyC = new List<Curve>();
     var sideB = new List<Curve>();
@@ -91,6 +100,26 @@ public class BALtree2d : GH_Component {
         return;
       }
 
+      // Handle angle list - replicate single value or validate count
+      if (angLst.Count == 0)
+        angLst = Enumerable.Repeat(95.0, plnLst.Count).ToList();
+      else if (angLst.Count == 1)
+        angLst = Enumerable.Repeat(angLst[0], plnLst.Count).ToList();
+      else if (angLst.Count != plnLst.Count) {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                          "SideBranchAngle # does not match Plane #, please check.");
+        return;
+      }
+
+      // Validate angle range
+      foreach (var ang in angLst) {
+        if (ang < 30 || ang > 120) {
+          AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                            "SideBranchAngle should be within [30, 120]. Values will be clamped.");
+          break;
+        }
+      }
+
       // Create a copy of plane list for sorting (while keeping original order intact)
       var sortedPlaneIndices = Enumerable.Range(0, plnLst.Count).ToList();
       sortedPlaneIndices.Sort((i1, i2) => {
@@ -115,7 +144,9 @@ public class BALtree2d : GH_Component {
       //! 2. Draw trees in original order, collect tree widths
       var widCol = new List<double>();
       for (int i = 0; i < plnLst.Count; i++) {
-        var t = new Tree2D(plnLst[i], hLst[i], false);
+        // Clamp angle to valid range
+        double clampedAngle = Math.Max(30, Math.Min(120, angLst[i]));
+        var t = new Tree2D(plnLst[i], hLst[i], false, clampedAngle);
         var res = t.GrowToPhase(phLst[i]);
 
         if (!res.Item1) {
@@ -158,8 +189,12 @@ public class BALtree2d : GH_Component {
       }
     } else if (plnLst.Count == 1)  // special case: only one tree
     {
+      // Handle angle for single tree
+      double singleAngle = angLst.Count > 0 ? angLst[0] : 95.0;
+      singleAngle = Math.Max(30, Math.Min(120, singleAngle));
+
       tscal.Add(Tuple.Create(1.0, 1.0));
-      treeCol.Add(new Tree2D(plnLst[0], hLst[0], false));
+      treeCol.Add(new Tree2D(plnLst[0], hLst[0], false, singleAngle));
       var res = treeCol.Last().GrowToPhase(phLst[0]);
 
       if (!res.Item1) {
