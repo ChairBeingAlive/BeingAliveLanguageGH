@@ -82,6 +82,9 @@ namespace BeingAliveLanguage {
 
       mMaxSideBranchLen = 0.5 * mScaledLen;
       mMinSideBranchLen = 0.25 * mScaledLen * mTScale / mStage1;
+      
+      // The ratio between top and bottom max branch lengths (top is this fraction of bottom)
+      mBranchLenTaperRatio = 0.6;
 
       mId = id;
     }
@@ -102,6 +105,7 @@ namespace BeingAliveLanguage {
       copy.mAngleTop = this.mAngleTop;
       copy.mMaxSideBranchLen = this.mMaxSideBranchLen;
       copy.mMinSideBranchLen = this.mMinSideBranchLen;
+      copy.mBranchLenTaperRatio = this.mBranchLenTaperRatio;
       copy.mNearestTreeDist = this.mNearestTreeDist;
       copy.mNearestTree = new Point3d(this.mNearestTree);
       copy.mSoloRadius = this.mSoloRadius;
@@ -276,12 +280,22 @@ namespace BeingAliveLanguage {
       // Initial rotation for the first (bottom) layer
       curDir.Rotate(baseAngle, mPln.XAxis);
 
-      // Calculate branch length
-      double branchLenIncrement = (mMaxSideBranchLen - mMinSideBranchLen) / mStage1;
-      var bottomBranchLen = mMinSideBranchLen + (auxPhaseS1 * branchLenIncrement);
+      // Calculate branch length for Stage 1
+      // Stage 1 should reach ~60% of the final max length
+      // This leaves room for gradual growth in phases 5-10
+      double stage1MaxRatio = 0.6;  // Stage 1 reaches 60% of final max
+      double stage1MaxLen = mMaxSideBranchLen * stage1MaxRatio;
+      double stage1MinLen = mMinSideBranchLen;
+      
+      double branchLenIncrement = (stage1MaxLen - stage1MinLen) / mStage1;
+      var bottomBranchLen = stage1MinLen + (auxPhaseS1 * branchLenIncrement);
 
       // Track current layer for gradual angle calculation
       int layerCount = 0;
+      
+      // Stage 1 taper ratio - more aggressive than final taper to create pyramid shape
+      // Top layer branches are much shorter than bottom to leave room for trunk tip branching
+      double stage1TaperRatio = 0.3;  // Top branches are 30% of bottom (more aggressive than final 60%)
 
       // Calculate branch position on the trunk
       for (int segIdx = 0; segIdx < auxPhaseS1; segIdx++) {
@@ -295,11 +309,13 @@ namespace BeingAliveLanguage {
           for (int brNum = 0; brNum < mNumBranchPerLayer; brNum++) {
             var node = new BranchNode3D(mAllNode.Count, segIdx + 1, pt);
 
-            // Calculate branch length based on position and growth
-            double branchLen =
-                (totalBranchLayer == 1 ? mMinSideBranchLen
-                                       : Utils.remap(curBranchLayer, 1, totalBranchLayer,
-                                                     bottomBranchLen, mMinSideBranchLen));
+            // Apply aggressive taper for Stage 1: create pyramid/triangle shape
+            // Bottom branches are full length, top branches are much shorter
+            double layerRatio = (totalBranchLayer == 1) ? 0.0 
+                : (double)curBranchLayer / (totalBranchLayer - 1);
+            double layerTaperFactor = 1.0 - (1.0 - stage1TaperRatio) * layerRatio;
+            
+            double branchLen = bottomBranchLen * layerTaperFactor;
 
             // Rotation in XY-plane
             double horRotRadian = Math.PI * 2 / mNumBranchPerLayer;
@@ -348,31 +364,115 @@ namespace BeingAliveLanguage {
       AddNodeToTree(mBaseNode, topNode);
     }
 
+    /// <summary>
+    /// Calculate the target branch length for a given node based on its height and current phase.
+    /// This provides a unified length calculation across all stages for gradual growth.
+    /// </summary>
+    /// <param name="node">The branch node</param>
+    /// <param name="currentPhase">The current growth phase</param>
+    /// <returns>Target branch length for this node at this phase</returns>
+    private double GetTargetBranchLen(BranchNode3D node, int currentPhase) {
+      // Get the height ratio of this node (0 = bottom, 1 = top)
+      double nodeHeight = 0;
+      double trunkHeight = mScaledLen * mTScale;
+      
+      if (node.mBranch.Count > 0) {
+        mPln.RemapToPlaneSpace(node.mBranch[0].PointAtStart, out Point3d localPt);
+        nodeHeight = localPt.Z;
+      }
+      double heightRatio = Math.Clamp(nodeHeight / trunkHeight, 0.0, 1.0);
+      
+      // Taper transitions from aggressive (Stage 1) to final (Stage 3)
+      // Stage 1 taper: 0.3 (pyramid shape)
+      // Final taper: 0.6 (more uniform mature tree)
+      double stage1TaperRatio = 0.3;
+      double finalTaperRatio = mBranchLenTaperRatio;  // 0.6
+      
+      // Calculate taper factor based on phase
+      double taperFactor;
+      if (currentPhase <= mStage1) {
+        // Phase 1-4: use aggressive Stage 1 taper
+        taperFactor = 1.0 - (1.0 - stage1TaperRatio) * heightRatio;
+      } else if (currentPhase <= mStage3) {
+        // Phase 5-10: transition from Stage 1 taper to final taper
+        double phasesInTransition = mStage3 - mStage1;
+        double transitionProgress = (double)(currentPhase - mStage1) / phasesInTransition;
+        // Interpolate taper ratio from stage1 to final
+        double currentTaperRatio = stage1TaperRatio + (finalTaperRatio - stage1TaperRatio) * transitionProgress;
+        taperFactor = 1.0 - (1.0 - currentTaperRatio) * heightRatio;
+      } else {
+        // Phase 11-12: use final taper
+        taperFactor = 1.0 - (1.0 - finalTaperRatio) * heightRatio;
+      }
+      
+      // Calculate the final max length for this node (at phase 10)
+      double finalMaxLen = mMaxSideBranchLen * (1.0 - (1.0 - finalTaperRatio) * heightRatio);
+      
+      // Calculate growth progress based on phase
+      // Phase 1-4: grow from minLen to 60% of finalMaxLen
+      // Phase 5-10: grow from 60% to 100% of finalMaxLen (with front-loaded curve)
+      // Phase 11-12: no growth (dying phase)
+      
+      double stage1MaxRatio = 0.6;  // Stage 1 reaches 60% of final max
+      double minLen = mMinSideBranchLen * taperFactor;
+      double stage1MaxLen = finalMaxLen * stage1MaxRatio;
+      
+      double targetLen;
+      
+      if (currentPhase <= mStage1) {
+        // Phase 1-4: grow from minLen toward stage1MaxLen with Stage 1 taper
+        double progress = (double)currentPhase / mStage1;
+        // Apply Stage 1 taper to the target length
+        double stage1FinalMaxLen = mMaxSideBranchLen * (1.0 - (1.0 - stage1TaperRatio) * heightRatio);
+        double stage1Target = stage1FinalMaxLen * stage1MaxRatio;
+        targetLen = minLen + (stage1Target - minLen) * progress;
+      } else if (currentPhase <= mStage3) {
+        // Phase 5-10: grow from stage1MaxLen toward finalMaxLen
+        // Use front-loaded growth curve (square root) so branches grow faster early
+        double phasesInMatureGrowth = mStage3 - mStage1;  // 6 phases (5,6,7,8,9,10)
+        double linearProgress = (double)(currentPhase - mStage1) / phasesInMatureGrowth;
+        // Square root curve: faster growth in early phases, slower as it approaches max
+        double progress = Math.Sqrt(linearProgress);
+        
+        // Calculate what the length was at end of Stage 1
+        double stage1FinalMaxLen = mMaxSideBranchLen * (1.0 - (1.0 - stage1TaperRatio) * heightRatio);
+        double stage1EndLen = stage1FinalMaxLen * stage1MaxRatio;
+        
+        targetLen = stage1EndLen + (finalMaxLen - stage1EndLen) * progress;
+      } else {
+        // Phase 11-12: no growth, stay at phase 10 level
+        targetLen = finalMaxLen;
+      }
+      
+      return targetLen;
+    }
+
     public void GrowStage2(int dupNum = 0) {
       // auxiliary phase variable
       var auxPhaseS2 = Math.Min(mPhase, mStage2);
 
-      // ! phase 5-10: branching phase
+      // ! phase 5-8: branching phase
       var splitInitLen = mScaledLen * 0.2;
 
       // Select nodes to branch: top nodes from previous phase and selected side branches
       for (int curPhase = mStage1 + 1; curPhase <= auxPhaseS2; curPhase++) {
-        // Continue to grow branch emerged in Stage 1
-        var addedPhase = curPhase - mStage1;
-        var lenIncrementPerPhase = (mMaxSideBranchLen - mMinSideBranchLen) / mStage1;
+        // Continue to grow branches emerged in Stage 1
         foreach (var node in mTrunkBranchNode) {
-          if (!mBranchRelation.ContainsKey(node.mID)) {
-            var tmpLst = new List<Curve>();
-            foreach (var br in node.mBranch) {
-              var dir = br.PointAtEnd - br.PointAtStart;
-              dir.Unitize();
-              var increLen = addedPhase * lenIncrementPerPhase;
-              var len = Math.Min(mMaxSideBranchLen, br.GetLength() + increLen);
+          var tmpLst = new List<Curve>();
+          // Get the target length for this node at this phase
+          double targetLen = GetTargetBranchLen(node, curPhase);
+          
+          foreach (var br in node.mBranch) {
+            var currentLen = br.GetLength();
+            var dir = br.PointAtEnd - br.PointAtStart;
+            dir.Unitize();
+            
+            // Grow toward target, but never shrink
+            var newLen = Math.Max(currentLen, targetLen);
 
-              tmpLst.Add(new Line(br.PointAtStart, dir * len).ToNurbsCurve());
-            };
-            node.mBranch = tmpLst;
-          }
+            tmpLst.Add(new Line(br.PointAtStart, dir * newLen).ToNurbsCurve());
+          };
+          node.mBranch = tmpLst;
         }
 
         // for each end node, branch out several new branches
@@ -435,35 +535,36 @@ namespace BeingAliveLanguage {
       // auxiliary phase variable
       var auxPhaseS3 = Math.Min(mPhase, mStage3);
 
-      // ! phase 5-10: branching phase
+      // ! phase 9-10: mature phase - side branches continue to grow
       var splitInitLen = mScaledLen * 0.2;
 
       // Select nodes to branch: top nodes from previous phase and selected side branches
       for (int curPhase = mStage2 + 1; curPhase <= auxPhaseS3; curPhase++) {
-        // Continue to grow branch emerged in Stage 1
-        var addedPhase = curPhase - mStage1;
-        var lenIncrementPerPhase = (mMaxSideBranchLen - mMinSideBranchLen) / mStage1;
+        // Continue to grow ALL trunk branches during mature phases
         foreach (var node in mTrunkBranchNode) {
-          if (!mBranchRelation.ContainsKey(node.mID)) {
-            var tmpLst = new List<Curve>();
-            foreach (var br in node.mBranch) {
-              var dir = br.PointAtEnd - br.PointAtStart;
-              dir.Unitize();
-              var increLen = addedPhase * lenIncrementPerPhase;
-              var len = Math.Min(mMaxSideBranchLen, br.GetLength() + increLen);
+          var tmpLst = new List<Curve>();
+          // Get the target length for this node at this phase
+          double targetLen = GetTargetBranchLen(node, curPhase);
+          
+          foreach (var br in node.mBranch) {
+            var currentLen = br.GetLength();
+            var dir = br.PointAtEnd - br.PointAtStart;
+            dir.Unitize();
+            
+            // Grow toward target, but never shrink
+            var newLen = Math.Max(currentLen, targetLen);
 
-              tmpLst.Add(new Line(br.PointAtStart, dir * len).ToNurbsCurve());
-            };
-            node.mBranch = tmpLst;
-          }
+            tmpLst.Add(new Line(br.PointAtStart, dir * newLen).ToNurbsCurve());
+          };
+          node.mBranch = tmpLst;
         }
 
         // for each end node, branch out several new branches
         var startNodeId = mAllNode.Count;
         var nodesToSplit = mAllNode.Where(node => node.flagSplittable == true).ToList();
 
-        // Select additional side branches to grow (only the 1st phase of stage 2)
-        if (curPhase == mStage1 + 1) {
+        // Select additional side branches to grow (only the 1st phase of stage 3)
+        if (curPhase == mStage2 + 1) {
           var sideNodeToBranch = SelectTopUnbranchedNodes(dupNum);
           sideNodeToBranch.ForEach(x => x.ToggleSplitable());
           nodesToSplit.AddRange(sideNodeToBranch);
@@ -499,11 +600,6 @@ namespace BeingAliveLanguage {
             newNode.flagBranchSplit.Add(true);  // make sure new node labeled split
             newNode.ToggleSplitable();
             AddNodeToTree(node, newNode);
-
-            // store the root splitted branches
-            if (curPhase == mStage1 + 1) {
-              mBaseSplittedNode.Add(newNode);
-            }
           }
 
           // after the split, toggle it so that the next iteration will not split it again
@@ -916,6 +1012,7 @@ namespace BeingAliveLanguage {
     public double mAngleTop;
     public double mMaxSideBranchLen;
     public double mMinSideBranchLen;
+    public double mBranchLenTaperRatio;  // Ratio of top branch max length to bottom branch max length
     public double mHeight;
     public string mId;
 
