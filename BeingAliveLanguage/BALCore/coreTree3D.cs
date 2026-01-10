@@ -264,12 +264,24 @@ namespace BeingAliveLanguage {
 
       // ! phase 1-4: base phase, always needed
       var totalBranchLayer = 2 * auxPhaseS1 - 1;
-      var verAngleIncrement = Utils.ToRadian(mAngleMain) / (totalBranchLayer + 1);
-      curDir.Rotate(verAngleIncrement, mPln.XAxis);
+      
+      // Calculate the total angle in radians
+      var totalAngleRad = Utils.ToRadian(mAngleMain);
+      
+      // Use a base angle ratio that ensures bottom branches also fold significantly
+      // When angleMain is at max (90), bottom branches should start at ~30-40% of the way
+      var baseAngleRatio = 0.35;  // Bottom layer starts at 35% of total angle
+      var baseAngle = totalAngleRad * baseAngleRatio;
+      
+      // Initial rotation for the first (bottom) layer
+      curDir.Rotate(baseAngle, mPln.XAxis);
 
       // Calculate branch length
       double branchLenIncrement = (mMaxSideBranchLen - mMinSideBranchLen) / mStage1;
       var bottomBranchLen = mMinSideBranchLen + (auxPhaseS1 * branchLenIncrement);
+
+      // Track current layer for gradual angle calculation
+      int layerCount = 0;
 
       // Calculate branch position on the trunk
       for (int segIdx = 0; segIdx < auxPhaseS1; segIdx++) {
@@ -299,9 +311,25 @@ namespace BeingAliveLanguage {
 
             AddNodeToTree(mBaseNode, node);
           }
-          // for the next layer, rotate vertically as the layers goes up
-          var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
-          curDir.Rotate(verAngleIncrement, verRotAxis);
+          
+          // Calculate gradual angle increment for the next layer
+          // Use quadratic easing: layers higher up get progressively larger increments
+          // This distributes the remaining angle (1 - baseAngleRatio) across layers
+          layerCount++;
+          if (layerCount < totalBranchLayer) {
+            // Remaining angle to distribute
+            var remainingAngle = totalAngleRad * (1.0 - baseAngleRatio);
+            
+            // Use quadratic progression: increment grows as we go up
+            // Sum of (1 + 2 + ... + n) = n*(n+1)/2, so normalize by this
+            double sumOfWeights = totalBranchLayer * (totalBranchLayer + 1) / 2.0;
+            double currentWeight = layerCount + 1;  // Weight increases with layer
+            double verAngleIncrement = remainingAngle * currentWeight / sumOfWeights;
+            
+            // Rotate vertically for the next layer
+            var verRotAxis = Vector3d.CrossProduct(curDir, mPln.ZAxis);
+            curDir.Rotate(verAngleIncrement, verRotAxis);
+          }
 
           // also rotate the starting position so that two layers don't overlap
           if (mBranchRot) {
