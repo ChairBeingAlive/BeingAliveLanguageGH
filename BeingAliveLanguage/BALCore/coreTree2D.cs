@@ -54,8 +54,8 @@ namespace BeingAliveLanguage {
 
       // Configure growth parameters
       mTrunkSegLen = height / mStage1;
-      mMaxBranchLen = height * 0.7;
-      mMinBranchLen = height * 0.3;
+      mMaxBranchLen = height * 0.6;
+      mMinBranchLen = height * 0.35;
 
       // Generate a unique identifier for this tree instance based on position and properties
       mTreeId = GenerateTreeId();
@@ -163,54 +163,69 @@ namespace BeingAliveLanguage {
       GenerateOutlineCurve();
     }
 
-    // Stage 1: Young tree growth (phases 1-4)
+    // Stage 1: Young tree growth (phases 1-4) - Using trunk segments for biologically accurate growth
     private void GrowStage1() {
       // Calculate how much of stage 1 to grow based on phase
       int growthPhase = Math.Min(mCurPhase, mStage1);
 
-      // Create the trunk
-      double trunkHeight = mTrunkSegLen * growthPhase;
-      Point3d trunkStart = mPln.Origin;
-      Point3d trunkEnd = mPln.Origin + mPln.YAxis * trunkHeight;
-      mCurTrunk = new Line(trunkStart, trunkEnd).ToNurbsCurve();
-      if (mCurTrunk != null) {
+      // Build trunk segments incrementally (like Tree3D)
+      // Each phase adds a new segment at the top
+      mTrunkSegments.Clear();
+      Point3d segStart = mPln.Origin;
+      
+      for (int seg = 0; seg < growthPhase; seg++) {
+        Point3d segEnd = segStart + mPln.YAxis * mTrunkSegLen;
+        mTrunkSegments.Add(new Line(segStart, segEnd));
+        segStart = segEnd;
+      }
+
+      // Create the combined trunk curve for display
+      if (mTrunkSegments.Count > 0) {
+        Point3d trunkStart = mTrunkSegments.First().From;
+        Point3d trunkEnd = mTrunkSegments.Last().To;
+        mCurTrunk = new Line(trunkStart, trunkEnd).ToNurbsCurve();
         mCurTrunk.Domain = new Interval(0.0, 1.0);
 
-        // Always generate side branches, even at phase 1
+        // Generate side branches at fixed positions on trunk segments
         GenerateSideBranches(growthPhase);
       }
     }
 
-    // Stage 2: Mature tree growth - FIXED to maintain Phase 8 length for later phases
+    // Stage 2: Mature tree growth - Using unified branch length calculation
     private void GrowStage2() {
       // Calculate how far into stage 2 we are
       int stage2Phase = Math.Min(mCurPhase - mStage1, mStage2 - mStage1);
 
-      // PROGRESSIVE GROWTH: Grow side branches from 60% to 100% of their max length during Stage 2
-      // MAINTAIN PHASE 8 LENGTH FOR PHASES 9+
-      if (mCurPhase >
-          mStage1) {  // Apply to all phases 5+
-                      // Calculate target progression factor - but cap at phase 8's progression
-        int effectivePhase = Math.Min(mCurPhase, mStage2);  // Cap at phase 8
-        double targetProgressionFactor =
-            Utils.remap(effectivePhase, mStage1 + 1, mStage2, 0.6, 1.0);
-
+      // PROGRESSIVE GROWTH: Continue growing side branches using unified calculation
+      if (mCurPhase > mStage1) {
         // Extend existing side branches to reach their target length
         for (int i = 0; i < mSideBranch_l.Count; i++) {
           var branch = mSideBranch_l[i];
           var dir = branch.PointAtEnd - branch.PointAtStart;
           dir.Unitize();
 
-          // Calculate this branch's height-based maximum length
+          // Calculate this branch's height
           mPln.RemapToPlaneSpace(branch.PointAtStart, out Point3d xformedPt);
-          double branchHeight = xformedPt.Y;
-          double normalizedHeight = branchHeight / mHeight;
-          double heightFactor = 1.0 - normalizedHeight;
-          double maxLengthForThisHeight =
-              mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
+          double normalizedHeight = xformedPt.Y / mHeight;
+          
+          // Calculate segment index and position from branch index
+          // Segment 0: branch 0 at position 0.6
+          // Segment 1: branches 1 (pos 0.25), 2 (pos 0.75)
+          // Segment 2: branches 3 (pos 0.25), 4 (pos 0.75)
+          // Segment 3: branches 5 (pos 0.25), 6 (pos 0.75)
+          int segmentIndex;
+          double positionInSegment;
+          if (i == 0) {
+            segmentIndex = 0;
+            positionInSegment = 0.6;
+          } else {
+            segmentIndex = ((i - 1) / 2) + 1;
+            // Odd indices (1, 3, 5) are at position 0.25, even indices (2, 4, 6) are at 0.75
+            positionInSegment = ((i - 1) % 2 == 0) ? 0.25 : 0.75;
+          }
 
-          // Calculate target length for this phase (capped at phase 8's length)
-          double targetLength = maxLengthForThisHeight * targetProgressionFactor;
+          // Use unified branch length calculation with segment index and position
+          double targetLength = CalculateSideBranchLength(normalizedHeight, mCurPhase, segmentIndex, positionInSegment);
 
           mSideBranch_l[i] = new Line(branch.PointAtStart, branch.PointAtStart + dir * targetLength)
                                  .ToNurbsCurve();
@@ -221,16 +236,23 @@ namespace BeingAliveLanguage {
           var dir = branch.PointAtEnd - branch.PointAtStart;
           dir.Unitize();
 
-          // Calculate this branch's height-based maximum length
+          // Calculate this branch's height
           mPln.RemapToPlaneSpace(branch.PointAtStart, out Point3d xformedPt);
-          double branchHeight = xformedPt.Y;
-          double normalizedHeight = branchHeight / mHeight;
-          double heightFactor = 1.0 - normalizedHeight;
-          double maxLengthForThisHeight =
-              mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 1.2);
+          double normalizedHeight = xformedPt.Y / mHeight;
+          
+          // Calculate segment index and position from branch index (same logic as left side)
+          int segmentIndex;
+          double positionInSegment;
+          if (i == 0) {
+            segmentIndex = 0;
+            positionInSegment = 0.6;
+          } else {
+            segmentIndex = ((i - 1) / 2) + 1;
+            positionInSegment = ((i - 1) % 2 == 0) ? 0.25 : 0.75;
+          }
 
-          // Calculate target length for this phase (capped at phase 8's length)
-          double targetLength = maxLengthForThisHeight * targetProgressionFactor;
+          // Use unified branch length calculation with segment index and position
+          double targetLength = CalculateSideBranchLength(normalizedHeight, mCurPhase, segmentIndex, positionInSegment);
 
           mSideBranch_r[i] = new Line(branch.PointAtStart, branch.PointAtStart + dir * targetLength)
                                  .ToNurbsCurve();
@@ -247,7 +269,7 @@ namespace BeingAliveLanguage {
 
       var topBranches = BiBranching(topPlane, stage2Phase);
 
-      // FIXED: Separate left and right branches based on GEOMETRY, not strings
+      // Separate left and right branches based on geometry
       foreach (var branch in topBranches) {
         if (IsBranchOnLeftSide(branch.Item1)) {
           mSubBranch_l.Add(branch.Item1);
@@ -315,7 +337,7 @@ namespace BeingAliveLanguage {
           Curve newBranchA = new Line(branchEnd, endA).ToNurbsCurve();
           Curve newBranchB = new Line(branchEnd, endB).ToNurbsCurve();
 
-          // FIXED: Add to appropriate collections based on GEOMETRY, not strings
+          // FIXED: Add to appropriate collections based on GEOMETRIC, not strings
           if (IsBranchOnLeftSide(newBranchA)) {
             mSubBranch_l.Add(newBranchA);
           } else {
@@ -740,68 +762,154 @@ namespace BeingAliveLanguage {
       mSideBranch_l.Clear();
       mSideBranch_r.Clear();
 
-      // Always generate at least one branch per side, more in later phases
-      int numBranchesPerSide = Math.Max(1, phase * 2 - 1);
+      // Branch positions within each segment (relative to segment)
+      // First segment: 1 branch at 0.6
+      // Other segments: 2 branches at 0.25 and 0.75
+      
+      // Base angle for side branches
+      double baseAngle = mBaseAngle * (1 - 0.02 * (phase - 1));
 
-      // WIDER ANGLES: Increase base angle from 60 to 95 degrees for more open appearance
-      double baseAngle = mBaseAngle * (1 - 0.02 * (phase - 1));  // Reduced angle decrease per phase
-
-      for (int i = 0; i < numBranchesPerSide; i++) {
-        // Position along trunk (distribute evenly, avoiding very bottom)
-        double posRatio = 0.3 + 0.6 * i / Math.Max(1, numBranchesPerSide - 1);
-        Point3d branchPoint = mCurTrunk.PointAt(posRatio);
-
-        // HEIGHT-BASED MAX LENGTH: Longer branches near ground, shorter higher up
-        double heightFactor = Math.Pow(1.0 - posRatio, 0.7);  // 1.0 at bottom, 0.0 at top
-        double maxLengthForThisHeight =
-            mMinBranchLen + (mMaxBranchLen - mMinBranchLen) * Math.Pow(heightFactor, 2.5);
-
-        // ENHANCED CURVED SILHOUETTE: More aggressive reduction for upper branches
-        double curvedLengthFactor = 0.7 + 0.3 * Math.Sin(posRatio * Math.PI);
-        maxLengthForThisHeight *= curvedLengthFactor;
-
-        //// STAGE 1 & 2 PROGRESSION: Start small, reach max by end of stage 2
-        double progressionFactor = 0.5;
-        if (phase <= mStage1) {
-          // Stage 1: 20% to 60% of max length
-          progressionFactor = Utils.remap(phase, 1, mStage1, 0.2, progressionFactor);
+      // Iterate through each trunk segment and create branches at fixed positions
+      for (int segIdx = 0; segIdx < mTrunkSegments.Count; segIdx++) {
+        var segment = mTrunkSegments[segIdx];
+        
+        // Determine branch positions for this segment
+        List<double> branchPositions;
+        if (segIdx == 0) {
+          // First segment: only one branch pair at the middle-upper area
+          branchPositions = new List<double> { 0.6 };
+        } else {
+          // Other segments: two branch pairs
+          branchPositions = new List<double> { 0.25, 0.75 };
         }
+        
+        foreach (double posRatio in branchPositions) {
+          // Calculate the absolute branch attachment point on this segment
+          Point3d branchPoint = segment.PointAt(posRatio);
+          
+          // Calculate absolute height of this branch point
+          mPln.RemapToPlaneSpace(branchPoint, out Point3d localPt);
+          double absoluteHeight = localPt.Y;
+          
+          // Normalized height relative to final tree height (for taper calculation)
+          double normalizedHeight = absoluteHeight / mHeight;
 
-        double branchLength = maxLengthForThisHeight * progressionFactor;
+          // Calculate branch length using unified formula with segment index AND position
+          double branchLength = CalculateSideBranchLength(normalizedHeight, phase, segIdx, posRatio);
 
-        // IMPROVED ANGLE CALCULATION: Much more variation based on height
-        // Lower branches: more horizontal (closer to 90°)
-        // Upper branches: more vertical (closer to 45°)
-        double heightBasedAngleFactor = 0.5 + 0.5 * heightFactor;  // 0.5 at top, 1.0 at bottom
-        double angle = baseAngle * heightBasedAngleFactor;
+          // Angle calculation: lower branches more horizontal, upper more vertical
+          double heightFactor = 1.0 - normalizedHeight;
+          double heightBasedAngleFactor = 0.5 + 0.5 * heightFactor;
+          double angle = baseAngle * heightBasedAngleFactor;
 
-        // RANDOM VARIATION ONLY DURING INITIAL GENERATION - NOT AFTER PHASE 8
-        // Add some random variation for more natural look during initial creation only
-        double randomVariation = (Utils.balRnd.NextDouble() - 0.5) * 10.0;  // -5° to +5°
-        angle += randomVariation;
+          // Add some random variation for more natural look
+          double randomVariation = (Utils.balRnd.NextDouble() - 0.5) * 10.0;
+          angle += randomVariation;
 
-        // Clamp angle to reasonable bounds
-        angle = Math.Max(30, Math.Min(90, angle));
+          // Clamp angle to reasonable bounds
+          angle = Math.Max(30, Math.Min(90, angle));
 
-        // Left branch
-        Vector3d leftDir = new Vector3d(mPln.YAxis);
-        leftDir.Rotate(Utils.ToRadian(angle), mPln.ZAxis);
-        Curve leftBranch =
-            new Line(branchPoint, branchPoint + leftDir * branchLength).ToNurbsCurve();
-        mSideBranch_l.Add(leftBranch);
+          // Left branch
+          Vector3d leftDir = new Vector3d(mPln.YAxis);
+          leftDir.Rotate(Utils.ToRadian(angle), mPln.ZAxis);
+          Curve leftBranch =
+              new Line(branchPoint, branchPoint + leftDir * branchLength).ToNurbsCurve();
+          mSideBranch_l.Add(leftBranch);
 
-        // Right branch (use same angle for symmetry)
-        Vector3d rightDir = new Vector3d(mPln.YAxis);
-        rightDir.Rotate(Utils.ToRadian(-angle), mPln.ZAxis);
-        Curve rightBranch =
-            new Line(branchPoint, branchPoint + rightDir * branchLength).ToNurbsCurve();
-        mSideBranch_r.Add(rightBranch);
+          // Right branch (use same angle for symmetry)
+          Vector3d rightDir = new Vector3d(mPln.YAxis);
+          rightDir.Rotate(Utils.ToRadian(-angle), mPln.ZAxis);
+          Curve rightBranch =
+              new Line(branchPoint, branchPoint + rightDir * branchLength).ToNurbsCurve();
+          mSideBranch_r.Add(rightBranch);
+        }
       }
 
       // Combine left and right branches
       mSideBranch = mSideBranch_l.Concat(mSideBranch_r).ToList();
     }
 
+    /// <summary>
+    /// Unified branch length calculation for all phases.
+    /// Uses a CONVEX curve (quarter ellipse) to create a natural tree silhouette.
+    /// Branch tips form a smooth outward-bulging shape that matches the canopy.
+    /// During growth phases (1-4), the curve is based on CURRENT trunk height, not final height.
+    /// </summary>
+    /// <param name="normalizedHeight">Height of branch point relative to final tree height (0-1)</param>
+    /// <param name="phase">Current growth phase</param>
+    /// <param name="segmentIndex">Which trunk segment this branch is on (0-based). Use -1 to auto-detect.</param>
+    /// <param name="positionInSegment">Position within segment (0.0-1.0). Not used but kept for API compatibility.</param>
+    /// <returns>Branch length</returns>
+    private double CalculateSideBranchLength(double normalizedHeight, int phase, int segmentIndex = -1, double positionInSegment = 0.5) {
+      // Branch length parameters (relative to tree height)
+      double maxBranchLen = mHeight * 0.55;  // Maximum length at the widest point
+      double minBranchLen = mHeight * 0.12;  // Minimum length at top
+      
+      // During growth phases (1-4), use CURRENT trunk height as reference
+      // This ensures the visible branches always form a proper convex curve
+      int currentSegments = Math.Min(phase, mStage1);
+      double currentTrunkHeight = currentSegments * mTrunkSegLen;
+      
+      // Calculate the height relative to the CURRENT trunk (not final tree)
+      // This makes the convex curve apply to the branches that currently exist
+      double heightRelativeToCurrentTrunk;
+      if (phase <= mStage1) {
+        // During growth: normalize to current trunk height
+        double absoluteHeight = normalizedHeight * mHeight;
+        heightRelativeToCurrentTrunk = absoluteHeight / currentTrunkHeight;
+      } else {
+        // After growth: normalize to final height
+        heightRelativeToCurrentTrunk = normalizedHeight;
+      }
+      
+      // Define branching zone relative to current trunk
+      double branchZoneStart = 0.10;
+      double branchZoneEnd = 0.98;  // Slightly higher since we're using current trunk
+      
+      // Remap to zone (0 at bottom, 1 at top of current trunk)
+      double zoneHeight = (heightRelativeToCurrentTrunk - branchZoneStart) / (branchZoneEnd - branchZoneStart);
+      zoneHeight = Math.Max(0, Math.Min(1, zoneHeight));
+      
+      // Use a quarter-ellipse formula for CONVEX shape
+      double convexFactor = Math.Sqrt(1.0 - zoneHeight * zoneHeight);
+      
+      // Calculate max length for this height using the convex curve
+      double maxLengthForThisHeight = minBranchLen + (maxBranchLen - minBranchLen) * convexFactor;
+      
+      // Determine which segment this branch belongs to
+      int branchSegment;
+      if (segmentIndex >= 0) {
+        branchSegment = segmentIndex;
+      } else {
+        branchSegment = (int)(normalizedHeight * mStage1);
+        branchSegment = Math.Min(branchSegment, mStage1 - 1);
+      }
+      
+      // Calculate growth progress
+      int creationPhase = branchSegment + 1;
+      int phasesGrown = Math.Max(0, phase - creationPhase);
+      int totalGrowthPhases = mStage2 - creationPhase;
+      
+      double growthProgress;
+      if (phasesGrown <= 0) {
+        growthProgress = 0.0;
+      } else if (phase <= mStage2) {
+        growthProgress = (double)phasesGrown / Math.Max(1, totalGrowthPhases);
+        growthProgress = Math.Min(1.0, growthProgress);
+      } else {
+        growthProgress = 1.0;
+      }
+      
+      double easedProgress = Math.Sqrt(growthProgress);
+      
+      double initialLengthFactor = 0.45;
+      double initialLength = maxLengthForThisHeight * initialLengthFactor;
+      
+      double branchLength = initialLength + (maxLengthForThisHeight - initialLength) * easedProgress;
+      
+      return branchLength;
+    }
+    
     // SIMPLIFIED: Generate phase-specific canopy outline curves - TWO ARCS ONLY
     private void GenerateOutlineCurve() {
       // Always clear existing canopy
@@ -1038,6 +1146,7 @@ namespace BeingAliveLanguage {
       mCurCanopy = null;
       mCurCanopy_l = null;
       mCurCanopy_r = null;
+      mTrunkSegments.Clear();
       mCircCol.Clear();
       mSideBranch_l.Clear();
       mSideBranch_r.Clear();
@@ -1076,6 +1185,9 @@ namespace BeingAliveLanguage {
     public Curve mCurCanopy_r;
     public Curve mCurCanopy;
     public Curve mCurTrunk;
+
+    // Trunk segments - each phase adds a new segment at the top (biologically accurate growth)
+    public List<Line> mTrunkSegments = new List<Line>();
 
     public List<Curve> mCircCol = new List<Curve>();
     public List<Curve> mSideBranch_l = new List<Curve>();
