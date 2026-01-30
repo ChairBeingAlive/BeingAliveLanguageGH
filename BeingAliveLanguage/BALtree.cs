@@ -624,22 +624,37 @@ public class BALtreeInteraction : GH_Component {
         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                           "One or more tree objects are invalid, these trees are omitted.");
       }
-
-      // Check for overlapping trees or trees that are too close
-      for (int i = 0; i < treePositions.Count; i++) {
-        double minDist = 0.5 * trees[i].GetRadius();
-        for (int j = i + 1; j < treePositions.Count; j++) {
-          if (treePositions[i].DistanceTo(treePositions[j]) < minDist) {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                              $"Trees at positions {i} and {j} are too close or overlapping.");
-          }
-        }
-      }
     }
 
-    // For each tree, find its nearest neighbors
+    // For each tree, find its nearest neighbors using KD-tree (O(n log n) instead of O(n²))
     List<List<Point3d>> nearestNeighbors = new List<List<Point3d>>();
     Utils.GetLstNearestPoint(treePositions, out nearestNeighbors, 6);
+
+    // Check for overlapping trees using the already-computed nearest neighbors
+    // This avoids redundant O(n²) comparisons by only checking nearby trees
+    for (int i = 0; i < trees.Count; i++) {
+      if (i >= nearestNeighbors.Count || nearestNeighbors[i].Count == 0)
+        continue;
+
+      // Only check against the nearest neighbors (already sorted by distance from KD-tree)
+      Point3d nearestPt = nearestNeighbors[i][0];
+      double actualDist = treePositions[i].DistanceTo(nearestPt);
+      
+      // Find the index of the nearest tree to get its radius
+      int nearestIdx = treePositions.FindIndex(p => p.DistanceTo(nearestPt) < 1e-6);
+      if (nearestIdx < 0 || nearestIdx == i)
+        continue;
+
+      // Consider both trees' radii: warn if distance is less than 25% of combined radii
+      double minDist = 0.25 * (trees[i].mSoloRadius + trees[nearestIdx].mSoloRadius);
+      
+      // Only warn once per pair (when i < nearestIdx to avoid duplicate warnings)
+      if (actualDist < minDist && i < nearestIdx) {
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                          $"Trees at positions {i} and {nearestIdx} are very close (dist: {actualDist:F2}, " +
+                          $"min recommended: {minDist:F2}). Interaction still applied.");
+      }
+    }
 
     // Apply the interaction effects
     if (nearestNeighbors.Count == 0) {
