@@ -699,6 +699,466 @@ namespace BeingAliveLanguage {
   }
 
   /// <summary>
+  /// Draw tree roots
+  /// </summary>
+  public class BALtreeRoot2d : GH_Component {
+    public BALtreeRoot2d()
+        : base("TreeRoot2D", "balTreeRoot2D",
+               "Generate the BAL tree-root drawing in 2D using the BAL tree and soil information.",
+               "BAL", "02::root") {}
+
+    public override GH_Exposure Exposure => GH_Exposure.quarternary;
+    protected override System.Drawing.Bitmap Icon =>
+        SysUtils.cvtByteBitmap(Properties.Resources.balTreeRoot2D);
+    public override Guid ComponentGuid => new Guid("27C279E0-08C9-4110-AE40-81A59C9D9EB8");
+    private bool rootDense = false;
+    private int scalingFactor = 1;
+    private string drawingMode = "centerLine";  // Default to centerLine mode
+
+    protected override void RegisterInputParams(GH_InputParamManager pManager) {
+      pManager.AddGenericParameter("TreeInfo", "tInfo", "Information about the tree.",
+                                   GH_ParamAccess.item);
+      pManager.AddGenericParameter("SoilMap2D", "sMap2D", "The soil map class to build root upon.",
+                                   GH_ParamAccess.item);
+    }
+
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager) {
+      pManager.AddLineParameter("All Roots", "rootAll",
+                                "The planar root drawing, collection of all level roots.",
+                                GH_ParamAccess.list);
+
+      pManager.AddCurveParameter("RootMain", "rootM", "Primary roots.", GH_ParamAccess.list);
+      pManager.AddCurveParameter("RootNew", "rootN", "Secondary roots.", GH_ParamAccess.list);
+      pManager.AddCurveParameter(
+          "RootDead", "rootD", "Dead roots in later phases of a tree's life.", GH_ParamAccess.list);
+    }
+
+    public override void AppendAdditionalMenuItems(ToolStripDropDown menu) {
+      base.AppendAdditionalMenuItems(menu);
+
+      Menu_AppendSeparator(menu);
+      Menu_AppendItem(menu, "Drawing Style:", (sender, e) => {}, false).Font =
+          GH_FontServer.StandardItalic;
+      Menu_AppendItem(
+          menu, " Center Lines",
+          (sender, e) => Menu.SelectMode(this, sender, e, ref drawingMode, "centerLine"), true,
+          CheckDrawingMode("centerLine"));
+      Menu_AppendItem(
+          menu, " Fancy Bounds",
+          (sender, e) => Menu.SelectMode(this, sender, e, ref drawingMode, "fancyBound"), true,
+          CheckDrawingMode("fancyBound"));
+    }
+
+    private bool CheckDrawingMode(string mode) => drawingMode == mode;
+
+    public override bool Write(GH_IWriter writer) {
+      writer.SetString("drawingMode", drawingMode);
+      return base.Write(writer);
+    }
+
+    public override bool Read(GH_IReader reader) {
+      if (reader.ItemExists("drawingMode"))
+        drawingMode = reader.GetString("drawingMode");
+
+      return base.Read(reader);
+    }
+
+    protected override void SolveInstance(IGH_DataAccess DA) {
+      //! Get data
+      var tInfo = new TreeProperty();
+      var sMap = new SoilMap2d();
+
+      if (!DA.GetData<TreeProperty>("TreeInfo", ref tInfo)) {
+        return;
+      }
+
+      if (!DA.GetData<SoilMap2d>("SoilMap2D", ref sMap)) {
+        return;
+      }
+
+      // if (sMap.mapMode != "sectional")
+      //{
+      //   AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A tree root need a sectional soil map to
+      //   grow upon.");
+      // }
+
+      if (sMap.mPln != tInfo.pln) {
+        AddRuntimeMessage(
+            GH_RuntimeMessageLevel.Warning,
+            "Tree plane and SoilMap plane does not match. This may cause issues for the root drawing.");
+      }
+
+      // ! get anchor + determin root size based on tree size
+      var anchorPt = sMap.GetNearestPoint(tInfo.pln.Origin);
+      if (anchorPt.DistanceTo(tInfo.pln.Origin) > sMap.unitLen) {
+        AddRuntimeMessage(
+            GH_RuntimeMessageLevel.Error,
+            "Tree anchor point is too far from the soil. Please plant your tree near the soil grid.");
+      }
+
+      // if the unit length of the soil grid is small enough, we allow the drawing of detailed root.
+      if (sMap.unitLen < tInfo.height * 0.05) {
+        rootDense = true;
+        scalingFactor = 2;
+      } else {
+        rootDense = false;
+        scalingFactor = 1;
+
+        // send warning of the soil grid is too big
+        if (sMap.unitLen > tInfo.height * 0.15) {
+          AddRuntimeMessage(
+              GH_RuntimeMessageLevel.Warning,
+              "Soil grid too big. You will get unbalanced relationship between the tree and its roots.");
+        }
+      }
+
+      // ! get parameter of the map and start drawing based on the phase
+      var uL = sMap.unitLen;             // unit length, side length of the triangle
+      var vL = uL * Math.Sqrt(3) * 0.5;  // vertical unit length, height of the triangle
+      var mainRoot = new List<Curve>();
+      var newRoot = new List<Curve>();
+      var hairRoot = new List<Line>();
+      var deadRoot = new List<Curve>();
+
+      if (tInfo.phase < 1 || tInfo.phase > 12)
+        AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tree phase is out of range [0, 12].");
+
+      var vVec = -sMap.mPln.YAxis * vL * scalingFactor;
+      var hVec = sMap.mPln.XAxis * uL * scalingFactor;
+
+      int vSideParam = 3;
+
+      /////////////////////////////////////////////
+      /// As the root is largely manually defined in different phases,
+      /// a majority of the diagram here is hard-coded and not fully rule-based
+      ///  - the hairy roots are even more hard-coded
+      ////////////////////////////////////////////
+
+      //! Main Root
+      // vertical tap root (central layer)
+      // --------------------
+      //          *
+      //          *
+      int verticalTapRootParam = 4;
+      if (tInfo.phase == 1) {
+        verticalTapRootParam = 3;
+        newRoot.Add(new Line(anchorPt, vVec * verticalTapRootParam).ToNurbsCurve());
+      } else if (tInfo.phase > 1 && tInfo.phase < 11) {
+        if (tInfo.phase == 2)  // at phase 2, tap root grows longer
+        {
+          var preVerticalParam = verticalTapRootParam - 1;
+          mainRoot.Add(new Line(anchorPt, vVec * preVerticalParam).ToNurbsCurve());
+          newRoot.Add(new Line(anchorPt + vVec * preVerticalParam, vVec).ToNurbsCurve());
+        } else {
+          mainRoot.Add(new Line(anchorPt, vVec * verticalTapRootParam).ToNurbsCurve());
+        }
+      } else if (tInfo.phase == 11) {
+        // deadRoot.Add(new Line(anchorPt, vVec * 2));
+        deadRoot.Add(new Line(anchorPt, vVec * verticalTapRootParam).ToNurbsCurve());
+      }
+
+      //! vertical root (1nd layer)
+      // ---------------------
+      //        *  |  *
+      //        *  |  *
+      int vTmpParam = 0;
+      var lAnchor = anchorPt - hVec * 4;
+      var rAnchor = anchorPt + hVec * 4;
+      if (tInfo.phase == 5) {
+        vTmpParam = 2;
+        newRoot.Add(new Line(lAnchor, vVec * vTmpParam).ToNurbsCurve());
+        newRoot.Add(new Line(rAnchor, vVec * vTmpParam).ToNurbsCurve());
+      } else if (tInfo.phase > 5 && tInfo.phase < 12) {
+        vTmpParam = vSideParam;
+        if (tInfo.phase == 6) {
+          var preVerticalParam = vTmpParam - 1;
+          mainRoot.Add(new Line(lAnchor, vVec * preVerticalParam).ToNurbsCurve());
+          mainRoot.Add(new Line(rAnchor, vVec * preVerticalParam).ToNurbsCurve());
+          newRoot.Add(new Line(lAnchor + vVec * preVerticalParam, vVec).ToNurbsCurve());
+          newRoot.Add(new Line(rAnchor + vVec * preVerticalParam, vVec).ToNurbsCurve());
+        } else {
+          mainRoot.Add(new Line(lAnchor, vVec * vTmpParam).ToNurbsCurve());
+          mainRoot.Add(new Line(rAnchor, vVec * vTmpParam).ToNurbsCurve());
+        }
+      } else if (tInfo.phase == 12) {
+        // phase 10, dead root shown
+        deadRoot.Add(new Line(lAnchor, vVec * vSideParam).ToNurbsCurve());
+        deadRoot.Add(new Line(rAnchor, vVec * vSideParam).ToNurbsCurve());
+      }
+
+      // ! vertical root (2rd layer)
+      // ---------------------
+      //     *  |  |  |  *
+      //     *  |  |  |  *
+      lAnchor = anchorPt - hVec * 7;
+      rAnchor = anchorPt + hVec * 7;
+      vTmpParam = 2;
+      if (tInfo.phase == 6) {
+        newRoot.Add(new Line(lAnchor, vVec * vTmpParam).ToNurbsCurve());
+        newRoot.Add(new Line(rAnchor, vVec * vTmpParam).ToNurbsCurve());
+      } else if (tInfo.phase > 6 && tInfo.phase <= 11) {
+        // vTmpParam = vSideParam;
+        mainRoot.Add(new Line(lAnchor, vVec * vTmpParam).ToNurbsCurve());
+        mainRoot.Add(new Line(rAnchor, vVec * vTmpParam).ToNurbsCurve());
+
+        // if (tInfo.phase == 7)
+        //{
+        //     var preVerticalParam = vTmpParam - 1;
+        //     mainRoot.Add(new Line(lAnchor, vVec * preVerticalParam));
+        //     mainRoot.Add(new Line(rAnchor, vVec * preVerticalParam));
+        //     newRoot.Add(new Line(lAnchor + vVec * preVerticalParam, vVec));
+        //     newRoot.Add(new Line(rAnchor + vVec * preVerticalParam, vVec));
+        // }
+        // else
+        //{
+        //     mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+        //     mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+        // }
+      } else if (tInfo.phase == 12) {
+        // phase 12, dead root shown
+        deadRoot.Add(new Line(lAnchor, vVec * vTmpParam).ToNurbsCurve());
+        deadRoot.Add(new Line(rAnchor, vVec * vTmpParam).ToNurbsCurve());
+      }
+
+      //! vertical root (3rd layer)
+      // ---------------------
+      //  *  |  |  |  |  |  *
+      //  *  |  |  |  |  |  *
+
+      // 2023.06.28: remove 3rd layer
+      // lAnchor = anchorPt - hVec * 10;
+      // rAnchor = anchorPt + hVec * 10;
+      // vTmpParam = 0;
+      // if (tInfo.phase >= 7 && tInfo.phase <= 11)
+      //{
+      //    vTmpParam = 2;
+      //    if (tInfo.phase == 7)
+      //    {
+      //        newRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+      //        newRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+      //    }
+      //    else
+      //    {
+      //        mainRoot.Add(new Line(lAnchor, vVec * vTmpParam));
+      //        mainRoot.Add(new Line(rAnchor, vVec * vTmpParam));
+      //    }
+      //}
+      // else if (tInfo.phase == 12)
+      //{
+      //    // phase 12, dead root shown
+      //    deadRoot.Add(new Line(lAnchor, vVec * vSideParam));
+      //    deadRoot.Add(new Line(rAnchor, vVec * vSideParam));
+      //}
+
+      //! vertical root (secondary 1st layer)
+      // ---------------------
+      //  |  |  |  |  |  |  |
+      //     -------------
+      //  |  |  | *|* |  |  |
+      lAnchor = anchorPt - hVec * 2 + vVec * 2;
+      rAnchor = anchorPt + hVec * 2 + vVec * 2;
+      vTmpParam = 1;
+
+      if (tInfo.phase == 8) {
+        newRoot.Add(new Line(lAnchor, vVec * vTmpParam).ToNurbsCurve());
+        newRoot.Add(new Line(rAnchor, vVec * vTmpParam).ToNurbsCurve());
+      }
+      if (tInfo.phase >= 9 && tInfo.phase < 11) {
+        mainRoot.Add(new Line(lAnchor, vVec * vTmpParam).ToNurbsCurve());
+        mainRoot.Add(new Line(rAnchor, vVec * vTmpParam).ToNurbsCurve());
+      } else if (tInfo.phase == 11) {
+        deadRoot.Add(new Line(rAnchor, vVec * vTmpParam).ToNurbsCurve());
+        deadRoot.Add(new Line(lAnchor, vVec * vTmpParam).ToNurbsCurve());
+      }
+
+      //! horizontal tap root (central)
+      // ********************
+      //          |
+      //          |
+      int totalHorizontalTapRootParam = 0;
+      int prevHorTapRootParam = 0;
+      int curHorTapRootParam = 0;
+      if (tInfo.phase >= 1 && tInfo.phase < 9) {
+        if (tInfo.phase == 1) {
+          prevHorTapRootParam = 0;
+          curHorTapRootParam = 1;
+        } else {
+          prevHorTapRootParam = (tInfo.phase - 2) * 2 + 1;
+          curHorTapRootParam = 2;
+        }
+
+        newRoot.Add(new Line(anchorPt + hVec * prevHorTapRootParam, hVec * curHorTapRootParam)
+                        .ToNurbsCurve());
+        newRoot.Add(new Line(anchorPt - hVec * prevHorTapRootParam, -hVec * curHorTapRootParam)
+                        .ToNurbsCurve());
+
+        mainRoot.Add(new Line(anchorPt, hVec * prevHorTapRootParam).ToNurbsCurve());
+        mainRoot.Add(new Line(anchorPt, -hVec * prevHorTapRootParam).ToNurbsCurve());
+      } else {
+        totalHorizontalTapRootParam = 15;
+
+        // if (tInfo.phase > 10)
+        //{
+        //     totalHorizontalTapRootParam = 10;
+
+        //    if (tInfo.phase == 11)
+        //    {
+        //        var lPt = anchorPt + hVec * totalHorizontalTapRootParam;
+        //        deadRoot.Add(new Line(lPt, hVec * 5));
+        //        var rPt = anchorPt - hVec * totalHorizontalTapRootParam;
+        //        deadRoot.Add(new Line(rPt, -hVec * 5));
+
+        //    }
+        //}
+        mainRoot.Add(new Line(anchorPt, hVec * totalHorizontalTapRootParam).ToNurbsCurve());
+        mainRoot.Add(new Line(anchorPt, -hVec * totalHorizontalTapRootParam).ToNurbsCurve());
+      }
+
+      //! horizontal tap root (2nd layer)
+      // -------------------
+      //         |
+      //       *****
+      //         |
+      int lParam = 5;
+      int rParam = 5;
+      int preParam = 0;
+      int curParam = 0;
+
+      var startPtH2 = anchorPt - sMap.mPln.YAxis * vL * 2;
+      if (tInfo.phase >= 4 && tInfo.phase < 7) {
+        if (tInfo.phase == 4) {
+          curParam = 1;
+          preParam = 0;
+        } else {
+          preParam = (tInfo.phase - 5) * 2 + 1;
+          curParam = 2;
+        }
+
+        newRoot.Add(new Line(startPtH2 - hVec * preParam, -hVec * curParam).ToNurbsCurve());
+        newRoot.Add(new Line(startPtH2 + hVec * preParam, hVec * curParam).ToNurbsCurve());
+
+        mainRoot.Add(new Line(startPtH2, -hVec * preParam).ToNurbsCurve());
+        mainRoot.Add(new Line(startPtH2, hVec * preParam).ToNurbsCurve());
+
+      } else if (tInfo.phase >= 7 && tInfo.phase < 11) {
+        mainRoot.Add(new Line(startPtH2, hVec * rParam).ToNurbsCurve());
+        mainRoot.Add(new Line(startPtH2, -hVec * lParam).ToNurbsCurve());
+      } else if (tInfo.phase == 11) {
+        deadRoot.Add(new Line(startPtH2, hVec * rParam).ToNurbsCurve());
+        deadRoot.Add(new Line(startPtH2, -hVec * lParam).ToNurbsCurve());
+      }
+
+      //! horizontal tap root (3rd layer)
+      // -------------------
+      //         |
+      //       -----
+      //         |
+      //       *****
+
+      int prevParam = 0;
+      var startPtH3 = anchorPt - sMap.mPln.YAxis * vL * 4;
+      if (tInfo.phase == 6) {
+        curParam = 3;
+        newRoot.Add(new Line(startPtH3, hVec * curParam).ToNurbsCurve());
+        newRoot.Add(new Line(startPtH3, -hVec * curParam).ToNurbsCurve());
+      } else if (tInfo.phase == 7) {
+        prevParam = 3;
+        curParam = 1;
+        newRoot.Add(new Line(startPtH3 + hVec * prevParam, hVec * curParam).ToNurbsCurve());
+        newRoot.Add(new Line(startPtH3 - hVec * prevParam, -hVec * curParam).ToNurbsCurve());
+
+        mainRoot.Add(new Line(startPtH3, hVec * prevParam).ToNurbsCurve());
+        mainRoot.Add(new Line(startPtH3, -hVec * prevParam).ToNurbsCurve());
+      } else if (tInfo.phase >= 8 && tInfo.phase < 10) {
+        mainRoot.Add(new Line(startPtH3, hVec * 4).ToNurbsCurve());
+        mainRoot.Add(new Line(startPtH3, -hVec * 4).ToNurbsCurve());
+      } else if (tInfo.phase == 10) {
+        deadRoot.Add(new Line(startPtH3, hVec * 4).ToNurbsCurve());
+        deadRoot.Add(new Line(startPtH3, -hVec * 4).ToNurbsCurve());
+      }
+
+      // Remove any null items from the result lists
+      mainRoot = mainRoot.Where(r => r != null).ToList();
+      newRoot = newRoot.Where(r => r != null).ToList();
+      deadRoot = deadRoot.Where(r => r != null).ToList();
+
+      // If using fancy boundary mode, convert the centerlines to boundary curves
+      if (drawingMode == "fancyBound") {
+        var allRootLines = new List<Curve>();
+        allRootLines.AddRange(mainRoot);
+        allRootLines.AddRange(newRoot);
+        allRootLines.AddRange(deadRoot);
+
+        var fancyMainRoot = CreateFancyBound(mainRoot, anchorPt, sMap.unitLen * 0.3, tInfo.phase);
+        // var fancyNewRoot = CreateFancyBound(newRoot, anchorPt, sMap.unitLen * 0.2, tInfo.phase);
+        // var fancyDeadRoot = CreateFancyBound(deadRoot, anchorPt, sMap.unitLen * 0.15,
+        // tInfo.phase);
+
+        // Replace the original lists with the fancy versions
+        mainRoot = fancyMainRoot;
+        // newRoot = fancyNewRoot;
+        // deadRoot = fancyDeadRoot;
+      }
+
+      // ! export all
+      DA.SetDataList("RootMain", mainRoot);
+      DA.SetDataList("RootNew", newRoot);
+      DA.SetDataList("RootDead", deadRoot);
+    }
+    /// <summary>
+    /// Creates fancy boundary lines around centerlines
+    /// </summary>
+    private List<Curve> CreateFancyBound(List<Curve> centerLines, Point3d anchorPoint,
+                                         double baseThickness, int phase) {
+      if (centerLines.Count == 0)
+        return new List<Curve>();
+
+      List<Curve> boundaryCrv = new List<Curve>();
+
+      foreach (var centerLine in centerLines) {
+        var lnCollection = new List<Line>();
+        // Calculate thickness based on distance from anchor and position along the root
+        Point3d startPt = centerLine.PointAtStart;
+        Point3d endPt = centerLine.PointAtEnd;
+
+        // Get distance from anchor to calculate tapering
+        double distFromAnchor = startPt.DistanceTo(anchorPoint);
+        double lineLength = centerLine.GetLength();
+
+        // Calculate thickness factor (thicker near anchor, thinner at extremities)
+        double thicknessFactor = 1.0 - Math.Min(0.2, distFromAnchor / (20 * baseThickness));
+        double thickness = baseThickness * thicknessFactor;
+
+        // Get the direction vector of the line
+        Vector3d dir = centerLine.PointAtStart - centerLine.PointAtEnd;
+        dir.Unitize();
+
+        // Get perpendicular vector
+        Vector3d perpDir = Vector3d.CrossProduct(dir, Vector3d.ZAxis);
+        perpDir.Unitize();
+
+        // Create boundary points to form a closed polygon
+        Point3d leftStart = startPt + perpDir * thickness;
+        Point3d leftEnd = endPt + perpDir * (thickness * 0.1);   // Taper at the end
+        Point3d rightEnd = endPt - perpDir * (thickness * 0.1);  // Taper at the end
+        Point3d rightStart = startPt - perpDir * thickness;
+
+        // Add boundary lines as a closed polygon
+        lnCollection.Add(new Line(leftStart, leftEnd));
+        lnCollection.Add(new Line(leftEnd, rightEnd));
+        lnCollection.Add(new Line(rightEnd, rightStart));
+        lnCollection.Add(new Line(rightStart, leftStart));
+
+        var joinedCrv = Curve.JoinCurves(lnCollection.Select(x => x.ToNurbsCurve()));
+        if (joinedCrv.Length != 0)
+          boundaryCrv.Add(joinedCrv[0]);
+      }
+
+      return boundaryCrv;
+    }
+  }
+
+  /// <summary>
   /// Draw Tree Root in 3D
   /// </summary>
   public class BALtreeRoot3d : GH_Component {
