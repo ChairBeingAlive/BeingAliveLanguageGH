@@ -520,5 +520,76 @@ namespace BeingAliveLanguage
       return ptMap[strKey];
     }
 
+    /// <summary>
+    /// Compute average distance to K nearest neighbors at a given point.
+    /// Returns the global unitLen if the query fails.
+    /// </summary>
+    public double ComputeLocalDensity(in Point3d pt, int k = 6)
+    {
+      var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, k);
+      if (resNode == null || resNode.Length == 0)
+        return unitLen;
+
+      double sum = 0;
+      int count = 0;
+      foreach (var node in resNode)
+      {
+        if (node == null) continue;
+        var nPt = new Point3d(node.Point[0], node.Point[1], node.Point[2]);
+        double d = pt.DistanceTo(nPt);
+        if (d > 1e-8) { sum += d; count++; }
+      }
+      return count > 0 ? sum / count : unitLen;
+    }
+
+    /// <summary>
+    /// Compute a boundary proximity signal at a given point.
+    /// Returns a value in [0, 1+] where 0 = deep interior, >0.5 = near boundary.
+    /// Computed as the magnitude of the centroid offset of K nearest neighbors
+    /// normalized by local density.
+    /// Also outputs the inward direction (centroid vector).
+    /// </summary>
+    public double ComputeBoundarySignal(in Point3d pt, out Vector3d inwardDir, int k = 12)
+    {
+      inwardDir = Vector3d.Zero;
+      var resNode = kdMap.GetNearestNeighbours(new[] { (float)pt.X, (float)pt.Y, (float)pt.Z }, k);
+      if (resNode == null || resNode.Length == 0)
+        return 1.0; // assume at boundary if no neighbors
+
+      // compute centroid of neighbors
+      Point3d centroid = Point3d.Origin;
+      int count = 0;
+      double distSum = 0;
+      foreach (var node in resNode)
+      {
+        if (node == null) continue;
+        var nPt = new Point3d(node.Point[0], node.Point[1], node.Point[2]);
+        centroid += nPt;
+        double d = pt.DistanceTo(nPt);
+        if (d > 1e-8) distSum += d;
+        count++;
+      }
+
+      if (count == 0)
+        return 1.0;
+
+      centroid /= count;
+      double localDensity = distSum / count;
+      if (localDensity < 1e-8)
+        localDensity = unitLen;
+
+      // Vector from current point to centroid of neighbors
+      Vector3d offset = centroid - pt;
+      double signal = offset.Length / localDensity;
+
+      if (offset.Length > 1e-8)
+      {
+        inwardDir = offset;
+        inwardDir.Unitize();
+      }
+
+      return signal;
+    }
+
   }
 }

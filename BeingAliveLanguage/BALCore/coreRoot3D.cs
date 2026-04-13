@@ -395,9 +395,13 @@ namespace BeingAliveLanguage {
     }
 
     /// <summary>
-    /// Growing a segment along given vector.
-    /// Soil points are used for DIRECTION guidance only - actual length is always maxLength.
-    /// For horizontal roots, direction is constrained to stay roughly horizontal.
+    /// Growing a segment along given vector with density-adaptive step sizing
+    /// and boundary-aware direction steering.
+    ///
+    /// - Step size adapts to local soil point density (dense soil = smaller steps, better tracking).
+    /// - Near soil volume boundaries, direction is steered inward so roots stay inside the volume.
+    /// - Reach compensation ensures the root extends to its intended length even with direction changes,
+    ///   but is suppressed near boundaries so boundary steering can dominate.
     /// </summary>
     private Polyline GrowAlongVec(in Point3d cen, in double maxLength, in Vector3d dir) {
       var rootBranch = new Polyline();
@@ -416,37 +420,71 @@ namespace BeingAliveLanguage {
       Vector3d initialDir = dir;
       initialDir.Unitize();
       double verticalComponent = Math.Abs(initialDir * mBasePln.ZAxis);
-      bool isHorizontalRoot = verticalComponent < 0.7;  // Less than ~45 degrees from horizontal
+      bool isHorizontalRoot = verticalComponent < 0.7;
 
-      // Full mode: use soil map points for direction guidance
-      // but control the actual distance traveled
-      int numSteps = 5;  // Number of steps to reach maxLength
-      double stepLen = maxLength / numSteps;
+      // Density-adaptive step sizing
+      double localDensity = mMap3d.ComputeLocalDensity(cen, 6);
+      // Step length: proportional to local density, clamped to reasonable bounds
+      int maxSteps = 40;
+      int minSteps = 3;
+      double stepLen = Math.Max(localDensity * 0.8, maxLength / maxSteps);
+      stepLen = Math.Min(stepLen, maxLength / minSteps);
+      int numSteps = Math.Max(minSteps, (int)Math.Ceiling(maxLength / stepLen));
+      stepLen = maxLength / numSteps;  // re-normalize so total arc length == maxLength
 
       Point3d curPt = cen;
       Vector3d curDir = dir;
       curDir.Unitize();
+      Vector3d goalDir = curDir; // remember original intended direction for reach compensation
+      double arcConsumed = 0.0;
 
       for (int step = 0; step < numSteps; step++) {
-        // Get candidate points to determine best direction
+        // Query neighbors and boundary signal
         List<Point3d> candidates = mMap3d.GetNearestPoints(curPt, 20);
+        double boundarySignal = mMap3d.ComputeBoundarySignal(curPt, out Vector3d inwardDir, 12);
 
-        // Find best direction based on candidates
-        Vector3d bestDir = FindBestDirection(curPt, candidates, curDir);
+        // Progress ratio [0, 1]
+        double progress = arcConsumed / maxLength;
+
+        // Reach compensation: gradually steer back toward goal direction
+        // but suppress when near boundary so boundary steering dominates
+        double reachBlend = 0.0;
+        if (boundarySignal < 0.3) {
+          // Interior: apply reach compensation that increases with progress
+          reachBlend = 0.4 * progress;
+        }
+        // Blend current direction toward goal for reach compensation
+        Vector3d preferredDir = curDir * (1.0 - reachBlend) + goalDir * reachBlend;
+        preferredDir.Unitize();
+
+        // Find best direction from soil points with boundary awareness
+        Vector3d bestDir = FindBestDirection(curPt, candidates, preferredDir, boundarySignal, inwardDir);
 
         // For horizontal roots, constrain direction to stay roughly horizontal
-        // Allow vertical variation for natural look, but prevent gradual downward drift
         if (isHorizontalRoot) {
           bestDir = ConstrainToHorizontal(bestDir, curDir);
         }
 
-        // Move exactly stepLen in the best direction
+        // Boundary clamping: if proposed point is too far from any soil point, snap back
         Point3d nextPt = curPt + bestDir * stepLen;
+        Point3d nearestSoilPt = mMap3d.GetNearestPoint(nextPt);
+        double distToNearest = nearestSoilPt.DistanceTo(nextPt);
+        if (distToNearest > localDensity * 2.0) {
+          // Snap toward nearest soil point but keep some forward motion
+          nextPt = nearestSoilPt;
+        }
+
         rootBranch.Add(nextPt);
 
         // Update for next iteration
+        arcConsumed += curPt.DistanceTo(nextPt);
         curPt = nextPt;
         curDir = bestDir;
+
+        // Re-evaluate local density periodically (every few steps)
+        if (step % 3 == 0 && step > 0) {
+          localDensity = mMap3d.ComputeLocalDensity(curPt, 6);
+        }
       }
 
       return rootBranch;
@@ -481,13 +519,28 @@ namespace BeingAliveLanguage {
     }
 
     /// <summary>
-    /// Find the best direction to grow based on nearby soil points.
-    /// Returns a unit vector that blends candidate direction with preferred direction for smoothness.
+    /// Find the best direction to grow based on nearby soil points and boundary proximity.
+    ///
+    /// Interior behavior (boundarySignal &lt; 0.3):
+    ///   Standard blending: 40% preferred direction + 60% best-aligned candidate + perturbation.
+    ///
+    /// Transition (0.3 &lt;= boundarySignal &lt; 0.6):
+    ///   Alignment threshold relaxes, inward direction begins blending in.
+    ///
+    /// Boundary (boundarySignal >= 0.6):
+    ///   Strong inward steering dominates; alignment threshold drops to 0 to allow any
+    ///   forward-ish direction so the root can turn and flow along the boundary.
     /// </summary>
-    private Vector3d FindBestDirection(Point3d currentPoint, List<Point3d> candidates, Vector3d preferredDir) {
+    private Vector3d FindBestDirection(Point3d currentPoint, List<Point3d> candidates,
+                                       Vector3d preferredDir, double boundarySignal,
+                                       Vector3d inwardDir) {
       preferredDir.Unitize();
 
-      // Collect good candidate directions (alignment > 0.5)
+      // Adaptive alignment threshold: relaxes near boundary
+      // Interior: 0.5, boundary: 0.0 (accept any non-backward candidate)
+      double alignThreshold = 0.5 * Math.Max(0.0, 1.0 - boundarySignal * 2.0);
+
+      // Collect good candidate directions
       var goodCandidates = new List<(Vector3d dir, double alignment)>();
 
       foreach (Point3d pt in candidates) {
@@ -498,38 +551,42 @@ namespace BeingAliveLanguage {
         toCandidate.Unitize();
         double alignment = Vector3d.Multiply(preferredDir, toCandidate);
 
-        if (alignment > 0.5) {
+        if (alignment > alignThreshold) {
           goodCandidates.Add((toCandidate, alignment));
         }
       }
 
-      // If no good candidates, return preferred direction
-      if (goodCandidates.Count == 0) {
-        return preferredDir;
+      // Base direction: preferred direction if no candidates found
+      Vector3d baseDir = preferredDir;
+
+      if (goodCandidates.Count > 0) {
+        // Sort by alignment (best first)
+        goodCandidates.Sort((a, b) => b.alignment.CompareTo(a.alignment));
+        Vector3d bestCandidateDir = goodCandidates[0].dir;
+
+        // Standard blend: preferred vs candidate
+        double blendRatio = 0.4;
+        baseDir = preferredDir * blendRatio + bestCandidateDir * (1.0 - blendRatio);
+        baseDir.Unitize();
       }
 
-      // Sort by alignment (best first)
-      goodCandidates.Sort((a, b) => b.alignment.CompareTo(a.alignment));
+      // Boundary steering: blend inward direction based on boundary signal
+      if (boundarySignal > 0.3 && inwardDir.Length > 1e-8) {
+        // Ramp from 0 at signal=0.3 to 0.8 at signal=0.8+
+        double inwardWeight = Math.Min(0.8, (boundarySignal - 0.3) * 1.6);
+        baseDir = baseDir * (1.0 - inwardWeight) + inwardDir * inwardWeight;
+        baseDir.Unitize();
+      }
 
-      // Always pick the best aligned candidate for smoother paths
-      Vector3d bestCandidateDir = goodCandidates[0].dir;
-
-      // Blend candidate direction with preferred direction for smooth curves
-      // Higher blend ratio = smoother but less responsive to soil
-      // Lower blend ratio = more responsive to soil but potentially jagged
-      double blendRatio = 0.4;  // 40% preferred direction, 60% candidate direction
-      Vector3d blendedDir = preferredDir * blendRatio + bestCandidateDir * (1.0 - blendRatio);
-      blendedDir.Unitize();
-
-      // Add very slight random perturbation for natural variation (±5 degrees max)
-      double perturbAngle = MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, -0.087, 0.087);  // ~5 degrees in radians
-      Vector3d perpVec = Vector3d.CrossProduct(blendedDir, mBasePln.ZAxis);
+      // Add slight random perturbation for natural variation (~5 degrees)
+      double perturbAngle = MathUtils.remap(mRnd.NextDouble(), 0.0, 1.0, -0.087, 0.087);
+      Vector3d perpVec = Vector3d.CrossProduct(baseDir, mBasePln.ZAxis);
       if (perpVec.Length > 0.001) {
         perpVec.Unitize();
-        blendedDir.Rotate(perturbAngle, perpVec);
+        baseDir.Rotate(perturbAngle, perpVec);
       }
 
-      return blendedDir;
+      return baseDir;
     }
 
     /// <summary>
