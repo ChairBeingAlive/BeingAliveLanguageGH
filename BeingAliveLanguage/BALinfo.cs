@@ -21,7 +21,7 @@ namespace BeingAliveLanguage
     public override GH_LibraryLicense License => GH_LibraryLicense.opensource;
 
     // public override string AssemblyVersion => GetType().Assembly.GetName().Version.ToString();
-    public override string AssemblyVersion => "1.0.5";
+    public override string AssemblyVersion => "1.0.6";
 
     // this is currently the variable used by McNeel for plugin system
     public override string Version => AssemblyVersion;
