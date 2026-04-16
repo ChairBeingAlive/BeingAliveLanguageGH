@@ -1,3 +1,4 @@
 {
-  "dotnet.defaultSolution": "beingAliveLanguage.sln"
+  "dotnet.defaultSolution": "beingAliveLanguage.sln",
+  "cmake.ignoreCMakeListsMissing": true
 }
